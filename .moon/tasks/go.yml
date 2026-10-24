@@ -1,0 +1,36 @@
+inheritedBy:
+  toolchains: [go]
+
+# Every workspace module participates in Go's dependency version selection.
+implicitInputs:
+  - '/go.work'
+  - '/go.work.sum'
+  - '/*/go.mod'
+  - '/*/go.sum'
+  - '/.moon/toolchains.yml'
+  - '/.golangci.yml'
+
+tasks:
+  build:
+    description: Build this CLI into the workspace bin directory
+    command: ['go', 'build', '-trimpath', '-o', '../bin/$project', '.']
+    outputs: ['/bin/$project']
+
+  test:
+    description: Run module tests with the race detector
+    command: ['go', 'test', '-race', '-timeout', '5m', './...']
+
+  lint:
+    description: Run the shared golangci-lint configuration
+    command: golangci-lint run --config ../.golangci.yml ./...
+
+  check:
+    description: Build, lint, and test this CLI
+    deps: ['~:build', '~:lint', '~:test']
+
+  install:
+    description: Install this CLI into GOBIN or GOPATH/bin
+    command: go install -trimpath .
+    options:
+      cache: false
+      runInCI: false

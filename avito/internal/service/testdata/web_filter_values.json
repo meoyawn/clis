@@ -1,0 +1,12 @@
+{
+  "status": "ok",
+  "result": {
+    "optionsTotal": 3, "optionsLimit": 2, "nextOptionsOffset": 2,
+    "selectedValue": [{"id": 18204028, "title": "Beko"}],
+    "sections": [
+      {"label": "Популярные", "options": [{"id": 18204028, "title": "Beko"}]},
+      {"label": "Все", "options": [{"id": 18204028, "title": "Beko"}, {"id": 900001, "title": "Example Brand"}]}
+    ]
+  },
+  "tracking": "SYNTHETIC_FILTER_SECRET_DO_NOT_PRINT"
+}

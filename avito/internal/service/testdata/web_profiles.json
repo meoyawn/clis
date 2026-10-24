@@ -1,0 +1,15 @@
+{
+  "status": "ok",
+  "result": {
+    "count": 1,
+    "profiles": [
+      {
+        "isCurrent": true,
+        "name": "Алексей Пример",
+        "profileId": 999999999,
+        "status": "finalized",
+        "title": "Алексей Пример"
+      }
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "widgetStates": {
+    "webSellerList-123-default-1": "{\"sellers\": [{\"id\": \"20\", \"name\": \"Other shop\", \"sku\": \"200\", \"link\": \"/seller/20/\", \"productLink\": \"https://www.ozon.ru/product/sample-200/\", \"price\": {\"cardPrice\": {\"price\": \"196 ₽\"}}, \"advantages\": [{\"key\": \"delivery\", \"contentRs\": {\"headRs\": [{\"type\": \"text\", \"content\": \"Доставим 24 сентября\"}]}}]}], \"isMoreButtonHidden\": true, \"limitShown\": \"25\"}"
+  }
+}

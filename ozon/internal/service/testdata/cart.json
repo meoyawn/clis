@@ -1,0 +1,16 @@
+{
+  "widgetStates": {
+    "cartSplit-123-default-1": "{\"cartItems\":[{\"checkbox\":{\"isChecked\":true},\"controls\":{\"quantity\":{\"current\":2,\"maximum\":10}},\"product\":{\"id\":\"100\",\"image\":{\"image\":{\"url\":\"https://example.com/image.jpg\"}},\"titleColumn\":[{\"type\":\"text\",\"text\":{\"text\":\"Cotton shorts\"}},{\"type\":\"badges\",\"badges\":{\"elements\":[{\"text\":\"Payment badge\"}]}},{\"type\":\"text\",\"text\":{\"text\":\"54 RU • Mix\"}}],\"priceColumn\":[{\"type\":\"prices\",\"prices\":{\"elements\":[{\"price\":[{\"text\":\"500 ₽\"},{\"icon\":\"card\"}],\"priceStyle\":{\"styleType\":\"CARD_PRICE\"}}]}},{\"type\":\"prices\",\"prices\":{\"elements\":[{\"price\":[{\"text\":\"600 ₽\"}],\"priceStyle\":{\"styleType\":\"SECOND_LVL\"}}]}}]}}]}",
+    "cartSplit-456-default-1": {
+      "cartItems": [
+        {
+          "checkbox": {"isChecked": false},
+          "product": {"id": "101", "titleColumn": [{"type": "text", "text": {"text": "Unavailable item"}}]}
+        }
+      ]
+    },
+    "tileGridDesktop-999-default-1": {"items": [{"sku": "999", "title": "Recommendation"}]}
+  },
+  "nextPage": "/cart?layout_page_index=2&paginator_token=fake-recommendations",
+  "userInfo": {"user": {"isLoggedIn": true}}
+}

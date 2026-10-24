@@ -1,0 +1,157 @@
+{
+  "additional_services": [
+    {
+      "id": "718f4d00-210d-43f1-9c9c-e97733d38972",
+      "price": 210,
+      "title": "Взятие крови из вены"
+    }
+  ],
+  "available_at_home": true,
+  "bitrix_id": 2467,
+  "categories": [
+    {
+      "bitrix_id": 152,
+      "id": "b62cf74a-46cd-4e77-bd28-92a5d697e1f4",
+      "title": "Гормональные исследования"
+    },
+    {
+      "bitrix_id": 629,
+      "id": "09c66e9e-1e6f-4d9c-aa96-e4d3b33b3a09",
+      "title": "Лабораторная оценка функции щитовидной железы"
+    }
+  ],
+  "code": "199",
+  "deadline": 2,
+  "description": "<b>A12.06.046 (Номенклатура МЗ РФ, Приказ №804н)</b><br>\r\n <br>\r\nМаркер диффузного токсического зоба (болезни Грейвса). Используется также для диагностики и мониторинга эффективности терапии.",
+  "description_markup": "<p style=\"text-align: justify;\">\r\n <b>A12.06.046 (Номенклатура МЗ РФ, Приказ №804н)</b>\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n <b>Синонимы:</b> Анализ крови на антитела к рецепторам ТТГ; Ат-рТТГ; Аутоантитела к рецепторам тиреотропного гормона; Тиреоидстимулирующий иммуноглобулин; Анти-ТТГр.\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n\t Thyroid-stimulating immunoglobulins; TSIs; Thyroid-stimulating hormone receptor antibodies; TSH receptor antibodies; TSHRAbs; TSH binding inhibitor immunoglobulin.\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n <strong>Анализ крови на антитела к рецепторам ТТГ </strong>– это лабораторное исследование, которое выполняется в целях диагностики болезни Грейвса (диффузного токсического зоба).\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n <strong>Краткое описание исследования </strong>\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n <strong>Антитела к рецепторам тиреотропного гормона (Ат-рТТГ) </strong>– это группа специфических иммуноглобулинов, взаимодействующих с рецепторами тиреотропного гормона (ТТГ) на поверхности клеток щитовидной железы.\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<h2 style=\"text-align: justify;\"> <span style=\"font-size: 16px;\">Принцип действия антител к рецепторам тиреотропного гормона</span> </h2>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n\t Антитела к рецепторам тиреотропного гормона могут имитировать эффекты ТТГ на щитовидную железу, вызывая активацию внутриклеточных систем (каскады цАМФ и фосфоинозитолов). Это приводит к:\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<ul style=\"text-align: justify;\">\r\n\t<li>усилению захвата щитовидной железой йода;</li>\r\n\t<li>синтезу и высвобождению тиреоидных гормонов (тироксина и трийодтиронина);</li>\r\n\t<li>пролиферации тироцитов.</li>\r\n</ul>\r\n<p>\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n\t В результате стимулирующего действия АТ на рецепторы ТТГ развивается синдром тиреотоксикоза, доминирующий в клинической картине диффузного токсического зоба (ДТЗ, болезнь Грейвса).\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<h2 style=\"text-align: justify;\"> <span style=\"font-size: 16px;\">Особенности исследования на антитела к рецепторам ТТГ</span> </h2>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n\t Антитела к рецепторам ТТГ, циркулирующие в крови, гетерогенны. Среди них могут быть:\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<ul style=\"text-align: justify;\">\r\n\t<li>антитела, которые вызывают стимуляцию щитовидной железы (тиреостимулирующие антитела). Механизм образования тиреостимулирующих антител окончательно не прояснен, хотя отмечается наличие генетической предрасположенности к возникновению ДТЗ;</li>\r\n\t<li>антитела, которые не имеют эффекта;</li>\r\n\t<li>антитела, которые снижают секрецию тиреоидных гормонов (тиреоблокирующие), блокируя действие ТТГ.</li>\r\n</ul>\r\n<p>\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n\t В настоящее время невозможно химически или иммунологически различить эти типы антител (выявление стимулирующих клетки щитовидной железы или ингибирующих связывание ТТГ иммуноглобулинов осуществляется более сложными биологическими методами, которые не используют в рутинной лабораторной диагностике).\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n\t Пределы определения: 1-40 МЕ/л.\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<h2 style=\"text-align: justify;\"> <span style=\"font-size: 16px;\">С какой целью определяют антитела к рецепторам ТТГ?</span> </h2>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n <strong>Антитела к рецепторам тиреотропного гормона</strong> – это маркер диффузного токсического зоба, который применяется для диагностики и мониторинга лечения данного заболевания. Они определяются более чем у 85% пациентов ДТЗ и используются в качестве диагностического и прогностического маркера этого аутоиммунного заболевания.\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n\t При болезни Грейвса в сыворотке крови выявляют присутствуют аутоантитела и к другим антигенам щитовидной железы, особенно к микросомальным антигенам (см. тесты <a href=\"https://www.invitro.ru/analizes/for-doctors/629/2327/\">№ 58</a>, <a href=\"https://www.invitro.ru/analizes/for-doctors/629/2466/\">№ 198</a>).\r\n</p>\r\n<p style=\"text-align: justify;\">\r\n</p>",
+  "example_result_file_url": "https://www.invitro.ru/upload/iblock/635/z0ig7vga1xnnc2yv8ig5033ja9vjcgpk.pdf",
+  "example_result_file_urls": [
+    "https://www.invitro.ru/upload/iblock/635/z0ig7vga1xnnc2yv8ig5033ja9vjcgpk.pdf"
+  ],
+  "id": "ce302550-a6c3-4525-9bcf-c48939edafa4",
+  "indications_markup": "<h2 style=\"text-align: justify;\"><font size=\"3\">В каких случаях проводят анализ крови на антитела к рецепторам ТТГ:</font></h2>\r\n \r\n<ul> \r\n  <li style=\"text-align: justify;\">дифференциальная диагностика гипертиреоидных состояний;</li>\r\n \r\n  <li style=\"text-align: justify;\">контроль терапии диффузного токсического зоба (болезни Грейвса).</li>\r\n </ul>\r\n \r\n<div style=\"text-align: justify;\"> \r\n  <br />\r\n </div>",
+  "interpretation_markup": "<h2 style=\"text-align: justify;\"><span style=\"font-size: 16px;\">Интерпретация результатов исследования на антитела к рецепторам ТТГ</span></h2>\r\n<div>\r\n\t<p style=\"text-align: justify;\">\r\n <b>Единицы измерения:</b> МЕ/л. <br>\r\n <br>\r\n\t</p>\r\n\t<p style=\"text-align: justify;\">\r\n <b>Референсные значения: </b>\r\n\t</p>\r\n\t<p style=\"text-align: justify;\">\r\n\t</p>\r\n\t<ul>\r\n\t\t<li> &lt; 1,5 - отрицательно &nbsp;</li>\r\n\t\t<li>≥ 1,5 - положительно </li>\r\n\t</ul>\r\n\t<p>\r\n\t</p>\r\n\t<h2 style=\"text-align: justify;\"> <span style=\"font-size: 16px;\">Возможные причины повышения уровня антител к рецепторам ТТГ</span> </h2>\r\n\t<p style=\"text-align: justify;\">\r\n\t</p>\r\n\t<ol>\r\n\t\t<li style=\"text-align: justify;\">Диффузный токсический зоб (болезнь Грейвса) – в 85-95% случаев.</li>\r\n\t\t<li style=\"text-align: justify;\">Другие формы тиреоидитов.</li>\r\n\t</ol>\r\n\t<p>\r\n\t</p>\r\n\t<p style=\"text-align: justify;\">\r\n\t</p>\r\n</div>\r\n <br>",
+  "is_certified": true,
+  "is_promo": false,
+  "is_weekdays_only": false,
+  "keywords": [
+    "к рттг",
+    "ат к рттг",
+    "аутоиммунная патология",
+    "ттг",
+    "гормон ттг",
+    "анализ ттг",
+    "ттг анализ крови",
+    "ттг щитовидная железа",
+    "антитела ттг",
+    "тиреотропный гормон",
+    "тиреотропный гормон ттг",
+    "диффузный токсический зоб",
+    "зоб",
+    "токсический зоб",
+    "гормоны щж.",
+    "аутоиммунные антитела",
+    "болезнь грейвса",
+    "антитела.",
+    "тиреоид-стимулирующий иммуноглобулин",
+    "аутоиммунные антитела к рецепторам тиреотропного гормона в щитовидной железе",
+    "маркер диффузного токсического зоба.",
+    "имунный статус",
+    "гармоны",
+    "TТГ",
+    "TTГ",
+    "TтГ",
+    "Tтг",
+    "TТг",
+    "ТTГ",
+    "тTГ",
+    "ттГ",
+    "тTг",
+    "Tтг",
+    "TtГ",
+    "Ttг",
+    "tТг",
+    "tТГ",
+    "ttГ"
+  ],
+  "literature_markup": "<ol style=\"text-align: justify;\">\r\n\t<li><a href=\"https://cr.minzdrav.gov.ru/view-cr/270_2\">Клинические рекомендации. Тиреотоксикоз с диффузным зобом (болезнь Грейвса), узловым/многоузловым зобом. МЗ РФ. – 2025.</a></li>\r\n\t<li><a href=\"https://cyberleninka.ru/article/n/vzaimosvyaz-antitel-k-retseptoru-tireotropnogo-gormona-s-klinicheskimi-i-laboratornymi-parametrami-u-patsientov-s-boleznyu-greyvsa/viewer\">Цуркан А. А. и др. Взаимосвязь антител к рецептору тиреотропного гормона с клиническими и лабораторными параметрами у пациентов с болезнью Грейвса //Дальневосточный медицинский журнал. – 2023. – №. 2. – С. 41-46.</a></li>\r\n\t<li><a href=\"https://journals.lww.com/indjem/fulltext/2022/01000/Utility_of_TSH_Receptor_Antibodies_in_the.7.aspx\">John M. et al. Utility of TSH receptor antibodies in the differential diagnosis of hyperthyroidism in clinical practice //Indian journal of endocrinology and metabolism. – 2022. – Vol. 26. – №. 1. – P. 32-37.</a></li>\r\n\t<li><a href=\"https://www.tandfonline.com/doi/full/10.2147/IJGM.S410640\">Liu Y., Liu X., Wu N. A Review of Testing for Distinguishing Hashimoto’s Thyroiditis in the Hyperthyroid Stage and Grave’s Disease //International journal of general medicine. – 2023. – P. 2355-2363.</a></li>\r\n\t<li><a href=\"https://www.cell.com/heliyon/fulltext/S2405-8440(23)09676-7?uuid=uuid%3Aca12e1a5-9c16-4177-a6f4-8639cc525b9b\">van Balkum M. et al. Comparison of two different TSH-receptor antibody assays: A clinical practice study //Heliyon. – 2023. – Vol. 9. – №. 12.</a></li>\r\n\t<li><a href=\"https://www.frontiersin.org/journals/endocrinology/articles/10.3389/fendo.2022.944715/full\">Vieira I. H., Rodrigues D., Paiva I. The mysterious universe of the TSH receptor //Frontiers in endocrinology. – 2022. – Vol. 13. – P. 944715.</a></li>\r\n</ol>\r\n<p style=\"text-align: justify;\">\r\n</p>\r\n<p>\r\n <a href=\"https://www.frontiersin.org/journals/endocrinology/articles/10.3389/fendo.2022.944715/full\"></a>\r\n</p>",
+  "loyalty_bonus": 59,
+  "material": "Сыворотка крови",
+  "meta_description": "Анализ на антитела к ТТГ (рецепторам тиреотропного гормона) %CITY_NAME% для женщин, мужчин, узнать стоимость исследования гормона щитовидной железы в лаборатории ИНВИТРО, сроки выдачи результатов с расшифровкой нормы, сколько стоит взятие биоматериала. Запись на сдачу анализа онлайн",
+  "meta_title": "Сдать анализ на антитела к рецепторам ТТГ - цены %CITY_NAME% в ИНВИТРО",
+  "options": [
+    {
+      "option": "Лояльность_любимые_Армения",
+      "optionValues": [
+        "1"
+      ]
+    },
+    {
+      "option": "Лояльность_любимые_Киргизия",
+      "optionValues": [
+        "1"
+      ]
+    },
+    {
+      "option": "Лояльность_любимые_Крым",
+      "optionValues": [
+        "1"
+      ]
+    },
+    {
+      "option": "Направление продукта",
+      "optionValues": [
+        "Медицинское"
+      ]
+    },
+    {
+      "option": "Категория услуги",
+      "optionValues": [
+        "Функциональная диагностика"
+      ]
+    },
+    {
+      "option": "Тип продукта",
+      "optionValues": [
+        "Услуга"
+      ]
+    },
+    {
+      "option": "Вид диагностики",
+      "optionValues": [
+        "Лабораторная диагностика"
+      ]
+    },
+    {
+      "option": "Лояльность_любимые_КЗХ",
+      "optionValues": [
+        "1"
+      ]
+    },
+    {
+      "option": "Лояльность_любимые_РБ",
+      "optionValues": [
+        "1"
+      ]
+    },
+    {
+      "option": "Лояльность_любимые_РФ",
+      "optionValues": [
+        "1"
+      ]
+    },
+    {
+      "option": "Номенклатурная группа",
+      "optionValues": [
+        "Лабораторные исследования (анализ биологического материала)"
+      ]
+    }
+  ],
+  "preparation_markup": "<h2 style=\"text-align: justify;\"><font size=\"3\">Правила подготовки к исследованию на антитела к рецепторам ТТГ</font></h2>\r\n \r\n<div style=\"text-align: justify;\">Взятие крови предпочтительно проводить натощак (4 часа от последнего приема пищи).</div>",
+  "price": 1955,
+  "result_info_markup": "",
+  "text_method": "Хемилюминесцентный иммуноанализ, технология Snibe, КНР",
+  "therapists_category_id": "d557b56b-96d4-e911-80d3-00155d908605",
+  "therapists_category_slug": "terapevt",
+  "title": "Антитела к рецепторам ТТГ (Thyrotropin (TSH) Receptor Antibodies, TRAb, Serum)"
+}

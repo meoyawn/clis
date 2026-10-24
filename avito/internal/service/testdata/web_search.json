@@ -1,0 +1,1119 @@
+{
+  "count": 5887,
+  "totalCount": 1500,
+  "totalElements": 1500,
+  "itemsOnPage": 50,
+  "subscription": {
+    "isAuthenticated": true
+  },
+  "searchCore": {
+    "query": "телевизор",
+    "locationId": 650400,
+    "categoryId": 32,
+    "page": 1
+  },
+  "catalog": {
+    "items": [
+      {
+        "id": 1000000001,
+        "type": "item",
+        "title": "Тестовый телевизор",
+        "description": "Синтетическое объявление 1 для проверки поиска.",
+        "urlPath": "/ufa/audio_i_video/test_tv_1000000001",
+        "categoryId": 32,
+        "locationId": 621540,
+        "location": {
+          "name": "Уфа"
+        },
+        "priceDetailed": {
+          "value": 13200,
+          "hasValue": true,
+          "fullString": "13 200 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-01.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000002,
+        "type": "item",
+        "title": "Тестовый телевизор 2",
+        "description": "Синтетическое объявление 2 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000002",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-02.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000003,
+        "type": "item",
+        "title": "Тестовый телевизор 3",
+        "description": "Синтетическое объявление 3 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000003",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-03.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000004,
+        "type": "item",
+        "title": "Тестовый телевизор 4",
+        "description": "Синтетическое объявление 4 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000004",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-04.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000005,
+        "type": "item",
+        "title": "Тестовый телевизор 5",
+        "description": "Синтетическое объявление 5 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000005",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-05.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000006,
+        "type": "item",
+        "title": "Тестовый телевизор 6",
+        "description": "Синтетическое объявление 6 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000006",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-06.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000007,
+        "type": "item",
+        "title": "Тестовый телевизор 7",
+        "description": "Синтетическое объявление 7 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000007",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-07.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000008,
+        "type": "item",
+        "title": "Тестовый телевизор 8",
+        "description": "Синтетическое объявление 8 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000008",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-08.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000009,
+        "type": "item",
+        "title": "Тестовый телевизор 9",
+        "description": "Синтетическое объявление 9 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000009",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-09.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000010,
+        "type": "item",
+        "title": "Тестовый телевизор 10",
+        "description": "Синтетическое объявление 10 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000010",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-10.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000011,
+        "type": "item",
+        "title": "Тестовый телевизор 11",
+        "description": "Синтетическое объявление 11 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000011",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-11.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000012,
+        "type": "item",
+        "title": "Тестовый телевизор 12",
+        "description": "Синтетическое объявление 12 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000012",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-12.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000013,
+        "type": "item",
+        "title": "Тестовый телевизор 13",
+        "description": "Синтетическое объявление 13 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000013",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-13.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000014,
+        "type": "item",
+        "title": "Тестовый телевизор 14",
+        "description": "Синтетическое объявление 14 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000014",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-14.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000015,
+        "type": "item",
+        "title": "Тестовый телевизор 15",
+        "description": "Синтетическое объявление 15 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000015",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-15.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000016,
+        "type": "item",
+        "title": "Тестовый телевизор 16",
+        "description": "Синтетическое объявление 16 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000016",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-16.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000017,
+        "type": "item",
+        "title": "Тестовый телевизор 17",
+        "description": "Синтетическое объявление 17 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000017",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-17.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000018,
+        "type": "item",
+        "title": "Тестовый телевизор 18",
+        "description": "Синтетическое объявление 18 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000018",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-18.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000019,
+        "type": "item",
+        "title": "Тестовый телевизор 19",
+        "description": "Синтетическое объявление 19 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000019",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-19.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000020,
+        "type": "item",
+        "title": "Тестовый телевизор 20",
+        "description": "Синтетическое объявление 20 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000020",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-20.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000021,
+        "type": "item",
+        "title": "Тестовый телевизор 21",
+        "description": "Синтетическое объявление 21 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000021",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-21.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000022,
+        "type": "item",
+        "title": "Тестовый телевизор 22",
+        "description": "Синтетическое объявление 22 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000022",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-22.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000023,
+        "type": "item",
+        "title": "Тестовый телевизор 23",
+        "description": "Синтетическое объявление 23 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000023",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-23.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000024,
+        "type": "item",
+        "title": "Тестовый телевизор 24",
+        "description": "Синтетическое объявление 24 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000024",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-24.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000025,
+        "type": "item",
+        "title": "Тестовый телевизор 25",
+        "description": "Синтетическое объявление 25 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000025",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-25.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000026,
+        "type": "item",
+        "title": "Тестовый телевизор 26",
+        "description": "Синтетическое объявление 26 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000026",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-26.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000027,
+        "type": "item",
+        "title": "Тестовый телевизор 27",
+        "description": "Синтетическое объявление 27 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000027",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-27.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000028,
+        "type": "item",
+        "title": "Тестовый телевизор 28",
+        "description": "Синтетическое объявление 28 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000028",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-28.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000029,
+        "type": "item",
+        "title": "Тестовый телевизор 29",
+        "description": "Синтетическое объявление 29 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000029",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-29.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000030,
+        "type": "item",
+        "title": "Тестовый телевизор 30",
+        "description": "Синтетическое объявление 30 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000030",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-30.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000031,
+        "type": "item",
+        "title": "Тестовый телевизор 31",
+        "description": "Синтетическое объявление 31 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000031",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-31.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000032,
+        "type": "item",
+        "title": "Тестовый телевизор 32",
+        "description": "Синтетическое объявление 32 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000032",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-32.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000033,
+        "type": "item",
+        "title": "Тестовый телевизор 33",
+        "description": "Синтетическое объявление 33 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000033",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-33.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000034,
+        "type": "item",
+        "title": "Тестовый телевизор 34",
+        "description": "Синтетическое объявление 34 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000034",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-34.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000035,
+        "type": "item",
+        "title": "Тестовый телевизор 35",
+        "description": "Синтетическое объявление 35 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000035",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-35.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000036,
+        "type": "item",
+        "title": "Тестовый телевизор 36",
+        "description": "Синтетическое объявление 36 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000036",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-36.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000037,
+        "type": "item",
+        "title": "Тестовый телевизор 37",
+        "description": "Синтетическое объявление 37 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000037",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-37.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000038,
+        "type": "item",
+        "title": "Тестовый телевизор 38",
+        "description": "Синтетическое объявление 38 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000038",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-38.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000039,
+        "type": "item",
+        "title": "Тестовый телевизор 39",
+        "description": "Синтетическое объявление 39 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000039",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-39.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000040,
+        "type": "item",
+        "title": "Тестовый телевизор 40",
+        "description": "Синтетическое объявление 40 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000040",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-40.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000041,
+        "type": "item",
+        "title": "Тестовый телевизор 41",
+        "description": "Синтетическое объявление 41 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000041",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-41.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000042,
+        "type": "item",
+        "title": "Тестовый телевизор 42",
+        "description": "Синтетическое объявление 42 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000042",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-42.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000043,
+        "type": "item",
+        "title": "Тестовый телевизор 43",
+        "description": "Синтетическое объявление 43 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000043",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-43.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000044,
+        "type": "item",
+        "title": "Тестовый телевизор 44",
+        "description": "Синтетическое объявление 44 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000044",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-44.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000045,
+        "type": "item",
+        "title": "Тестовый телевизор 45",
+        "description": "Синтетическое объявление 45 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000045",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-45.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000046,
+        "type": "item",
+        "title": "Тестовый телевизор 46",
+        "description": "Синтетическое объявление 46 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000046",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-46.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000047,
+        "type": "item",
+        "title": "Тестовый телевизор 47",
+        "description": "Синтетическое объявление 47 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000047",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-47.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000048,
+        "type": "item",
+        "title": "Тестовый телевизор 48",
+        "description": "Синтетическое объявление 48 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000048",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-48.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000049,
+        "type": "item",
+        "title": "Тестовый телевизор 49",
+        "description": "Синтетическое объявление 49 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000049",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-49.jpg"
+          }
+        ]
+      },
+      {
+        "id": 1000000050,
+        "type": "item",
+        "title": "Тестовый телевизор 50",
+        "description": "Синтетическое объявление 50 для проверки поиска.",
+        "urlPath": "/kazan/audio_i_video/test_tv_1000000050",
+        "categoryId": 32,
+        "locationId": 650400,
+        "location": {
+          "name": "Казань"
+        },
+        "priceDetailed": {
+          "value": 13500,
+          "hasValue": true,
+          "fullString": "13 500 ₽"
+        },
+        "images": [
+          {
+            "640x480": "https://example.avito.st/image/fixtures/tv-50.jpg"
+          }
+        ]
+      }
+    ]
+  }
+}

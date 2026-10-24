@@ -1,0 +1,7 @@
+{
+  "widgetStates": {
+    "emptyCart-123-default-1": "{\"title\":\"Your cart is empty\"}",
+    "tileGridDesktop-999-default-1": {"items": [{"sku": "999", "title": "Recommendation"}]}
+  },
+  "userInfo": {"user": {"isLoggedIn": true}}
+}

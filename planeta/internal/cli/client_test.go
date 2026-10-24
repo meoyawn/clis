@@ -1,0 +1,300 @@
+package cli
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
+	"testing"
+)
+
+func mockPage(total int, id int, links string) string {
+	return fmt.Sprintf(`<h1>По запросу "магний &amp; B6" найдено %d товаров</h1>
+<div data-name="Результаты_поиска"><div class="item-card">
+<a class="item-card-title-text" href="/test-city/catalog/test-%d/"><span itemprop="name">Товар %d</span></a>
+<meta itemprop="priceCurrency" content="RUB"><div itemprop="price" content="250.50"></div>
+<p class="item-card-availability-text">Забрать сегодня: 1 аптека</p>
+<p class="item-card-availability-text">Завтра и позже: 2 аптеки</p>
+</div></div><div class="pagination" data-count_element="%d">%s</div>`, total, id, id, total, links)
+}
+
+func testClient(t *testing.T, handler http.HandlerFunc) *client {
+	t.Helper()
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+	c, err := newClient(server.URL, defaultUserAgent, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(c.http.CloseIdleConnections)
+	return c
+}
+
+func selectMockCity(t *testing.T, w http.ResponseWriter, r *http.Request) bool {
+	t.Helper()
+	if r.URL.Path == "/test-city/" {
+		http.SetCookie(w, &http.Cookie{Name: "city_code", Value: "test-city", Path: "/"}) // #nosec G124 -- Synthetic city cookie served over plain HTTP by httptest.
+		writeTestResponse(t, w, "<h1>Тестовый город</h1>")
+		return true
+	}
+	return false
+}
+
+func TestSearchFetchesOnlyRequestedPageWithTwoRequests(t *testing.T) {
+	t.Parallel()
+	for _, number := range []int{1, 2, 3} {
+		t.Run(fmt.Sprint(number), func(t *testing.T) {
+			t.Parallel()
+			var requests atomic.Int32
+			c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				if selectMockCity(t, w, r) {
+					return
+				}
+				if r.URL.Query().Get("q") != "магний & B6" || pageNumber(r.URL) != number {
+					t.Errorf("wrong page/query: %s", r.URL)
+				}
+				cookie, err := r.Cookie("city_code")
+				if err != nil || cookie.Value != "test-city" {
+					t.Error("anonymous city cookie missing")
+				}
+				links := `<a href="?PAGEN_1=3&amp;q=магний+%26+B6">3</a><a href="?PAGEN_1=2&amp;q=магний+%26+B6">2</a><a href="?q=магний+%26+B6">1</a>`
+				writeTestResponse(t, w, mockPage(3, 100+number, links))
+			})
+			result, err := c.Search(t.Context(), "магний & B6", "test-city", number)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Total != 3 || result.Count != 1 || result.Page != number || result.TotalPages != 3 || result.HasMore != (number < 3) {
+				t.Fatalf("wrong page metadata: %+v", result)
+			}
+			if result.Results[0].ID != fmt.Sprint(100+number) {
+				t.Fatalf("wrong product: %+v", result.Results)
+			}
+			assertPharmacyCount(t, result.Results[0].PharmacyCounts.InStock, 1)
+			assertPharmacyCount(t, result.Results[0].PharmacyCounts.Orderable, 2)
+			if requests.Load() != 2 || result.HTTPRequests != 2 {
+				t.Fatalf("request count: server=%d JSON=%d", requests.Load(), result.HTTPRequests)
+			}
+			if number < 3 && (result.NextPage == nil || *result.NextPage != number+1) {
+				t.Fatal("missing next page")
+			}
+			// Even an accidental later call cannot spend another request.
+			if _, err := c.get(t.Context(), c.base); err == nil || requests.Load() != 2 {
+				t.Fatal("request budget not enforced")
+			}
+		})
+	}
+}
+
+func TestDetailAndFullUseTwoRequestsAndDoNotFetchAssets(t *testing.T) {
+	t.Parallel()
+	for _, full := range []bool{false, true} {
+		t.Run(fmt.Sprint(full), func(t *testing.T) {
+			t.Parallel()
+			var requests atomic.Int32
+			c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				if selectMockCity(t, w, r) {
+					return
+				}
+				if r.URL.Path != "/test-city/catalog/test-15484411/" {
+					t.Errorf("unexpected asset/follow-up request: %s", r.URL)
+				}
+				writeTestResponse(t, w, `<div data-id="15484411"><div class="product-detail">
+<div class="product-detail__wrap"><h1>Магний</h1><div class="product-detail__price">200 ₽</div>
+<img class="product-detail__img" src="/never-fetch.jpg"></div>
+<div class="product-detail__availability"><p>В наличии в 1 аптеке</p><p>Под заказ в 3 аптеках</p></div></div></div>
+<div class="product-detail-description-content__item" id="instruction_COMPOSITION"><h3>Состав</h3><div class="product-detail-description-content__item-content">Магний 100 мг</div></div>
+<div class="product-detail-description-content__item" id="instruction_USEMETHODANDDOSES"><h3>Способ применения и дозы</h3><div class="product-detail-description-content__item-content">С едой. <a href="/never-fetch.pdf">Инструкция</a></div></div>`)
+			})
+			result, err := c.Detail(t.Context(), "15484411", "test-city", c.base.String()+"/test-city/catalog/test-15484411/")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !full {
+				result.concise()
+			}
+			if requests.Load() != 2 || result.HTTPRequests != 2 {
+				t.Fatalf("requests=%d", requests.Load())
+			}
+			assertPharmacyCount(t, result.PharmacyCounts.InStock, 1)
+			assertPharmacyCount(t, result.PharmacyCounts.Orderable, 3)
+			if full && (len(result.Instructions) != 2 || result.Directions == "") {
+				t.Fatal("full instructions missing")
+			}
+			if !full && (result.Instructions != nil || result.Directions != "") {
+				t.Fatal("instructions or directions leaked into concise result")
+			}
+		})
+	}
+}
+
+func TestFailuresDoNotRetryOrFollowRedirects(t *testing.T) {
+	t.Parallel()
+	for _, status := range []int{401, 302, 503} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			t.Parallel()
+			var requests atomic.Int32
+			c := testClient(t, func(w http.ResponseWriter, _ *http.Request) {
+				requests.Add(1)
+				w.Header().Set("Location", "/never-fetch")
+				w.WriteHeader(status)
+				if status == 401 {
+					writeTestResponse(t, w, `<script src="/__qrator/ldr.js"></script>`)
+				}
+			})
+			_, err := c.Search(t.Context(), "магний хелат", "test-city", 1)
+			if err == nil || requests.Load() != 1 {
+				t.Fatalf("error=%v requests=%d", err, requests.Load())
+			}
+			if status == 401 && !errors.Is(err, errBrowserCheck) {
+				t.Fatalf("expected actionable browser check error: %v", err)
+			}
+		})
+	}
+}
+
+func TestWrongCityAndCancellation(t *testing.T) {
+	t.Parallel()
+	c := testClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		http.SetCookie(w, &http.Cookie{Name: "city_code", Value: "other-city", Path: "/"}) // #nosec G124 -- Synthetic city cookie served over plain HTTP by httptest.
+		writeTestResponse(t, w, "<h1>Другой город</h1>")
+	})
+	_, err := c.Search(t.Context(), "test", "test-city", 1)
+	if err == nil || !strings.Contains(err.Error(), `"other-city"`) || c.requests != 1 {
+		t.Fatalf("wrong city accepted: %v", err)
+	}
+	c = testClient(t, func(http.ResponseWriter, *http.Request) { t.Error("cancelled search sent a request") })
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, err := c.Search(ctx, "test", "test-city", 1); !errors.Is(err, context.Canceled) || c.requests != 0 {
+		t.Fatalf("cancellation not propagated: %v", err)
+	}
+}
+
+func TestCityCookiesControlRequestCountAndRejectCityChanges(t *testing.T) {
+	t.Parallel()
+	for _, detail := range []bool{false, true} {
+		for _, tc := range []struct {
+			name, city, cityID, regionID string
+			changedCity                  bool
+			wantRequests                 int32
+		}{
+			{name: "reuse selected city", city: "test-city", cityID: "37", regionID: "16", wantRequests: 1},
+			{name: "different city", city: "other-city", cityID: "38", regionID: "17", wantRequests: 2},
+			{name: "missing city id", city: "test-city", regionID: "16", wantRequests: 2},
+			{name: "invalid region id", city: "test-city", cityID: "37", regionID: "invalid", wantRequests: 2},
+			{name: "city changes in data response", city: "test-city", cityID: "37", regionID: "16", changedCity: true, wantRequests: 1},
+		} {
+			t.Run(fmt.Sprintf("detail=%t/%s", detail, tc.name), func(t *testing.T) {
+				t.Parallel()
+				var requests atomic.Int32
+				c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+					requests.Add(1)
+					if selectMockCity(t, w, r) {
+						return
+					}
+					if got, err := r.Cookie("city_code"); err != nil || got.Value != "test-city" {
+						t.Error("data request did not use the requested city")
+					}
+					if tc.changedCity {
+						http.SetCookie(w, &http.Cookie{Name: "city_code", Value: "other-city", Path: "/"}) // #nosec G124 -- Synthetic city change from the test server.
+					}
+					if detail {
+						if r.URL.Path != "/test-city/catalog/test-15484411/" {
+							t.Errorf("unexpected data request: %s", r.URL)
+						}
+						writeTestResponse(t, w, string(fixture(t, "magnesium-detail")))
+					} else {
+						if r.URL.Path != "/search/" {
+							t.Errorf("unexpected data request: %s", r.URL)
+						}
+						writeTestResponse(t, w, mockPage(1, 123, ""))
+					}
+				})
+				c.http.Jar.SetCookies(c.base, []*http.Cookie{
+					{Name: "city_code", Value: tc.city, Path: "/"},     // #nosec G124 -- Synthetic city preference for the plain HTTP test server.
+					{Name: "city_id", Value: tc.cityID, Path: "/"},     // #nosec G124 -- Synthetic city preference for the plain HTTP test server.
+					{Name: "region_id", Value: tc.regionID, Path: "/"}, // #nosec G124 -- Synthetic region preference for the plain HTTP test server.
+				})
+				var count int
+				var err error
+				if detail {
+					var result *detailResult
+					result, err = c.Detail(t.Context(), "15484411", "test-city", c.base.String()+"/test-city/catalog/test-15484411/")
+					if result != nil {
+						count = result.HTTPRequests
+					}
+				} else {
+					var result *searchResult
+					result, err = c.Search(t.Context(), "магний & B6", "test-city", 1)
+					if result != nil {
+						count = result.HTTPRequests
+					}
+				}
+				if tc.changedCity {
+					if err == nil || !strings.Contains(err.Error(), `"other-city"`) || count != 0 {
+						t.Fatalf("wrong city data returned: count=%d err=%v", count, err)
+					}
+				} else if err != nil || count != int(tc.wantRequests) {
+					t.Fatalf("unexpected result: count=%d err=%v", count, err)
+				}
+				if requests.Load() != tc.wantRequests {
+					t.Fatalf("requests=%d want=%d", requests.Load(), tc.wantRequests)
+				}
+			})
+		}
+	}
+}
+
+func TestInvalidURLsAndInputMakeNoRequests(t *testing.T) {
+	t.Parallel()
+	c := testClient(t, func(http.ResponseWriter, *http.Request) { t.Error("invalid input sent HTTP") })
+	for _, raw := range []string{
+		"https://other.example/test-city/catalog/test-1/",
+		c.base.String() + "/other-city/catalog/test-1/",
+		c.base.String() + "/test-city/catalog/test-2/",
+		c.base.String() + "/test-city/catalog/test-1/?q=extra",
+	} {
+		if _, err := c.Detail(t.Context(), "1", "test-city", raw); err == nil {
+			t.Errorf("accepted URL %q", raw)
+		}
+	}
+	if _, err := c.Search(t.Context(), "test", "test-city", 0); err == nil {
+		t.Fatal("accepted page 0")
+	}
+	if _, err := c.Search(t.Context(), "", "test-city", 1); err == nil {
+		t.Fatal("accepted empty query")
+	}
+	base := parseTestURL(t, siteOrigin)
+	if _, err := validateProductURL(siteOrigin+"/test-city/catalog/test--157028/", base, "test-city", "-157028"); err != nil {
+		t.Fatalf("negative batch id rejected: %v", err)
+	}
+}
+
+func TestCookieFileDoesNotImportAccountCredentials(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "cookies")
+	if err := os.WriteFile(path, []byte("Cookie: qrator_jsid2=clearance; city_code=test-city; PHPSESSID=private; BITRIX_SM_LOGIN=private\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cookies, err := readCookies(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cookies) != 2 || cookies[0].Name != "qrator_jsid2" || cookies[1].Name != "city_code" {
+		t.Fatalf("unexpected imported cookie count: %d", len(cookies))
+	}
+	if err := os.WriteFile(path, []byte("qrator_jsid2=private\nInjected: private"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readCookies(path); err == nil || strings.Contains(err.Error(), "private") {
+		t.Fatalf("invalid cookie input was accepted or exposed: %v", err)
+	}
+}

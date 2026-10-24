@@ -1,0 +1,14 @@
+{
+  "widgetStates": {
+    "webProductMainWidget-123-default-1": "{\"sku\": \"100\", \"url\": \"/product/sample-100/?at=tracking\"}",
+    "webProductHeading-123-default-1": "{\"title\": \"Sample earplugs\"}",
+    "webGallery-123-default-1": "{\"sku\": \"100\", \"coverImage\": \"https://ir.ozone.ru/blue.jpg\", \"images\": [{\"src\": \"https://ir.ozone.ru/blue.jpg\"}, {\"src\": \"https://ir.ozone.ru/back.jpg\"}]}",
+    "webPrice-123-default-1": "{\"cardPrice\": \"232 ₽\", \"price\": \"258 ₽\", \"isAvailable\": true, \"lexemes\": {\"withOzonCard\": \"С банками\", \"withoutOzonCard\": \"С другими банками\"}}",
+    "webReviewProductScore-123-default-1": "{\"itemId\": 100, \"totalScore\": 4.8, \"reviewsCount\": 3676}",
+    "webAddToCart-123-default-1": "{\"firstButton\": {\"sku\": \"100\", \"freeRest\": 494}}",
+    "webAspects-123-default-1": "{\"aspects\": [{\"aspectKey\": \"Color\", \"aspectName\": \"Цвет\", \"variants\": [{\"sku\": \"100\", \"link\": \"/product/sample-100/\", \"active\": true, \"availability\": \"inStock\", \"data\": {\"searchableText\": \"Blue\", \"price\": \"232 ₽\", \"originalPrice\": \"999 ₽\", \"coverImage\": \"https://ir.ozone.ru/blue.jpg\", \"title\": \"Blue earplugs\"}}, {\"sku\": \"101\", \"link\": \"/product/sample-101/\", \"availability\": \"outOfStock\", \"data\": {\"searchableText\": \"Red\", \"price\": \"300 ₽\", \"title\": \"Red earplugs\"}}]}]}",
+    "webCurrentSeller-123-default-1": "{\"sellerCell\": {\"centerBlock\": {\"title\": {\"text\": \"Current shop\"}}, \"common\": {\"action\": {\"link\": \"/seller/current-10/\"}}}, \"header\": {\"badge\": {\"unsubscribed\": {\"common\": {\"action\": {\"params\": {\"sellerId\": \"10\"}}}}}}, \"rating\": {\"title\": {\"text\": \"4.9\"}}}",
+    "paginator-123-default-1": "{\"nextPage\": \"/product/sample-100/?layout_container=pdpPage2column&layout_page_index=2&start_page_id=opaque\", \"layoutContainer\": \"pdpPage2column\"}",
+    "webBestSeller-123-default-1": "{\"modalLink\": \"/modal/otherOffersFromSellers?product_id=100&sort=price\"}"
+  }
+}

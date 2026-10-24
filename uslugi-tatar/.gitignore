@@ -1,0 +1,17 @@
+/uslugi-tatar
+/dist/
+/coverage.out
+*.test
+*.har
+*.log
+.env
+.env.*
+/metrics.yaml
+/meters.yaml
+/meters.local.yaml
+credentials*.json
+cookies*.json
+cookies*.txt
+.DS_Store
+auth*.json
+.auth-*

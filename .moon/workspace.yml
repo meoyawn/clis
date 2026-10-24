@@ -1,0 +1,17 @@
+projects:
+  avito: avito
+  bris: bris
+  hh: hh
+  invitro: invitro
+  linkedin: linkedin
+  megastroy: megastroy
+  ozon: ozon
+  planeta: planeta
+  uslugi-tatar: uslugi-tatar
+
+versionConstraint: '>=2.6.2 <3.0.0'
+
+vcs:
+  defaultBranch: master
+
+telemetry: false

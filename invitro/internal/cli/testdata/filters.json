@@ -1,0 +1,23 @@
+{
+  "available_at_home": {
+    "config": "{}",
+    "id": "53185a73-8b30-49de-bf26-23106b48acb2",
+    "is_active": true,
+    "label": "Доступно на дому",
+    "type": "TOGGLE"
+  },
+  "deadline": {
+    "config": "{}",
+    "id": "ae9d840a-c6de-4e42-943d-b90aa8abb7a8",
+    "is_active": true,
+    "label": "Время исполнения анализа",
+    "type": "SELECT_ONE"
+  },
+  "is_promo": {
+    "config": "{}",
+    "id": "32694220-e9a6-4580-bd0d-0d0fed104e37",
+    "is_active": true,
+    "label": "Акция",
+    "type": "TOGGLE"
+  }
+}

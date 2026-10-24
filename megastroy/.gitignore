@@ -1,0 +1,22 @@
+/megastroy
+/megastroy.exe
+/coverage.out
+
+# Local credentials, captures and downloaded artifacts.
+.env
+.env.*
+!.env.example
+auth.json
+cookies*.json
+cookies*.txt
+*.cookies
+*.har
+*.pem
+*.key
+*.p12
+*.pfx
+/private/
+/captures/
+/downloads/
+*.log
+.DS_Store

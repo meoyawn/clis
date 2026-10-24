@@ -1,0 +1,14 @@
+{
+  "cities": [
+    {
+      "id": "19a36f51-f8d6-4ee5-8b2c-fef07ce8b5ff",
+      "name": "Казань",
+      "phone_number": "(843) 233-0630",
+      "slug": "kazan",
+      "seo": "в Казани"
+    }
+  ],
+  "total": 1,
+  "limit": 10,
+  "offset": 0
+}

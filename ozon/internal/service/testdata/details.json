@@ -1,0 +1,6 @@
+{
+  "widgetStates": {
+    "webDescription-123-default-1": "{\"richAnnotationJson\": {\"content\": [{\"blocks\": [{\"title\": {\"content\": [\"Product description\"]}, \"text\": {\"content\": [\"Soft <b>earplugs</b>.\", \"Reusable.\"]}, \"img\": {\"src\": \"https://ir.ozone.ru/description.jpg\"}, \"trackingInfo\": {\"content\": \"must not appear\"}}]}]}}",
+    "webCharacteristics-123-default-1": "{\"characteristics\": [{\"title\": \"General\", \"short\": [{\"key\": \"Color\", \"name\": \"Цвет\", \"values\": [{\"text\": \"Blue\"}, {\"text\": \"White\"}]}, {\"key\": \"Country\", \"name\": \"Made in\", \"values\": [{\"text\": \"Example\"}]}]}]}"
+  }
+}

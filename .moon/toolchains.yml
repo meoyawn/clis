@@ -1,0 +1,9 @@
+go:
+  plugin: 'https://github.com/moonrepo/plugins/releases/download/go_toolchain-v1.5.3/go_toolchain.wasm'
+  version: '1.27.2'
+  workspaces: true
+  # Go commands download dependencies as needed. Avoid rewriting every module
+  # with an automatic `go work sync` during ordinary builds.
+  installDependencies: false
+  bins:
+    - 'github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0'

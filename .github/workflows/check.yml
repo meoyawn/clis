@@ -1,0 +1,38 @@
+name: Check
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Add Go tools to PATH
+        run: |
+          echo "GOBIN=$RUNNER_TEMP/go-bin" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/go-bin" >> "$GITHUB_PATH"
+
+      - name: Set up Moon
+        uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
+        with:
+          moon-version: '2.6.2'
+          auto-setup: true
+
+      - name: Run checks
+        run: moon run :check --concurrency 4

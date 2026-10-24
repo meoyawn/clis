@@ -1,0 +1,175 @@
+<a title="Текущий лицевой счет">0000000001</a>
+<div class="table-responsive iCounterTable" id="no-more-tables">
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Название услуги</th>
+<th>Номер счетчика</th>
+<th>Дата поверки</th>
+<th>Дата занесения</th>
+<th>Предыдущее показание</th>
+<th>Новое показание</th>
+<th>Расход</th>
+</tr>
+</thead>
+<tbody>
+<tr class="alert alert-warning">
+<td colspan="7" class="straight_text">
+<b>Внимание!</b>
+Самостоятельно вносить изменения в показания счетчиков возможно только в тот же день.
+</td>
+</tr>
+<form action="/MILLENIUM2/Home/Counter" id="counterForm" method="post">
+<tr>
+<td rowspan="2" data-title="Название услуги">
+холодная вода (куб.м)
+</td>
+<td rowspan="2" data-title="Номер счетчика">
+0000000000001
+<br />
+</td>
+<td rowspan="2" data-title="Дата поверки">
+<br />
+08 сентября 2040
+</td>
+<td colspan="4"></td>
+</tr>
+<tr class>
+<td data-title="Дата занесения">
+25 августа 2030
+</td>
+<td class ="cell-height" data-title="Предыдущее показание" data-editable="False">
+100
+</td>
+<td data-title="Новое показание">
+<input type="hidden" class="form-control" data-counterId="000000000000000000000001" id="" name="counters.index" value="0" />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000001" id="" name="counters[0].ACounterId" value="100001" />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000001" id="" name="counters[0].Zone" value="1" />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000001" id="" name="counters[0].Capacity" value="5" />
+<input type="hidden" class="form-control iCoeff" data-counterId="000000000000000000000001" id="" name="counters[0].Coeff" value="1" />
+<input type="text"  class="form-control counterValue" data-counterId="000000000000000000000001" id="" name="counters[0].Value" value="" title="Расход" data-btnId="save_btn_000000000000000000000001" />
+</td>
+<td data-title="Расход" style="font-weight: bold;">
+0
+</td>
+</tr>
+<tr>
+<td colspan="4"></td>
+<td></td>
+<td class="btn-primary_center ggg">
+<button type="submit" class="btn btn-primary iSaveBtn" disabled="disabled" role="button" id="save_btn_000000000000000000000001" data-counterId="000000000000000000000001" style="width: 100%">Сохранить</button>
+</td>
+</tr>
+<tr>
+<td rowspan="3" data-title="Название услуги">
+электроэнергия (кВт*ч)
+</td>
+<td rowspan="3" data-title="Номер счетчика">
+К-000000001-Э
+<br />
+</td>
+<td rowspan="3" data-title="Дата поверки">
+<br />
+21 октября 2045
+</td>
+<td colspan="4"></td>
+</tr>
+<tr class>
+<td data-title="Дата занесения">
+25 августа 2030
+</td>
+<td class ="cell-height" data-title="Предыдущее показание" data-editable="False">
+2000
+</td>
+<td data-title="Новое показание">
+день                                                    <br />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000002" id="" name="counters.index" value="1" />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000002" id="" name="counters[1].ACounterId" value="100002" />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000002" id="" name="counters[1].Zone" value="2" />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000002" id="" name="counters[1].Capacity" value="6" />
+<input type="hidden" class="form-control iCoeff" data-counterId="000000000000000000000002" id="" name="counters[1].Coeff" value="1" />
+<input type="text"  class="form-control counterValue" data-counterId="000000000000000000000002" id="" name="counters[1].Value" value="" title="Расход" data-btnId="save_btn_000000000000000000000002" />
+</td>
+<td data-title="Расход" style="font-weight: bold;">
+0
+</td>
+</tr>
+<tr class>
+<td data-title="Дата занесения">
+25 августа 2030
+</td>
+<td class ="cell-height" data-title="Предыдущее показание" data-editable="False">
+300
+</td>
+<td data-title="Новое показание">
+ночь                                                    <br />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000002" id="" name="counters.index" value="2" />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000002" id="" name="counters[2].ACounterId" value="100002" />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000002" id="" name="counters[2].Zone" value="3" />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000002" id="" name="counters[2].Capacity" value="6" />
+<input type="hidden" class="form-control iCoeff" data-counterId="000000000000000000000002" id="" name="counters[2].Coeff" value="1" />
+<input type="text"  class="form-control counterValue" data-counterId="000000000000000000000002" id="" name="counters[2].Value" value="" title="Расход" data-btnId="save_btn_000000000000000000000002" />
+</td>
+<td data-title="Расход" style="font-weight: bold;">
+0
+</td>
+</tr>
+<tr>
+<td colspan="4"></td>
+<td></td>
+<td class="btn-primary_center ggg">
+<button type="submit" class="btn btn-primary iSaveBtn" disabled="disabled" role="button" id="save_btn_000000000000000000000002" data-counterId="000000000000000000000002" style="width: 100%">Сохранить</button>
+</td>
+</tr>
+<tr>
+<td rowspan="2" data-title="Название услуги">
+питьевая вода (л)
+</td>
+<td rowspan="2" data-title="Номер счетчика">
+0000001
+<br />
+</td>
+<td rowspan="2" data-title="Дата поверки">
+<br />
+01 января 2040
+</td>
+<td colspan="4"></td>
+</tr>
+<tr class>
+<td data-title="Дата занесения">
+25 августа 2030
+</td>
+<td class ="cell-height" data-title="Предыдущее показание" data-editable="False">
+400
+</td>
+<td data-title="Новое показание">
+<input type="hidden" class="form-control" data-counterId="000000000000000000000003" id="" name="counters.index" value="3" />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000003" id="" name="counters[3].ACounterId" value="100003" />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000003" id="" name="counters[3].Zone" value="1" />
+<input type="hidden" class="form-control" data-counterId="000000000000000000000003" id="" name="counters[3].Capacity" value="5" />
+<input type="hidden" class="form-control iCoeff" data-counterId="000000000000000000000003" id="" name="counters[3].Coeff" value="1" />
+<input type="text"  class="form-control counterValue" data-counterId="000000000000000000000003" id="" name="counters[3].Value" value="" title="Расход" data-btnId="save_btn_000000000000000000000003" />
+</td>
+<td data-title="Расход" style="font-weight: bold;">
+0
+</td>
+</tr>
+<tr>
+<td colspan="4"></td>
+<td></td>
+<td class="btn-primary_center ggg">
+<button type="submit" class="btn btn-primary iSaveBtn" disabled="disabled" role="button" id="save_btn_000000000000000000000003" data-counterId="000000000000000000000003" style="width: 100%">Сохранить</button>
+</td>
+</tr>
+<tr>
+<td colspan="5"></td>
+<td>
+<button type="submit" class="btn btn-primary iSaveAllBtn" disabled="disabled" role="button" style="width: 100%">Сохранить всё</button>
+</td>
+<td>
+</td>
+</tr>
+</form>
+</tbody>
+</table>
+</div>

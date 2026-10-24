@@ -1,0 +1,9 @@
+{
+  "is_promo": {
+    "config": "{}",
+    "id": "32694220-e9a6-4580-bd0d-0d0fed104e37",
+    "is_active": true,
+    "label": "Акция",
+    "type": "TOGGLE"
+  }
+}

@@ -1,0 +1,579 @@
+{
+  "createdAt": "2026-08-21T10:15:50.060Z",
+  "updatedAt": "2026-09-14T13:29:13.766Z",
+  "slug": "biohimiya-krovi-09-2026-rf",
+  "platform": [],
+  "sections": [
+    {
+      "blockType": "main-section",
+      "sectionName": "main",
+      "sectionTargetGeography": {
+        "cities": [],
+        "aglomerations": [],
+        "showToAll": true
+      },
+      "sectionTargetPlatform": [],
+      "textBlockTitle": "Биохимия крови",
+      "textBlockContent": [
+        {
+          "blockType": "description",
+          "content": {
+            "root": {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "detail": 0,
+                      "format": 0,
+                      "mode": "normal",
+                      "style": "",
+                      "text": "Если вы хотите проверить здоровье, но не знаете, какие анализы сдать в первую очередь, то начните с биохимии!",
+                      "type": "text",
+                      "version": 1
+                    }
+                  ],
+                  "direction": null,
+                  "format": "justify",
+                  "indent": 0,
+                  "type": "paragraph",
+                  "version": 1,
+                  "textFormat": 0,
+                  "textStyle": ""
+                },
+                {
+                  "children": [],
+                  "direction": null,
+                  "format": "justify",
+                  "indent": 0,
+                  "type": "paragraph",
+                  "version": 1,
+                  "textFormat": 0,
+                  "textStyle": ""
+                },
+                {
+                  "children": [
+                    {
+                      "detail": 0,
+                      "format": 0,
+                      "mode": "normal",
+                      "style": "",
+                      "text": "Биохимический анализ крови показывает состояние органов и систем и помогает выявить скрытые заболевания даже до возникновения симптомов. Это информативное исследование можно пройти в любом нашем медицинском офисе.",
+                      "type": "text",
+                      "version": 1
+                    }
+                  ],
+                  "direction": null,
+                  "format": "justify",
+                  "indent": 0,
+                  "type": "paragraph",
+                  "version": 1,
+                  "textFormat": 0,
+                  "textStyle": ""
+                },
+                {
+                  "children": [
+                    {
+                      "detail": 0,
+                      "format": 0,
+                      "mode": "normal",
+                      "style": "",
+                      "text": " ",
+                      "type": "text",
+                      "version": 1
+                    }
+                  ],
+                  "direction": null,
+                  "format": "justify",
+                  "indent": 0,
+                  "type": "paragraph",
+                  "version": 1,
+                  "textFormat": 0,
+                  "textStyle": ""
+                },
+                {
+                  "children": [
+                    {
+                      "detail": 0,
+                      "format": 0,
+                      "mode": "normal",
+                      "style": "",
+                      "text": "До 30 сентября пройдите базовый и минимальный биохимический комплекс со скидкой 15%.",
+                      "type": "text",
+                      "version": 1
+                    }
+                  ],
+                  "direction": null,
+                  "format": "",
+                  "indent": 0,
+                  "type": "paragraph",
+                  "version": 1,
+                  "textFormat": 0,
+                  "textStyle": ""
+                },
+                {
+                  "children": [
+                    {
+                      "detail": 0,
+                      "format": 1,
+                      "mode": "normal",
+                      "style": "",
+                      "text": " ",
+                      "type": "text",
+                      "version": 1
+                    }
+                  ],
+                  "direction": null,
+                  "format": "",
+                  "indent": 0,
+                  "type": "paragraph",
+                  "version": 1,
+                  "textFormat": 0,
+                  "textStyle": ""
+                }
+              ],
+              "direction": null,
+              "format": "",
+              "indent": 0,
+              "type": "root",
+              "version": 1
+            }
+          },
+          "id": "6a9010b2cf05eb612bea8483"
+        }
+      ],
+      "textBlockDateBadge": "2026-09-30T12:00:00.000Z",
+      "textBlockMoreInfoOptions": [],
+      "action": [
+        {
+          "blockType": "redirect-action",
+          "buttonTitle": "Правила акции",
+          "link": "https://www.invitro.ru/golk/cms/documents/file/rules_krov87986789707.pdf",
+          "id": "6a88261deb375a67fe71cf07"
+        }
+      ],
+      "cards": [
+        {
+          "title": "Почему это важно?",
+          "sectionName": "text-block",
+          "id": "6a90115fcf05eb612bea8484"
+        },
+        {
+          "title": "Что мы предлагаем?",
+          "sectionName": "recommendation1",
+          "id": "6a901170cf05eb612bea8485"
+        },
+        {
+          "title": "Как подготовиться?",
+          "sectionName": "steps2",
+          "id": "6a90117bcf05eb612bea8486"
+        },
+        {
+          "title": "Врач имеет значение",
+          "sectionName": "text-block-list22",
+          "id": "6a901185cf05eb612bea8487"
+        }
+      ],
+      "componentName": "MainSection",
+      "componentPath": "project",
+      "id": "6a88260feb375a67fe71cf06"
+    },
+    {
+      "blockType": "text-block-section",
+      "sectionName": "text-block",
+      "isSectionSecondary": true,
+      "sectionTargetPlatform": [],
+      "isSectionCompact": false,
+      "textBlockTitle": "Почему это важно?",
+      "textBlockContent": [
+        {
+          "blockType": "description",
+          "content": {
+            "root": {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "detail": 0,
+                      "format": 0,
+                      "mode": "normal",
+                      "style": "",
+                      "text": "Обращайте внимание даже на незначительные изменения самочувствия. Сдавайте анализы, посещайте врачей. Да, этому нужно уделить время, но так вы продлеваете время своей активной жизни и здоровья.",
+                      "type": "text",
+                      "version": 1
+                    }
+                  ],
+                  "direction": null,
+                  "format": "",
+                  "indent": 0,
+                  "type": "paragraph",
+                  "version": 1,
+                  "textFormat": 0,
+                  "textStyle": ""
+                },
+                {
+                  "children": [
+                    {
+                      "type": "linebreak",
+                      "version": 1
+                    },
+                    {
+                      "detail": 0,
+                      "format": 0,
+                      "mode": "normal",
+                      "style": "",
+                      "text": "Биохимический анализ крови позволит выявить нарушения в работе органов еще до развития заболевания. С помощью исследования можно оценить риск развития сахарного диабета, ожирения, анемии, заболеваний почек, желудочно-кишечного тракта  и сердечно-сосудистой системы.",
+                      "type": "text",
+                      "version": 1
+                    }
+                  ],
+                  "direction": null,
+                  "format": "",
+                  "indent": 0,
+                  "type": "paragraph",
+                  "version": 1,
+                  "textFormat": 0,
+                  "textStyle": ""
+                }
+              ],
+              "direction": null,
+              "format": "",
+              "indent": 0,
+              "type": "root",
+              "version": 1
+            }
+          },
+          "id": "6a9011abcf05eb612bea8489"
+        }
+      ],
+      "textBlockMoreInfoOptions": [],
+      "cards": [],
+      "componentName": "TextBlockSection",
+      "componentPath": "project",
+      "id": "6a9011a1cf05eb612bea8488"
+    },
+    {
+      "blockType": "steps-section",
+      "sectionName": "steps",
+      "isSectionSecondary": true,
+      "sectionTitle": "Биохимический анализ назначают:",
+      "sectionTargetPlatform": [],
+      "action": [
+        {
+          "buttonTitle": "Выбрать медофис",
+          "link": "/offices/city/",
+          "id": "6a9011f9cf05eb612bea848e"
+        }
+      ],
+      "isSectionCompact": false,
+      "cards": [
+        {
+          "number": 1,
+          "title": "В рамках профилактического осмотра",
+          "id": "6a9011dacf05eb612bea848b"
+        },
+        {
+          "number": 2,
+          "title": "При жалобах на плохое самочувствие",
+          "id": "6a9011e5cf05eb612bea848c"
+        },
+        {
+          "number": 3,
+          "title": "Для контрольного обследования на фоне лечения какой-либо болезни",
+          "id": "6a9011efcf05eb612bea848d"
+        }
+      ],
+      "componentName": "StepsSection",
+      "componentPath": "project",
+      "id": "6a9011d5cf05eb612bea848a"
+    },
+    {
+      "blockType": "recommendation-section",
+      "sectionName": "recommendation1",
+      "isSectionSecondary": false,
+      "sectionTitle": "Что мы предлагаем",
+      "sectionTargetPlatform": [],
+      "isSectionCompact": false,
+      "cards": [
+        {
+          "title": "ОБС154 Биохимия крови: базовый профиль",
+          "variant": "secondary",
+          "headContentType": "text",
+          "headText": "Профиль",
+          "size": "big",
+          "article": "АКЦ2574",
+          "promotionType": "Complexes",
+          "buttonTitle": "Добавить в корзину",
+          "processButtonTitle": "Перейти в корзину",
+          "renderHtmlDescription": false,
+          "id": "6a901243cf05eb612bea8490"
+        }
+      ],
+      "componentName": "RecommendationSection",
+      "componentPath": "project",
+      "id": "6a90123fcf05eb612bea848f"
+    },
+    {
+      "blockType": "cells-section",
+      "sectionName": "cells",
+      "isSectionSecondary": false,
+      "sectionTitle": "«Биохимия крови: базовый профиль» включает 8 показателей:",
+      "sectionTargetPlatform": [],
+      "isSectionCompact": false,
+      "cards": [
+        {
+          "label": "№ 16 Глюкоза (в крови) (Glucose)",
+          "caption": "  ",
+          "isClickable": false,
+          "id": "6a901351cf05eb612bea8495"
+        },
+        {
+          "label": "№ 28 Общий белок (в крови) (Proteintotal)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a901370cf05eb612bea8496"
+        },
+        {
+          "label": "№ 13 Билирубин общий (Bilirubin total)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a9013c6cf05eb612bea8497"
+        },
+        {
+          "label": "№ 31 Холестерин общий (холестерин, Cholesterol total)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a90147dcf05eb612bea8499"
+        },
+        {
+          "label": "№ 9 АсАТ (АСТ, аспартатаминотрансфераза, AST, SGOT, Aspartateaminotransferase)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a9014a2cf05eb612bea849a"
+        },
+        {
+          "label": "№ 8 АлАТ (АЛТ, аланинаминотрансфераза, аланинтрансаминаза, SGPT, Alanineaminotransferase)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a9014b3cf05eb612bea849b"
+        },
+        {
+          "label": "№ 22 Креатинин (в крови) (Creatinine)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a9014c6cf05eb612bea849c"
+        },
+        {
+          "label": "№ 27 Мочевая кислота (в крови) (Uricacid) ",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a9014d4cf05eb612bea849d"
+        }
+      ],
+      "componentName": "CellsSection",
+      "componentPath": "project",
+      "id": "6a90130acf05eb612bea8494"
+    },
+    {
+      "blockType": "recommendation-section",
+      "sectionName": "recommendation",
+      "isSectionSecondary": false,
+      "sectionTargetPlatform": [],
+      "isSectionCompact": false,
+      "cards": [
+        {
+          "title": "ОБС74 «Биохимия крови: минимальный профиль» ",
+          "variant": "secondary",
+          "headContentType": "text",
+          "headText": "Профиль",
+          "size": "big",
+          "article": "АКЦ2609",
+          "promotionType": "Complexes",
+          "buttonTitle": "Добавить в корзину",
+          "processButtonTitle": "Перейти в корзину",
+          "renderHtmlDescription": false,
+          "id": "6a901520cf05eb612bea849f"
+        }
+      ],
+      "componentName": "RecommendationSection",
+      "componentPath": "project",
+      "id": "6a90151acf05eb612bea849e"
+    },
+    {
+      "blockType": "cells-section",
+      "sectionName": "cells",
+      "isSectionSecondary": false,
+      "sectionTitle": "«Биохимия крови: минимальный профиль» включает 12 показателей:",
+      "sectionTargetPlatform": [],
+      "isSectionCompact": false,
+      "cards": [
+        {
+          "label": "№ 16 Глюкоза (в крови) (Glucose)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a9015aecf05eb612bea84a1"
+        },
+        {
+          "label": "№ 28 Общий белок (в крови) (Proteintotal)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a9015becf05eb612bea84a2"
+        },
+        {
+          "label": "№ 13 Билирубин общий (Bilirubin total)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a9015cfcf05eb612bea84a3"
+        },
+        {
+          "label": "№ 14 Билирубин прямой (Билирубин коньюгированный, связанный; Bilirubin direct)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a9015e1cf05eb612bea84a4"
+        },
+        {
+          "label": "№ 31 Холестерин общий (холестерин, Cholesterol total)",
+          "caption": "  ",
+          "isClickable": false,
+          "id": "6a9015fbcf05eb612bea84a5"
+        },
+        {
+          "label": "№ 8 АлАТ (АЛТ, аланинаминотрансфераза, аланинтрансаминаза, SGPT, Alanineaminotransferase)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a901eb1cf05eb612bea84a6"
+        },
+        {
+          "label": "№ 9 АсАТ (АСТ, аспартатаминотрансфераза, AST, SGOT, Aspartateaminotransferase)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a901edfcf05eb612bea84a7"
+        },
+        {
+          "label": "№ 15 Гамма-глутамилтранспептидаза (ГГТ, глутамилтранспептидаза, GGT, Gamma-glutamyl transferase)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a901ef0cf05eb612bea84a8"
+        },
+        {
+          "label": "№ 36 Фосфатаза щёлочная (ЩФ, Alkaline phosphatase, ALP)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a901efdcf05eb612bea84a9"
+        },
+        {
+          "label": "№ 22 Креатинин (в крови) (Creatinine)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a901f0ccf05eb612bea84aa"
+        },
+        {
+          "label": "№ 26 Мочевина (в крови) (Urea)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a901f1acf05eb612bea84ab"
+        },
+        {
+          "label": "№ 39 Калий, натрий, хлор в сыворотке крови (K+, Potassium, Na+, Sodium, Cl-, Chloride, Serum)",
+          "caption": " ",
+          "isClickable": false,
+          "id": "6a901f29cf05eb612bea84ac"
+        }
+      ],
+      "componentName": "CellsSection",
+      "componentPath": "project",
+      "id": "6a901599cf05eb612bea84a0"
+    },
+    {
+      "blockType": "steps-section",
+      "sectionName": "steps2",
+      "isSectionSecondary": true,
+      "sectionTitle": "Как подготовиться?",
+      "sectionTargetPlatform": [],
+      "action": [],
+      "isSectionCompact": false,
+      "cards": [
+        {
+          "number": 1,
+          "title": "Кровь из вены сдают утром, строго натощак (длительность ночного голодания: 8–14 часов)",
+          "id": "6a901f4ecf05eb612bea84ae"
+        },
+        {
+          "number": 2,
+          "title": "За день до процедуры исключить повышенные эмоциональные и физические нагрузки (спортивные тренировки), прием алкоголя",
+          "id": "6a901f54cf05eb612bea84af"
+        }
+      ],
+      "componentName": "StepsSection",
+      "componentPath": "project",
+      "id": "6a901f44cf05eb612bea84ad"
+    },
+    {
+      "blockType": "text-block-list-section",
+      "sectionName": "text-block-list22",
+      "isSectionSecondary": true,
+      "sectionTargetPlatform": [],
+      "isSectionCompact": false,
+      "textBlockTitle": "Врач имеет значение",
+      "textBlockDescription": "Врачи в наших медицинских офисах имеют большой опыт работы  и высокую квалификацию, бережно и с заботой относятся  к пациентам. На приеме специалист:",
+      "textBlockMoreInfoOptions": [],
+      "listVariant": "Secondary",
+      "list": [
+        {
+          "item": "соберет анамнез и проведет осмотр",
+          "id": "6a901fb8cf05eb612bea84b1"
+        },
+        {
+          "item": "назначит только необходимые исследования",
+          "id": "6a901fc7cf05eb612bea84b2"
+        },
+        {
+          "item": "расскажет о методах профилактики и лечения",
+          "id": "6a901fcccf05eb612bea84b3"
+        },
+        {
+          "item": "поможет разобраться в результатах тестов, ответит на вопросы",
+          "id": "6a901fd2cf05eb612bea84b4"
+        }
+      ],
+      "action": [
+        {
+          "buttonTitle": "Записаться",
+          "link": "/city/vrachi/",
+          "id": "6a901fdacf05eb612bea84b5"
+        }
+      ],
+      "componentName": "TextBlockListSection",
+      "componentPath": "project",
+      "id": "6a901f66cf05eb612bea84b0"
+    },
+    {
+      "blockType": "contacts-section",
+      "sectionName": "contacts",
+      "isSectionSecondary": false,
+      "sectionTargetPlatform": [],
+      "isSectionCompact": false,
+      "title": "Мы всегда на связи",
+      "description": "Если вы хотите узнать больше, напишите нам или позвоните по номеру  ",
+      "phoneNumber": "8 (800) 200-36-30",
+      "action": [
+        {
+          "buttonTitle": "Задать вопрос",
+          "link": "https://www.invitro.ru/chat",
+          "id": "6a901ff7cf05eb612bea84b7"
+        }
+      ],
+      "componentName": "ContactsSection",
+      "componentPath": "project",
+      "id": "6a901fe6cf05eb612bea84b6"
+    }
+  ],
+  "_status": "published",
+  "metaTitle": "Биохимия крови",
+  "targetGeography": {
+    "cities": [],
+    "aglomerations": [],
+    "showToAll": true
+  },
+  "title": "Биохимия крови",
+  "id": "6a882556c48d84d5e544197c"
+}

@@ -1,0 +1,9 @@
+{
+  "product": {
+    "uuid": "ce302550-a6c3-4525-9bcf-c48939edafa4"
+  },
+  "category": {
+    "uuid": "09c66e9e-1e6f-4d9c-aa96-e4d3b33b3a09",
+    "parent_uuid": "b62cf74a-46cd-4e77-bd28-92a5d697e1f4"
+  }
+}

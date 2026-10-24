@@ -1,0 +1,5 @@
+/hh
+/artifacts/
+*.har
+*.cookies.json
+*.local.json

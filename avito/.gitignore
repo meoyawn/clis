@@ -1,0 +1,14 @@
+/avito
+/bin/
+*.har
+*.apk
+__pycache__/
+.DS_Store
+
+# Local credentials and private captures must never be published.
+.env
+.env.*
+auth.json
+cookies.json
+*.har.*
+*.body

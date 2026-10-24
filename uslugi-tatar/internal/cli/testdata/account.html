@@ -1,0 +1,13 @@
+<!doctype html><html><body>
+<input type="hidden" id="hcs_gas_input_barcode_model_accounts" value="{&quot;000000000001&quot;: {&quot;fio&quot;: &quot;\u0422\u0415\u0410&quot;}, &quot;000000000002&quot;: {&quot;fio&quot;: &quot;\u0422\u0415\u0411&quot;}}">
+<form action="/gas/account_number?globalsid=test-session" id="simple_form" method="post">
+<input id="__csrf_test" name="__csrf_test" type="hidden" value="test-token" /><input id="globalsid" name="globalsid" type="hidden" value="test-token" />
+<input type="hidden" name="simpleForm" value="Y">
+<select id="hcs_gas_input_barcode_model_account_choices" name="hcs_gas_input_barcode_model[account_choices]">
+<option value="000000000001" selected>Account A</option><option value="000000000002">Account B</option>
+</select>
+<input name="hcs_gas_input_barcode_model[account_number]" type="text" value="">
+<input name="hcs_gas_input_barcode_model[fio]" type="text" value="">
+<input type="hidden" name="hcs_gas_input_barcode_model[is_default]" value="0">
+<input type="hidden" name="payment_type" value="UnitellerAbb">
+</form></body></html>

@@ -1,0 +1,149 @@
+{
+  "docs": [
+    {
+      "id": "6a9025b5c48d84d5e5d18234",
+      "title": "-15% ",
+      "description": "на ключевые показатели биохимии крови",
+      "startDate": "2026-09-01T12:00:00.000Z",
+      "endDate": "2026-09-30T12:00:00.000Z",
+      "enabled": true,
+      "_status": "published",
+      "platform": [],
+      "page": [
+        {
+          "blockType": "newPageLink",
+          "newPage": {
+            "slug": "biohimiya-krovi-09-2026-rf",
+            "id": "6a882556c48d84d5e544197c"
+          },
+          "id": "6a9027a4cf05eb612bea84b9"
+        }
+      ]
+    },
+    {
+      "id": "6a95a2b4c48d84d5e5d8d4fe",
+      "title": "Сахар под контролем",
+      "description": "Со скидкой 15%",
+      "startDate": "2026-09-01T12:00:00.000Z",
+      "endDate": "2026-09-30T12:00:00.000Z",
+      "enabled": true,
+      "_status": "published",
+      "platform": [],
+      "page": [
+        {
+          "blockType": "newPageLink",
+          "newPage": {
+            "slug": "proverka-urovnya-sahara-09-2026-rf",
+            "id": "6a8823d2c48d84d5e543a906"
+          },
+          "id": "6a95a3039c09752215e3330a"
+        }
+      ]
+    },
+    {
+      "id": "69d3bc54c58535b282405521",
+      "title": "Выезд за 1 рубль",
+      "description": "При заказе услуг от 1490 рублей",
+      "startDate": null,
+      "endDate": null,
+      "enabled": true,
+      "_status": "published",
+      "platform": [
+        "web",
+        "app"
+      ],
+      "page": [
+        {
+          "blockType": "oldPageLink",
+          "oldPageUrl": "https://www.invitro.ru/city/vnd",
+          "id": "69d3bc54e9e2720239521294"
+        }
+      ]
+    },
+    {
+      "id": "6a917924c48d84d5e5163054",
+      "title": "50 оттенков аллергии",
+      "description": "-15% на ALEX2 для выявления причины аллергии",
+      "startDate": "2026-09-01T12:00:00.000Z",
+      "endDate": "2026-10-31T12:00:00.000Z",
+      "enabled": true,
+      "_status": "published",
+      "platform": [],
+      "page": [
+        {
+          "blockType": "newPageLink",
+          "newPage": {
+            "slug": "50-ottenkov-allergii-09-10-2026-rf",
+            "id": "6a916ba1c48d84d5e51270c8"
+          },
+          "id": "6a9179d5504f533bfc510d2d"
+        }
+      ]
+    },
+    {
+      "id": "6a82c669887ea53b8f8fed6d",
+      "title": "Подберем анализы",
+      "description": "После короткой анкеты -  займет 3 минуты",
+      "startDate": "2026-08-17T12:00:00.000Z",
+      "endDate": "2026-09-20T12:00:00.000Z",
+      "enabled": true,
+      "_status": "published",
+      "platform": [
+        "web",
+        "app"
+      ],
+      "page": [
+        {
+          "blockType": "oldPageLink",
+          "oldPageUrl": "https://www.invitro.ru/moscow/ms/survey/",
+          "id": "6a82d0c85b50780ea2b04925"
+        }
+      ]
+    },
+    {
+      "id": "6a75783d887ea53b8f82c0a5",
+      "title": "Маме - удобно, ребёнку - спокойно",
+      "description": "Скидка каждой маме",
+      "startDate": "2026-08-07T12:00:00.000Z",
+      "endDate": "2026-09-30T12:00:00.000Z",
+      "enabled": true,
+      "_status": "published",
+      "platform": [],
+      "page": [
+        {
+          "blockType": "newPageLink",
+          "newPage": {
+            "slug": "mame-udobno-rebenku-spokoyno-08-09-2026-rf",
+            "id": "6a756e90887ea53b8f803e78"
+          },
+          "id": "6a758e3b08f11b6ee0fd1f6a"
+        }
+      ]
+    },
+    {
+      "id": "69c510ce57ea95218b96fc5c",
+      "title": "Следите за здоровьем",
+      "description": "Получайте кешбэк в ИНВИТРО",
+      "startDate": null,
+      "endDate": null,
+      "enabled": true,
+      "_status": "published",
+      "platform": [
+        "web",
+        "app"
+      ],
+      "page": [
+        {
+          "blockType": "oldPageLink",
+          "oldPageUrl": "https://www.invitro.ru/loyalty/",
+          "id": "69c510f0e8384935f560cfae"
+        }
+      ]
+    }
+  ],
+  "totalDocs": 12,
+  "totalPages": 1,
+  "page": 1,
+  "hasNextPage": false,
+  "nextPage": null
+}

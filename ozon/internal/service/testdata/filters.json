@@ -1,0 +1,25 @@
+{
+  "widgetStates": {
+    "filtersDesktop-123-default-1": "{\"sections\": [{\"filters\": [{\"type\": \"categoryFilter\", \"key\": \"category\", \"categoryFilter\": {\"title\": \"Категория\", \"categories\": [{\"title\": \"Protection\", \"urlValue\": \"/category/protection-1/?text=test\"}]}}, {\"type\": \"boolFilter\", \"key\": \"is_promo\", \"boolFilter\": {\"title\": \"Sale\"}}, {\"type\": \"checkboxesFilter\", \"key\": \"delivery\", \"checkboxesFilter\": {\"title\": \"Delivery\", \"isRadio\": true, \"sections\": [{\"items\": [{\"key\": \"4\", \"title\": {\"text\": \"До 3 дней\"}, \"isSelected\": true}]}]}}, {\"type\": \"multipleRangesFilter\", \"key\": \"currency_price\", \"multipleRangesFilter\": {\"rangeFilter\": {\"title\": \"Цена\", \"description\": {\"text\": \"По Ozon Карте\"}, \"minValue\": 49.43, \"maxValue\": 22385}, \"checkboxesFilter\": {\"isRadio\": true, \"sections\": [{\"items\": [{\"key\": \"49;250\", \"title\": {\"text\": \"до 250 ₽\"}}]}]}}}, {\"type\": \"colorFilter\", \"key\": \"color\", \"colorFilter\": {\"title\": \"Color\", \"colorIcons\": [{\"key\": \"1\", \"description\": \"Black\", \"icon\": {\"backgroundImage\": \"https://ir.ozone.ru/black.png\"}}], \"openingButtons\": {\"showAllButton\": {\"text\": \"All\"}}}}]}]}",
+    "searchResultsSort-123-default-1": "{\"sortButton\": {\"options\": [{\"name\": \"Cheaper\", \"action\": {\"link\": \"/search/?text=test&sorting=price\"}, \"isSelected\": false}]}}",
+    "searchResultsFiltersActive-123-default-1": {
+      "activeFilters": [
+        {
+          "key": "delivery",
+          "ftype": "RESPONSE_FILTER_TYPE_RADIO",
+          "activeValues": [
+            {
+              "cellTrackingInfo": {
+                "filterValue": "4"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "pageInfo": {
+    "url": "/search/?text=test&delivery=4",
+    "pageType": "search"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "count": 4,
+  "totalCount": 4,
+  "itemsOnPage": 50,
+  "subscription": {"isAuthenticated": true},
+  "searchCore": {
+    "query": "холодильник", "locationId": 650400, "categoryId": 21,
+    "page": 1, "localPriority": 1, "sort": "1", "owner": 1,
+    "priceMin": null, "priceMax": 5000,
+    "params": {"48": 5067, "486": 5072, "172087": 3281454, "110369": [431047], "145393": [18204028]}
+  },
+  "filtersV2": {
+    "Sections": [
+      {"Code": "main", "Filters": [
+        {"id": "params[48]", "type": "hidden", "defaultTitle": "Вид товара", "currentValue": 5067, "updatesForm": true, "selectedValue": [{"name": "Для кухни", "value": "5067"}]},
+        {"id": "params[486]", "type": "hidden", "defaultTitle": "Тип товара", "currentValue": 5072, "updatesForm": true},
+        {"id": "params[172087]", "type": "hidden", "defaultTitle": "Подвид товара", "currentValue": 3281454, "updatesForm": true},
+        {"id": "params[110369]", "type": "multiselect", "defaultTitle": "Состояние", "currentValue": ["431047"], "displaying": {"radio": true}, "values": [{"name": "Новое", "value": "431046"}, {"name": "Б/у", "value": "431047"}]},
+        {"id": "params[145393]", "type": "multiselect", "defaultTitle": "Производитель", "currentValue": ["18204028"], "updatesForm": true, "hasSuggest": true, "values": [{"name": "Beko", "value": "18204028"}, {"name": "Example Brand", "value": "900001"}]},
+        {"id": "params[145394]", "type": "sectionedMultiselect", "defaultTitle": "Модель", "currentValue": [], "updatesForm": true, "values": [{"title": "Все", "options": [{"name": "Example Model", "value": "900002"}]}]},
+        {"id": "price", "type": "numericRange", "defaultTitle": "Цена", "dimension": "₽", "currentValue": {"from": null, "to": 5000}, "inputs": {"from": {"id": "pmin", "defaultTitle": "От", "currentValue": null, "min": 0}, "to": {"id": "pmax", "defaultTitle": "до", "currentValue": 5000}}},
+        {"id": "params[145400]", "type": "numericRange", "defaultTitle": "Высота, см", "currentValue": {"from": null, "to": null}, "inputs": {"from": {"id": "params[145400][from]", "currentValue": null}, "to": {"id": "params[145400][to]", "currentValue": null}}},
+        {"id": "owner", "type": "radioGroup", "defaultTitle": "Продавцы", "currentValue": "1", "values": [{"name": "Все", "value": "0"}, {"name": "Частные", "value": "1"}, {"name": "Компании", "value": "2"}], "content": [{"id": "params[196498]", "type": "multiselect", "currentValue": [], "values": [{"name": "Рейтинг от 4,7", "value": "3370585"}]}]},
+        {"id": "params[149569]", "type": "keywords", "defaultTitle": "Слова в описании", "currentValue": null, "updatesForm": true},
+        {"id": "params[164865]", "type": "keywords", "defaultTitle": "Скрыть объявления со словами", "currentValue": null},
+        {"id": "withDeliveryOnly", "type": "checkboxGroup", "defaultTitle": "Дополнительно", "currentValue": false, "values": [{"name": "С Авито Доставкой", "value": "1"}]}
+      ]},
+      {"Code": "checkboxes", "Filters": [{"id": "localPriority", "type": "boolean", "defaultTitle": "Сначала из Казани", "currentValue": true}]},
+      {"Code": "displayOptions", "Filters": [{"id": "sort", "type": "select", "currentValue": "1", "defaultTitle": "Сортировать", "values": [{"name": "По умолчанию", "value": "101"}, {"name": "Дешевле", "value": "1"}, {"name": "По дате", "value": "104"}]}]}
+    ]
+  },
+  "rubricators": {"rubricatorCategories": [
+    {"name": "Все категории", "currentParent": true, "params": {}, "subs": [
+      {"name": "Бытовая техника", "categoryId": 21, "currentParent": true, "params": {}, "subs": [
+        {"name": "Холодильники", "categoryId": 21, "current": true, "count": 4, "params": {"48": 5067, "486": 5072, "172087": 3281454}, "subs": []},
+        {"name": "Морозильные камеры", "categoryId": 21, "params": {"48": 5067, "486": 5072, "172087": 3281455}, "subs": []},
+        {"name": "Create something", "categoryId": 21, "params": {}, "customUrl": "/profile/create", "subs": []}
+      ]}
+    ]}
+  ]},
+  "catalog": {"items": [
+    {"type": "item", "id": 1000000101, "title": "Тестовый холодильник A", "description": "Около 10 лет. Плохо охлаждает, нужен ремонт.", "urlPath": "/kazan/bytovaya_tehnika/test_fridge_a_1000000101", "locationId": 650400, "location": {"name": "Казань"}, "categoryId": 21, "priceDetailed": {"value": 2000, "hasValue": true, "fullString": "2 000 ₽"}},
+    {"type": "item", "id": 1000000102, "title": "Тестовый холодильник B", "description": "Морозилка работает, основная камера не холодит.", "urlPath": "/kazan/bytovaya_tehnika/test_fridge_b_1000000102", "locationId": 650400, "location": {"name": "Казань"}, "categoryId": 21, "priceDetailed": {"value": 4000, "hasValue": true, "fullString": "4 000 ₽"}},
+    {"type": "item", "id": 1000000103, "title": "Тестовый холодильник за пределами цены", "urlPath": "/kazan/bytovaya_tehnika/test_fridge_c_1000000103", "priceDetailed": {"value": 8000, "hasValue": true, "fullString": "8 000 ₽"}},
+    {"type": "item", "id": 1000000104, "title": "Тестовая рекомендация", "isSimilarToSearch": true, "urlPath": "/kazan/bytovaya_tehnika/test_fridge_d_1000000104", "priceDetailed": {"value": 1000, "hasValue": true, "fullString": "1 000 ₽"}}
+  ]},
+  "privateTracking": "SYNTHETIC_FILTER_SECRET_DO_NOT_PRINT"
+}

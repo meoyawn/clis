@@ -1,0 +1,4 @@
+Public catalog fixtures captured on 2026-09-19 from the supplied search HAR and anonymous Invitro API requests. Only JSON response bodies are included. Browser headers, cookies, session IDs, consent responses, and analytics are excluded. Favorite state and recommendations are removed. Prices and descriptions are historical fixtures, not current facts.
+# Promotion fixtures
+
+`promotions.json`, `promotion-page.json`, and `promotion-article.json` were captured anonymously on 2026-09-19 for Kazan from `/golk/cms/cms-proxy/promotions/filtered`, `/golk/cms/cms-proxy/pages/filtered?slug=biohimiya-krovi-09-2026-rf`, and `/golk/tests/api/v1/complexes/by-article?article=АКЦ2574`. Listing fields unrelated to normalization and page image/icon metadata were removed. The promotional article is unmodified. No cookies or account data were captured.

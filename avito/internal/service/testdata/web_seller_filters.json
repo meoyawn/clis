@@ -1,0 +1,28 @@
+{
+  "count": 0,
+  "searchCore": {
+    "query": "скейтборд", "locationId": 650400, "categoryId": 39,
+    "page": 1, "localPriority": 0, "withDeliveryOnly": 1,
+    "params": {"196498": 3370585, "186205": 1, "149578": 1}
+  },
+  "filtersV2": {
+    "Sections": [{"Code": "main", "Filters": [
+      {
+        "id": "owner", "type": "radioGroup", "defaultTitle": "Продавцы", "currentValue": "0",
+        "values": [{"name": "Все", "value": "0"}],
+        "content": [{
+          "id": "params[196498]", "type": "multiselect", "currentValue": ["3370585"],
+          "values": [{"name": "Рейтинг от ★ 4,7", "value": "3370585"}]
+        }]
+      },
+      {
+        "id": "withDeliveryOnly", "type": "checkboxGroup", "defaultTitle": "Дополнительно",
+        "currentValue": true, "values": [{"name": "С Авито Доставкой", "value": "1"}],
+        "content": [
+          {"id": "params[186205]", "type": "multiselect", "currentValue": ["1"], "values": [{"name": "С Авито Самовывозом", "value": "1"}]},
+          {"id": "params[149578]", "type": "multiselect", "currentValue": ["1"], "values": [{"name": "Есть возврат", "value": "1"}]}
+        ]
+      }
+    ]}]
+  }
+}

@@ -1,0 +1,39 @@
+# Local build artifacts
+/bin/
+/.task/
+
+# Browser captures and local exports
+*.har
+*.har.*
+/captures/
+/private/
+/output/
+/page[0-9]*.json
+/reviews[0-9]*.json
+
+# Local credentials, browser sessions and temporary auth writes
+auth.json
+auth.json.*
+.auth-*
+cookies*.json
+cookies*.txt
+credentials*.json
+.env
+.env.*
+!.env.example
+!.env.*.example
+.envrc
+.netrc
+/secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# This fixture contains only synthetic account data
+!internal/service/testdata/auth.json
+
+# Local OS metadata
+.DS_Store

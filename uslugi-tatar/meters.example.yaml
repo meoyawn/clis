@@ -1,0 +1,23 @@
+# All data below is synthetic. Replace it with your own account details and
+# readings dated in the current Europe/Moscow month before using the CLI.
+uslugi:
+  main:
+    account: "0000000001"
+    flat: "1"
+    address: "ул ПРИМЕРНАЯ, дом 1"
+    informer: "00000000-0000-4000-8000-000000000001"
+  gas:
+    account: "000000000001"
+    meter: "100001"
+
+2000-08-25:
+  electricity: 1000
+  hot: 100
+  cold: 200
+  gas: 100
+
+2000-10-18:
+  electricity: 1100
+  hot: 110
+  cold: 200
+  gas: 123

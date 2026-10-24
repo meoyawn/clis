@@ -1,0 +1,33 @@
+{
+  "widgetStates": {
+    "tileGridDesktop-123-default-1": "{\"page\": 1, \"items\": [{\"sku\": 100, \"id\": \"100\", \"action\": {\"link\": \"/product/sample-100/?at=tracking\"}, \"tileImage\": {\"items\": [{\"type\": \"image\", \"image\": {\"link\": \"https://ir.ozone.ru/sample.jpg\"}}]}, \"mainState\": [{\"type\": \"priceV2\", \"priceV2\": {\"price\": [{\"text\": \"1 234,50 ₽\", \"textStyle\": \"PRICE\"}, {\"text\": \"2 000 ₽\", \"textStyle\": \"ORIGINAL_PRICE\"}]}}, {\"id\": \"name\", \"type\": \"textDS\", \"textDS\": {\"text\": \"Sample earplugs\"}}, {\"type\": \"textDS\", \"textDS\": {\"text\": \"961 шт осталось\"}}, {\"type\": \"labelListV2\", \"labelListV2\": {\"testInfo\": {\"automatizationId\": \"tile-list-rating\"}, \"items\": [{\"type\": \"text\", \"text\": {\"text\": \"4.8\"}}, {\"type\": \"text\", \"text\": {\"text\": \"3 676 отзывов\"}}]}}], \"multiButton\": {\"ozonButton\": {\"addToCart\": {\"skuId\": \"100\", \"actionButton\": {\"title\": \"Завтра\"}, \"quantityButton\": {\"maxItems\": 700, \"updateCartAction\": {\"quantity\": 1}}, \"inCartQuantity\": 0}}}}]}",
+    "infiniteVirtualPaginator-123-default-1": "{\"nextPage\": \"/search/?text=test&page=2&layout_page_index=2&paginator_token=opaque&search_page_state=state%2B%3D\"}"
+  },
+  "pageInfo": {
+    "url": "/search/?text=test",
+    "pageType": "search"
+  },
+  "userInfo": {
+    "user": {
+      "isLoggedIn": true
+    }
+  },
+  "layout": [
+    {
+      "component": "infiniteVirtualPaginator",
+      "name": "composer.paginator",
+      "stateId": "infiniteVirtualPaginator-123-default-1",
+      "placeholders": [
+        {
+          "widgets": [
+            {
+              "component": "tileGridDesktop",
+              "name": "catalog.searchResultsV2",
+              "stateId": "tileGridDesktop-123-default-1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

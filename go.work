@@ -1,0 +1,13 @@
+go 1.27.2
+
+use (
+	./avito
+	./bris
+	./hh
+	./invitro
+	./linkedin
+	./megastroy
+	./ozon
+	./planeta
+	./uslugi-tatar
+)

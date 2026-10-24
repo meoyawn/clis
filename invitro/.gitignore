@@ -1,0 +1,6 @@
+/invitro
+/coverage.out
+/reports/
+/examples/
+*.har
+.DS_Store
