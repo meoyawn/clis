@@ -12,7 +12,7 @@ import (
 // No real account data, cookies or recorded media identifiers belong in fixtures.
 func captureFixture(t *testing.T, notify bool) []byte {
 	t.Helper()
-	data, err := os.ReadFile("testdata/experience-save.har.json")
+	data, err := os.ReadFile("testdata/experience-save.json")
 	if err != nil {
 		t.Fatal(err)
 	}

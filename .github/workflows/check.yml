@@ -35,4 +35,14 @@ jobs:
           auto-setup: true
 
       - name: Run checks
-        run: moon run :check --concurrency 4
+        env:
+          MOON_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          MOON_HEAD: ${{ github.sha }}
+        run: |
+          if [[ -n "$MOON_BASE" ]] && git cat-file -e "${MOON_BASE}^{commit}" 2>/dev/null; then
+            moon ci --concurrency 4
+          else
+            # New branches and manual runs may not have an available base.
+            unset MOON_BASE
+            moon ci --force --concurrency 4
+          fi

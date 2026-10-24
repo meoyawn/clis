@@ -12,9 +12,18 @@
   the tests that use them.
 - Run `go run ./<cli> --help` from the workspace root, or `go run . --help` from
   a CLI directory. Follow the service's skill and discover flags through help.
-- Run `moon run :check` for all CLI builds, race tests, and lint, or
-  `moon run <project>:check` for one CLI. Use the Go toolchain plugin and shared
-  root `.golangci.yml`; keep Taskfiles and per-CLI lint configs out of this repo.
+- Before handing off code changes, run `moon run <project>:check` locally for
+  every affected CLI and fix failures. Run `moon run :check` when changing
+  shared code, workspace dependencies, or CI/toolchain/lint configuration.
+  These checks cover builds, race tests, and lint; report what ran and any
+  blockers in the handoff.
+- Ensure new test fixtures and other required files are included in Git and
+  are not ignored (`git status --short` and `git check-ignore -v <path>`).
+  Local checks can pass with ignored files that will be missing in CI; verify
+  fixture changes from a clean checkout when needed.
+- CI uses `moon ci` to select checks affected by changed files. Use the Go
+  toolchain plugin and shared root `.golangci.yml`; keep Taskfiles and per-CLI
+  lint configs out of this repo.
 - Never commit credentials, browser captures, private exports, or real account
   data. Keep fixtures synthetic or limited to anonymous public catalog data.
 - Never send live messages, applications, or meter readings to test a change;

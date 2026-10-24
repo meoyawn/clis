@@ -23,7 +23,7 @@ func TestExperienceWriteRefusesAnotherSignedInOwner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f, err := os.Open("../service/testdata/experience-save.har.json")
+	f, err := os.Open("../service/testdata/experience-save.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestExperienceSaveRequiresFreshDescriptionAndIndependentReadback(t *testing
 		{"unconfirmed write", "Current text", false, 1, "not verified"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := os.Open("../service/testdata/experience-save.har.json")
+			f, err := os.Open("../service/testdata/experience-save.json")
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -1,0 +1,27 @@
+{
+  "log": {
+    "entries": [
+      {
+        "request": {
+          "method": "POST",
+          "url": "https://www.linkedin.com/flagship-web/rsc-action/actions/server-request?sduiid=test",
+          "headers": [
+            {
+              "name": "Cookie",
+              "value": "never-copy-this"
+            }
+          ],
+          "postData": {
+            "text": "{\"requestId\":\"com.linkedin.sdui.requests.profile.saveProfilePositionForm\",\"serverRequest\":{\"requestId\":\"com.linkedin.sdui.requests.profile.saveProfilePositionForm\",\"requestedArguments\":{\"payload\":{\"profileId\":\"ACoExamplePerson\",\"positionId\":\"42\",\"vanityName\":\"example-person\",\"description\":{\"key\":\"description\",\"namespace\":\"MemoryNamespace\"},\"originalDescription\":{\"key\":\"initial\",\"namespace\":\"MemoryNamespace\"},\"allowProfileEditBroadcasts\":{\"key\":\"notify\",\"namespace\":\"MemoryNamespace\"},\"mediaItems\":[{\"mediaId\":\"77\",\"title\":\"Portfolio\"}]}}},\"requestedArguments\":{\"payload\":{\"profileId\":\"ACoExamplePerson\",\"positionId\":\"42\",\"vanityName\":\"example-person\",\"description\":{\"key\":\"description\",\"namespace\":\"MemoryNamespace\"},\"originalDescription\":{\"key\":\"initial\",\"namespace\":\"MemoryNamespace\"},\"allowProfileEditBroadcasts\":{\"key\":\"notify\",\"namespace\":\"MemoryNamespace\"},\"mediaItems\":[{\"mediaId\":\"77\",\"title\":\"Portfolio\"}]},\"states\":[{\"key\":\"description\",\"namespace\":\"MemoryNamespace\",\"value\":\"Current text\",\"originalProtoCase\":\"stringValue\"},{\"key\":\"initial\",\"namespace\":\"MemoryNamespace\",\"value\":\"Older text\",\"originalProtoCase\":\"stringValue\"},{\"key\":\"notify\",\"namespace\":\"MemoryNamespace\",\"value\":false},{\"key\":\"title\",\"namespace\":\"MemoryNamespace\",\"value\":\"Founder\"}]},\"states\":[{\"key\":\"description\",\"namespace\":\"MemoryNamespace\",\"value\":\"Current text\",\"originalProtoCase\":\"stringValue\"},{\"key\":\"initial\",\"namespace\":\"MemoryNamespace\",\"value\":\"Older text\",\"originalProtoCase\":\"stringValue\"},{\"key\":\"notify\",\"namespace\":\"MemoryNamespace\",\"value\":false},{\"key\":\"title\",\"namespace\":\"MemoryNamespace\",\"value\":\"Founder\"}]}"
+          }
+        },
+        "response": {
+          "status": 200,
+          "content": {
+            "text": "0:{\"response\":{\"errors\":[],\"completionAction\":{\"actions\":[{\"saved\":true}]}}}"
+          }
+        }
+      }
+    ]
+  }
+}
