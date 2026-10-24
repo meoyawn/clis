@@ -15,6 +15,7 @@ Commands:
   companies people <company>  List people at a company
   people profile <person>     Read profile details and experience
   people mutuals <person>     Find shared first-degree connections
+  experience update <person> Preview or update your experience description
   messages read <person>      Read recent messages in a direct conversation
   messages send <person>      Preview or send approved plain text
   auth login                  Import browser cookies with SweetCookie
@@ -314,6 +315,8 @@ func writeHelp(w io.Writer, commands []string) error {
 		help = messagesReadHelp
 	case "messages send":
 		help = messagesSendHelp
+	case "experience", "experience update":
+		help = experienceHelp
 	case "auth":
 		help = authHelp
 	case "auth login":
