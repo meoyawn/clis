@@ -1,9 +1,12 @@
 projects:
   avito: avito
   bris: bris
+  getmatch: getmatch
+  glassdoor: glassdoor
   hh: hh
   invitro: invitro
   linkedin: linkedin
+  levels-fyi: levels-fyi
   megastroy: megastroy
   ozon: ozon
   planeta: planeta

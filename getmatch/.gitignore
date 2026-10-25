@@ -1,0 +1,6 @@
+# Local credentials/captures; synthetic fixtures belong under testdata.
+/*.json
+/*.txt
+/captures/
+/private/
+/reports/

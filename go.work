@@ -3,9 +3,12 @@ go 1.27.2
 use (
 	./avito
 	./bris
+	./getmatch
+	./glassdoor
 	./hh
 	./invitro
 	./linkedin
+	./levels-fyi
 	./megastroy
 	./ozon
 	./planeta
