@@ -52,10 +52,16 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       older-message pagination is not yet implemented. Never infer it from another
       chat message. Missing add-letter UI does not establish edit restrictions:
       inspect live can_edit_reported_by_chat; no repeat-edit POST is attempted.
-  application prepare VACANCY --resume HASH --text-file FILE [--output FILE]
+  application questions VACANCY [--output FILE]
+      Read the full native questionnaire, without sending or choosing a resume.
+      Only open-text questions are supported; choices/access challenges stop.
+  application prepare VACANCY --resume HASH --text-file FILE [--answers-file FILE] [--output FILE]
       Prepare an exact local application package using GET requests only.
       Check live eligibility, selected resume/print view and letter limit.
       Includes destination, salary, letter, wire fields and review_sha256.
+      For a questionnaire, --answers-file is a JSON object mapping question
+      IDs to complete answers. Questions and answers are bound to approval;
+      fresh hidden form nonces remain private and are never saved in the draft.
       Use --no-letter instead of --text-file only for an explicitly empty letter.
   application submit --draft FILE [--send --approved SHA256] [--output FILE]
       Without --send, show the saved package locally. Sending requires BOTH
@@ -63,7 +69,7 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       text and resume, and the checksum of that unchanged review package.
       A checksum is a binding mechanism, not evidence of human approval.
       Fresh preflight rejects changed content, prior applications, restrictions,
-      tests and unsupported forms. POST once, then verify the topic/resume
+      changed questions and unsupported forms. POST once, then verify the topic/resume
       against an independent vacancy readback. Never send a live test.
   profile get [--output FILE]
       Read the shared account profile. Profile contacts may appear in ALL
@@ -206,7 +212,7 @@ func run(ctx context.Context, args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("invalid command %q: run hh --help", strings.Join(args, " "))
 	}
-	if args[0] != "resume" && !(args[0] == "application" && (args[1] == "get" || args[1] == "letter" || args[1] == "prepare" || args[1] == "submit")) && !(args[0] == "applications" && args[1] == "list") && !(args[0] == "vacancy" && (args[1] == "get" || args[1] == "response-options")) && !(args[0] == "resumes" && args[1] == "list") && !(args[0] == "profile" && (args[1] == "get" || args[1] == "contacts")) {
+	if args[0] != "resume" && !(args[0] == "application" && (args[1] == "get" || args[1] == "letter" || args[1] == "questions" || args[1] == "prepare" || args[1] == "submit")) && !(args[0] == "applications" && args[1] == "list") && !(args[0] == "vacancy" && (args[1] == "get" || args[1] == "response-options")) && !(args[0] == "resumes" && args[1] == "list") && !(args[0] == "profile" && (args[1] == "get" || args[1] == "contacts")) {
 		return fmt.Errorf("unknown command %q: run hh --help", strings.Join(args[:2], " "))
 	}
 	if args[0] == "resume" && args[1] != "get" && args[1] != "view" && args[1] != "update" && args[1] != "verify" {
@@ -222,7 +228,7 @@ func run(ctx context.Context, args []string) error {
 	var id hh.ResumeID
 	var vacancyID hh.VacancyID
 	var err error
-	if args[0] == "vacancy" || args[0] == "application" && (args[1] == "prepare" || args[1] == "get" || args[1] == "letter") {
+	if args[0] == "vacancy" || args[0] == "application" && (args[1] == "prepare" || args[1] == "get" || args[1] == "letter" || args[1] == "questions") {
 		if len(args) < 3 {
 			return fmt.Errorf("vacancy %s requires an explicit ID", args[1])
 		}
@@ -249,13 +255,14 @@ func run(ctx context.Context, args []string) error {
 	backupDir := options.String("backup-dir", "", "backup directory")
 	resumeText := options.String("resume", "", "explicit resume hash for application")
 	textFile := options.String("text-file", "", "exact application letter UTF-8 file")
+	answersFile := options.String("answers-file", "", "JSON mapping native question IDs to exact reviewed answers")
 	noLetter := options.Bool("no-letter", false, "explicitly prepare without a letter")
 	draftFile := options.String("draft", "", "saved application package")
 	send := options.Bool("send", false, "send only after human approval")
 	approved := options.String("approved", "", "approved unchanged package SHA-256")
 	harPath := options.String("har", "", "recorded letter success receipt; read only, never replay")
 	start := 2
-	if args[0] == "resume" || args[0] == "vacancy" || contactsAction != "" || args[0] == "application" && (args[1] == "prepare" || args[1] == "get" || args[1] == "letter") {
+	if args[0] == "resume" || args[0] == "vacancy" || contactsAction != "" || args[0] == "application" && (args[1] == "prepare" || args[1] == "get" || args[1] == "letter" || args[1] == "questions") {
 		start = 3
 	}
 	if err := options.Parse(args[start:]); err != nil {
@@ -266,6 +273,7 @@ func run(ctx context.Context, args []string) error {
 	}
 	var application hh.ApplicationDraft
 	var letter string
+	var answers map[string]string
 	if args[0] == "application" {
 		if args[1] == "prepare" || args[1] == "get" || args[1] == "letter" {
 			id, err = hh.NewResumeIDFromValue(*resumeText)
@@ -274,6 +282,15 @@ func run(ctx context.Context, args []string) error {
 			}
 		}
 		if args[1] == "prepare" {
+			if *answersFile != "" {
+				data, err := os.ReadFile(*answersFile)
+				if err != nil {
+					return err
+				}
+				if err := json.Unmarshal(data, &answers); err != nil {
+					return fmt.Errorf("decode questionnaire answers: %w", err)
+				}
+			}
 			if (*textFile == "") == !*noLetter {
 				return fmt.Errorf("choose exactly one of --text-file FILE or --no-letter")
 			}
@@ -347,6 +364,13 @@ func run(ctx context.Context, args []string) error {
 		return outputJSON(*output, data)
 	}
 	if args[0] == "application" {
+		if args[1] == "questions" {
+			data, err := client.ApplicationQuestions(ctx, vacancyID)
+			if err != nil {
+				return err
+			}
+			return outputJSON(*output, data)
+		}
 		if args[1] == "get" || args[1] == "letter" {
 			data, err := client.Application(ctx, vacancyID, id)
 			if err != nil {
@@ -370,7 +394,7 @@ func run(ctx context.Context, args []string) error {
 			return outputJSON(*output, data)
 		}
 		if args[1] == "prepare" {
-			data, err := client.PrepareApplication(ctx, vacancyID, id, letter)
+			data, err := client.PrepareApplication(ctx, vacancyID, id, letter, answers)
 			if err != nil {
 				return err
 			}

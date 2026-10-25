@@ -16,16 +16,17 @@ import (
 // ApplicationDraft is the complete reviewable package. Its checksum binds the
 // exact letter, destination, selected resume and current resume content.
 type ApplicationDraft struct {
-	Vacancy           *Vacancy `json:"vacancy"`
-	ResumeID          string   `json:"resume_id"`
-	ResumeURL         string   `json:"resume_url"`
-	ResumeTitle       any      `json:"resume_title"`
-	ResumeSalary      any      `json:"resume_salary"`
-	ResumeEmail       []string `json:"resume_email"`
-	ResumeFingerprint string   `json:"resume_fingerprint"`
-	Letter            string   `json:"letter"`
-	Request           Object   `json:"request"`
-	ReviewSHA256      string   `json:"review_sha256"`
+	Vacancy           *Vacancy                  `json:"vacancy"`
+	ResumeID          string                    `json:"resume_id"`
+	ResumeURL         string                    `json:"resume_url"`
+	ResumeTitle       any                       `json:"resume_title"`
+	ResumeSalary      any                       `json:"resume_salary"`
+	ResumeEmail       []string                  `json:"resume_email"`
+	ResumeFingerprint string                    `json:"resume_fingerprint"`
+	Letter            string                    `json:"letter"`
+	Request           Object                    `json:"request"`
+	ReviewSHA256      string                    `json:"review_sha256"`
+	Questionnaire     *ApplicationQuestionnaire `json:"questionnaire,omitempty"`
 }
 
 func applicationDigest(draft ApplicationDraft) string {
@@ -45,7 +46,7 @@ func hasNativeID(value any, id string) bool {
 	return false
 }
 
-func (c *Client) PrepareApplication(ctx context.Context, vacancyID VacancyID, resumeID ResumeID, letter string) (*ApplicationDraft, error) {
+func (c *Client) PrepareApplication(ctx context.Context, vacancyID VacancyID, resumeID ResumeID, letter string, answers map[string]string) (*ApplicationDraft, error) {
 	if !utf8.ValidString(letter) {
 		return nil, fmt.Errorf("letter is not valid UTF-8; no application attempted")
 	}
@@ -60,12 +61,18 @@ func (c *Client) PrepareApplication(ctx context.Context, vacancyID VacancyID, re
 	if err != nil {
 		return nil, err
 	}
-	if options["type"] != "modal" {
+	var questionnaire *ApplicationQuestionnaire
+	if options["type"] == "test-required" {
+		questionnaire, err = c.ApplicationQuestions(ctx, vacancyID)
+		if err != nil {
+			return nil, err
+		}
+	} else if options["type"] != "modal" {
 		return nil, fmt.Errorf("unsupported response type %v for vacancy %s; no quick response or submission attempted", options["type"], vacancyID)
 	}
 	popup, _ := options["responsePopup"].(map[string]any)
 	popupVacancy, _ := popup["vacancy"].(map[string]any)
-	if popup["type"] != "normal" || nativeID(popupVacancy["vacancyId"]) != vacancyID.String() {
+	if questionnaire == nil && (popup["type"] != "normal" || nativeID(popupVacancy["vacancyId"]) != vacancyID.String()) {
 		return nil, fmt.Errorf("response form type or vacancy identity is unsupported; no application attempted")
 	}
 	for _, key := range []string{"countriesProfileVisibilityAgreement", "relocationWarning"} {
@@ -75,6 +82,21 @@ func (c *Client) PrepareApplication(ctx context.Context, vacancyID VacancyID, re
 		}
 	}
 	status, _ := options["responseStatus"].(map[string]any)
+	if questionnaire != nil {
+		status = questionnaire.status
+		if len(answers) != len(questionnaire.Questions) {
+			return nil, fmt.Errorf("provide exactly %d reviewed questionnaire answers with --answers-file; no application attempted", len(questionnaire.Questions))
+		}
+		for i, question := range questionnaire.Questions {
+			answer, exists := answers[question.ID]
+			if !exists || !utf8.ValidString(answer) || strings.TrimSpace(answer) == "" || utf8.RuneCountInString(answer) > 10000 {
+				return nil, fmt.Errorf("question %s needs a nonempty UTF-8 answer of at most 10000 characters; stopped", question.ID)
+			}
+			questionnaire.Questions[i].Answer = answer
+		}
+	} else if len(answers) != 0 {
+		return nil, fmt.Errorf("answers supplied for a response without a supported questionnaire; stopped")
+	}
 	if status["alreadyApplied"] != false || status["responseImpossible"] != false {
 		return nil, fmt.Errorf("response is already applied, restricted, or unknown for vacancy %s; stopped", vacancyID)
 	}
@@ -83,7 +105,7 @@ func (c *Client) PrepareApplication(ctx context.Context, vacancyID VacancyID, re
 		return nil, fmt.Errorf("country visibility does not confirm response eligibility; stopped")
 	}
 	test, _ := status["test"].(map[string]any)
-	if test["hasTests"] != false {
+	if questionnaire == nil && test["hasTests"] != false {
 		return nil, fmt.Errorf("vacancy requires tests or has unknown test state; no application attempted")
 	}
 	short, _ := status["shortVacancy"].(map[string]any)
@@ -135,6 +157,14 @@ func (c *Client) PrepareApplication(ctx context.Context, vacancyID VacancyID, re
 	vacancy.ResponseState = nil // do not copy unrelated resumes into a review package.
 	draft := &ApplicationDraft{Vacancy: vacancy, ResumeID: resumeID.String(), ResumeURL: view.URL, ResumeTitle: fields["title"], ResumeSalary: fields["salary"], ResumeEmail: view.Contacts.Email, ResumeFingerprint: hex.EncodeToString(resumeSum[:]), Letter: letter,
 		Request: Object{"vacancy_id": vacancyID.String(), "resume_hash": resumeID.String(), "letter": letter, "lux": "true", "ignore_postponed": "true", "incomplete": "false", "withoutTest": "no", "mark_applicant_visible_in_vacancy_country": "false", "country_ids": "[]"}}
+	draft.Questionnaire = questionnaire
+	if questionnaire != nil {
+		draft.Request["hhtmFromLabel"] = ""
+		draft.Request["hhtmSourceLabel"] = ""
+		for _, question := range questionnaire.Questions {
+			draft.Request["task_"+question.ID+"_text"] = question.Answer
+		}
+	}
 	draft.ReviewSHA256 = applicationDigest(*draft)
 	return draft, nil
 }
@@ -154,7 +184,13 @@ func (c *Client) SubmitApplication(ctx context.Context, draft ApplicationDraft, 
 	if err != nil {
 		return nil, err
 	}
-	fresh, err := c.PrepareApplication(ctx, vacancyID, resumeID, draft.Letter)
+	answers := map[string]string{}
+	if draft.Questionnaire != nil {
+		for _, question := range draft.Questionnaire.Questions {
+			answers[question.ID] = question.Answer
+		}
+	}
+	fresh, err := c.PrepareApplication(ctx, vacancyID, resumeID, draft.Letter, answers)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +199,16 @@ func (c *Client) SubmitApplication(ctx context.Context, draft ApplicationDraft, 
 	}
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
+	request := Object{}
 	for key, value := range fresh.Request {
+		request[key] = value
+	}
+	if fresh.Questionnaire != nil {
+		for key, value := range fresh.Questionnaire.fields {
+			request[key] = value
+		}
+	}
+	for key, value := range request {
 		if err := writer.WriteField(key, value.(string)); err != nil {
 			return nil, fmt.Errorf("encode application field %s: %w", key, err)
 		}
@@ -171,7 +216,7 @@ func (c *Client) SubmitApplication(ctx context.Context, draft ApplicationDraft, 
 	if err := writer.Close(); err != nil {
 		return nil, err
 	}
-	data, err := c.requestBody(ctx, http.MethodPost, "/applicant/vacancy_response/popup", nil, fresh.Request, false, &body, writer.FormDataContentType())
+	data, err := c.requestBody(ctx, http.MethodPost, "/applicant/vacancy_response/popup", nil, request, false, &body, writer.FormDataContentType())
 	if err != nil {
 		return nil, fmt.Errorf("application outcome may be uncertain: %w; inspect response-options before retrying", err)
 	}

@@ -105,7 +105,7 @@ func TestApplicationApprovalIdentityAndReceipt(t *testing.T) {
 			client := hh.NewClient(httpClient, base)
 			vacancy, _ := hh.NewVacancyIDFromValue("https://kazan.hh.ru/vacancy/135582813?from=main")
 			resume, _ := hh.NewResumeIDFromValue(hashes[1])
-			draft, err := client.PrepareApplication(context.Background(), vacancy, resume, letter)
+			draft, err := client.PrepareApplication(context.Background(), vacancy, resume, letter, nil)
 			if scenario == "wrong-vacancy" || scenario == "test-required" || scenario == "already-applied" {
 				if err == nil || posts != 0 {
 					t.Fatalf("unsupported or duplicate application accepted: %v posts=%d", err, posts)
