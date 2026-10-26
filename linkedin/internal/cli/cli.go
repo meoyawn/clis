@@ -107,8 +107,11 @@ func runPeople(ctx context.Context, args []string, store authStore, stdout, stde
 	if command == "search" {
 		return runPeopleSearch(ctx, args[1:], store, stdout, stderr)
 	}
+	if command == "connect" {
+		return runConnect(ctx, args[1:], store, stdout, stderr)
+	}
 	if command != "profile" && command != "mutuals" {
-		return fmt.Errorf("unknown people command %q; expected search, profile, or mutuals", command)
+		return fmt.Errorf("unknown people command %q; expected search, profile, mutuals, or connect", command)
 	}
 	fs := flag.NewFlagSet("people "+command, flag.ContinueOnError)
 	fs.SetOutput(stderr)

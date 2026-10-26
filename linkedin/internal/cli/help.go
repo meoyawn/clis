@@ -16,6 +16,7 @@ Commands:
   people search <query>...    Search people with one or more keyword queries
   people profile <person>     Read profile details and experience
   people mutuals <person>     Find shared first-degree connections
+  people connect <person>     Preview or send a connection request without a note
   experience update <person> Preview or update your experience description
   messages read <person>      Read recent messages in a direct conversation
   messages send <person>      Preview or send approved plain text
@@ -99,6 +100,7 @@ Commands:
   search <query>...           Search people by name, company, school, or keywords
   profile <person>            Read identity, about text, and sourced experience
   mutuals <person>            Read up to 10 mutual connections from the first page
+  connect <person>            Preview or send an approved connection request
 
 Accepts a profile slug, https://www.linkedin.com/in/<person>/ URL, or a
 urn:li:fsd_profile identifier from companies people output.
@@ -193,6 +195,34 @@ introduction paths; a result does not establish willingness to refer you.
 
 Output includes profile, search_url, profile_evidence, people, returned,
 has_more, and verified.
+`
+
+const connectHelp = `Preview or send one LinkedIn connection request without a note.
+
+Usage:
+  linkedin people connect <person> [--send]
+
+Accepts a profile slug, /in/ URL, or urn:li:fsd_profile identifier.
+
+Options:
+      --send                Send only after approval of this sender and recipient
+  -h, --help                Show help
+
+Examples:
+  linkedin people connect https://www.linkedin.com/in/example-person/
+  linkedin people connect example-person --send
+
+Default is read-only: identify sender and recipient, then verify the exact
+target's rendered Connect or Pending control. Output includes sender, recipient,
+note (always empty), can_connect, pending, profile_evidence, sent and checked_at.
+Pending invitations are a no-op, including with --send. Already connected,
+restricted, unsupported or ambiguous profiles never trigger a POST.
+
+With --send, make one observed verifyQuotaAndCreateV2 POST, then read the profile
+once. sent:true requires a confirmed Pending control; it does not mean accepted.
+No automatic retries, withdrawals, invitation acceptance, notes or bulk sends.
+After an uncertain outcome, inspect with people connect before deciding to retry.
+Four sequential GETs for preview; a new send adds one POST and one GET.
 `
 
 const authHelp = `Manage the browser cookies used to sign in to LinkedIn.
@@ -342,6 +372,8 @@ func writeHelp(w io.Writer, commands []string) error {
 		help = profileHelp
 	case "people mutuals":
 		help = mutualsHelp
+	case "people connect":
+		help = connectHelp
 	case "messages":
 		help = messagesHelp
 	case "messages read":

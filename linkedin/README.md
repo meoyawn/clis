@@ -169,6 +169,37 @@ To inspect a changed response, pass `--save-response private/mutuals.html`
 after creating the ignored `private/` directory. The new capture file is written
 with mode 0600 and is never overwritten. It can contain private profile data.
 
+## Connection requests
+
+```sh
+go run . people connect https://www.linkedin.com/in/example-person/
+go run . people connect example-person --send
+```
+
+Run from this module. The default is a read-only preview with the signed-in
+sender, resolved recipient, empty `note`, `can_connect`, `pending`,
+`profile_evidence`, `sent` and `checked_at`. Review the exact sender and recipient
+with the human before using `--send`. This command sends without a note only.
+
+The profile must render a Connect control bound to that recipient's member ID,
+name and invitation URL. Serialized UI alternatives, other people's controls,
+disabled actions and ambiguous states do not authorize a send. A target-specific
+Pending control returns a no-op even with `--send`; the command never withdraws,
+accepts or resends an existing invitation. Unsupported states, including profiles
+already connected without a supported control, fail without a POST.
+
+The endpoint and no-note payload were captured from Chrome on 26 October 2026
+using request-stage interception; the inspection request was aborted before
+transmission. An approved send makes one `verifyQuotaAndCreateV2` POST and one
+profile readback. `sent:true` requires the exact target's Pending control; HTTP
+success alone is insufficient and Pending does not mean the person accepted.
+There are no automatic retries. After an uncertain outcome, inspect with the
+read-only command before deciding whether to retry. Tests use synthetic profiles
+and mocked requests, never live invitations.
+
+Preview makes four sequential GETs. Sending a new invitation adds one POST and
+one GET. Authentication failures, restrictions and rate limits stop the command.
+
 ## Direct messages and free InMail
 
 ```sh
