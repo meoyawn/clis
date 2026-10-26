@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
@@ -81,11 +82,18 @@ func ImportSession(ctx context.Context, profile, headersFile string) (*Session, 
 	if headers.Get("User-Agent") == "" {
 		return nil, fmt.Errorf("headers file must include the selected Chrome User-Agent")
 	}
+	return importSession(ctx, profile, headers)
+}
+
+func importSession(ctx context.Context, profile string, headers http.Header) (*Session, error) {
+	if strings.TrimSpace(profile) == "" {
+		return nil, fmt.Errorf("invalid Chrome profile %q; run auth login to select it explicitly", profile)
+	}
 	result, err := sweetcookie.Get(ctx, sweetcookie.Options{URL: Origin + "/", Browsers: []sweetcookie.Browser{sweetcookie.BrowserChrome}, Profiles: map[sweetcookie.Browser]string{sweetcookie.BrowserChrome: profile}, Timeout: 15 * time.Second})
 	if err != nil {
 		return nil, fmt.Errorf("read selected Chrome cookies with SweetCookie: %w", err)
 	}
-	s := &Session{Profile: profile, ImportedAt: time.Now().UTC(), Headers: headers}
+	s := &Session{Profile: profile, ImportedAt: time.Now().UTC(), Headers: headers.Clone()}
 	for _, c := range result.Cookies {
 		if host := strings.TrimPrefix(c.Domain, "."); host != "levels.fyi" && host != "api.levels.fyi" && host != "www.levels.fyi" {
 			continue
@@ -144,6 +152,33 @@ func LoadSession(path string) (*Session, error) {
 		return nil, fmt.Errorf("saved session has no browser headers or cookies; import again")
 	}
 	return &s, nil
+}
+
+// LoadAuthorizedSession prepares credentials before the first API request.
+func LoadAuthorizedSession(ctx context.Context, path string) (*Session, error) {
+	s, err := LoadSession(path)
+	if err != nil {
+		return nil, err
+	}
+	if err = Authorize(s); err == nil {
+		return s, nil
+	}
+	if !errors.Is(err, errExpiredToken) {
+		return nil, err
+	}
+	// Resync the already-selected local browser store once, before any HTTP.
+	// This does not renew tokens over the network or retry a rejected request.
+	fresh, err := importSession(ctx, s.Profile, s.Headers)
+	if err != nil {
+		return nil, fmt.Errorf("saved token expired and Chrome profile %q is not ready: %w; no API request sent", s.Profile, err)
+	}
+	if authUser(fresh) != authUser(s) {
+		return nil, fmt.Errorf("account changed in Chrome profile %q; run auth login to select it explicitly; no API request sent", s.Profile)
+	}
+	if err = SaveSession(path, fresh); err != nil {
+		return nil, fmt.Errorf("save resynced Chrome credentials: %w", err)
+	}
+	return fresh, nil
 }
 
 // Each invocation owns this transport. No background process or connection

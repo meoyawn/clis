@@ -24,7 +24,7 @@ const help = `Levels.fyi salary research. JSON output, read-only native API.
 
   auth login [--browser chrome] [--profile Default] [--headers-file FILE]
       SweetCookie import of that Chrome profile, including its actual Cognito
-      idToken. Local session file mode 0600; zero network calls, no auto-refresh.
+      idToken. Local session file mode 0600; zero network calls.
   auth status
       Local session metadata only; never print cookies or JWTs.
   salaries filters
@@ -48,6 +48,11 @@ const help = `Levels.fyi salary research. JSON output, read-only native API.
       Return annual USD {amount,currency,interval}; base, stock, bonus and total
       stay separate. Group gross/net and employment type separately; include
       per-country distributions and exact retrieved coverage/source URLs.
+
+An expired saved token triggers one local reimport from the same Chrome
+profile before the first API request. A changed account or an expired browser
+token stops; open Levels.fyi in that profile, then rerun. No network token
+refresh or request retry is performed.
 
 No daemon or cross-process connections. Salary/review/profile writes and
 telemetry are not implemented. Authentication/access challenges, redaction,
@@ -213,12 +218,9 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 			}
 		}
 	}
-	session, err := service.LoadSession(sessionPath)
+	session, err := service.LoadAuthorizedSession(ctx, sessionPath)
 	if err != nil {
 		return fmt.Errorf("load session: %w; run auth login --browser chrome", err)
-	}
-	if err = service.Authorize(session); err != nil {
-		return err
 	}
 	httpClient, headers, err := service.HTTPClient(session)
 	if err != nil {

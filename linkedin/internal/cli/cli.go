@@ -104,8 +104,11 @@ func newLinkedinClient(store authStore) (linkedinClient, error) {
 
 func runPeople(ctx context.Context, args []string, store authStore, stdout, stderr io.Writer) error {
 	command := args[0]
+	if command == "search" {
+		return runPeopleSearch(ctx, args[1:], store, stdout, stderr)
+	}
 	if command != "profile" && command != "mutuals" {
-		return fmt.Errorf("unknown people command %q; expected profile or mutuals", command)
+		return fmt.Errorf("unknown people command %q; expected search, profile, or mutuals", command)
 	}
 	fs := flag.NewFlagSet("people "+command, flag.ContinueOnError)
 	fs.SetOutput(stderr)

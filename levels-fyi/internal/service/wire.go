@@ -15,6 +15,12 @@ import (
 // AES-128-ECB/PKCS7, then zlib JSON. This public client format grants no access;
 // authentication and redaction remain enforced by the provider.
 func decodeWire(data []byte, out any) error {
+	// Autocomplete returns a plain array; only object responses can carry the
+	// encrypted salary envelope. Decode other JSON directly into its owner type.
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return json.Unmarshal(data, out)
+	}
 	var envelope struct {
 		Payload string `json:"payload"`
 	}

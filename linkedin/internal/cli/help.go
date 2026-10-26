@@ -13,6 +13,7 @@ Usage:
 
 Commands:
   companies people <company>  List people at a company
+  people search <query>...    Search people with one or more keyword queries
   people profile <person>     Read profile details and experience
   people mutuals <person>     Find shared first-degree connections
   experience update <person> Preview or update your experience description
@@ -95,6 +96,7 @@ Usage:
   linkedin people <command> <person> [flags]
 
 Commands:
+  search <query>...           Search people by name, company, school, or keywords
   profile <person>            Read identity, about text, and sourced experience
   mutuals <person>            Read up to 10 mutual connections from the first page
 
@@ -102,6 +104,35 @@ Accepts a profile slug, https://www.linkedin.com/in/<person>/ URL, or a
 urn:li:fsd_profile identifier from companies people output.
 
 Run 'linkedin people <command> --help' for options.
+`
+
+const peopleSearchHelp = `Search LinkedIn people by keywords, as JSON.
+
+Usage:
+  linkedin people search <query> [<query>...] [flags]
+
+Quote each complete query separately. Multiple queries run sequentially.
+Use names and relevant company/school keywords; do not add a web-search-only
+"LinkedIn" suffix or site:linkedin.com operator.
+
+Options:
+      --limit N             Maximum people per query from its first page (1–10, default: 10)
+      --save-response PATH  Save raw documents to a new private JSON file (0600)
+  -h, --help                 Show help
+
+Examples:
+  linkedin people search 'Trung Kien Ngo Oulu'
+  linkedin people search 'Trung Kien Ngo Oulu' 'Ngo Trung Kien Palermo'
+  linkedin people search 'Example Person Example Company' --limit 3
+
+Output has searches (query, search_url, people, returned, has_more) and fetched_at.
+One authenticated document GET per query, with the usual request spacing.
+The first page only is read; has_more also covers results omitted by --limit.
+No total is inferred. Search results are candidates, not verified identities or
+mutual connections: use people profile, then people mutuals for a warm path.
+Failures stop the batch without retries, subsequent queries, or partial JSON.
+Zero matches require an explicit "No results found" state; unknown pages fail.
+Captures may contain private data and never overwrite an existing file.
 `
 
 const profileHelp = `Read a LinkedIn profile as JSON.
@@ -305,6 +336,8 @@ func writeHelp(w io.Writer, commands []string) error {
 		help = fmt.Sprintf(peopleHelp, pageSize, pageSize)
 	case "people":
 		help = profilesHelp
+	case "people search":
+		help = peopleSearchHelp
 	case "people profile":
 		help = profileHelp
 	case "people mutuals":

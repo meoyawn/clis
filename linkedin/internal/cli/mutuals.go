@@ -108,20 +108,23 @@ func mutualsPath(r io.Reader, targetID string) (string, string, error) {
 }
 
 func parseMutualsPage(r io.Reader) ([]person, bool, error) {
-	doc, err := html.Parse(r)
+	_, screen, err := peopleSearchDocument(r)
 	if err != nil {
-		return nil, false, fmt.Errorf("parse mutual connections document: %w", err)
+		return nil, false, err
 	}
-	var screen *html.Node
-	for n := range doc.Descendants() {
-		if attr(n, "data-sdui-screen") == "com.linkedin.sdui.flagshipnav.search.SearchResultsPeople" {
-			screen = n
-			break
+	people, hasMore, err := peopleSearchCards(screen)
+	if err != nil {
+		return nil, false, err
+	}
+	for _, p := range people {
+		if p.ConnectionDegree != "1st" {
+			return nil, false, fmt.Errorf("LinkedIn mutual-connections search did not return first-degree contacts; stopped without partial results")
 		}
 	}
-	if screen == nil {
-		return nil, false, fmt.Errorf("LinkedIn did not return the mutual-connections search screen; check for a sign-in/checkpoint or changed response before retrying")
-	}
+	return people, hasMore, nil
+}
+
+func peopleSearchCards(screen *html.Node) ([]person, bool, error) {
 	people := []person{}
 	seen := make(map[string]bool)
 	hasMore := false
@@ -164,13 +167,13 @@ func parseMutualsPage(r io.Reader) ([]person, bool, error) {
 			}
 		}
 		if p.URL == "" || len(paragraphs) == 0 {
-			return nil, false, fmt.Errorf("LinkedIn mutual-connections result structure has changed (profile link: %t, paragraphs: %d); no partial result returned", p.URL != "", len(paragraphs))
+			return nil, false, fmt.Errorf("LinkedIn people result structure has changed (profile link: %t, paragraphs: %d); no partial result returned", p.URL != "", len(paragraphs))
 		}
 		name, degree, ok := strings.Cut(paragraphs[0], "•")
-		if !ok || strings.TrimSpace(degree) != "1st" {
-			return nil, false, fmt.Errorf("LinkedIn mutual-connections search did not return first-degree contacts; stopped without partial results")
+		p.Name = strings.TrimSpace(name)
+		if ok {
+			p.ConnectionDegree = strings.TrimSpace(degree)
 		}
-		p.Name, p.ConnectionDegree = strings.TrimSpace(name), "1st"
 		if len(paragraphs) > 1 {
 			p.Headline = paragraphs[1]
 		}
@@ -178,7 +181,7 @@ func parseMutualsPage(r io.Reader) ([]person, bool, error) {
 			p.Location = paragraphs[2]
 		}
 		if p.Name == "" {
-			return nil, false, fmt.Errorf("LinkedIn mutual-connections result is missing a name")
+			return nil, false, fmt.Errorf("LinkedIn people result is missing a name")
 		}
 		if !seen[p.URL] {
 			seen[p.URL] = true
@@ -186,7 +189,7 @@ func parseMutualsPage(r io.Reader) ([]person, bool, error) {
 		}
 	}
 	if len(people) == 0 {
-		return nil, false, fmt.Errorf("LinkedIn returned no recognizable mutual contacts; an empty, restricted, or changed search cannot yet be distinguished")
+		return nil, false, fmt.Errorf("LinkedIn returned no recognizable people; an empty, restricted, or changed search cannot yet be distinguished")
 	}
 	return people, hasMore, nil
 }

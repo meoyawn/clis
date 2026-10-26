@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -42,13 +41,14 @@ func (c *Client) do(req *http.Request, result any) error {
 		return fmt.Errorf("%s %s after %s: %w; not retried", req.Method, req.URL.Redacted(), time.Since(started).Round(time.Millisecond), err)
 	}
 	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s %s: HTTP %d, Retry-After=%q; stopped without retry", req.Method, req.URL.Redacted(), res.StatusCode, res.Header.Get("Retry-After"))
+	data, err := readResponse(res)
+	if err != nil {
+		return fmt.Errorf("%s %s: %w", req.Method, req.URL.Redacted(), err)
 	}
 	if !strings.Contains(res.Header.Get("Content-Type"), "application/json") {
 		return fmt.Errorf("%s %s returned %q instead of JSON; authentication/access challenge, stopped", req.Method, req.URL.Redacted(), res.Header.Get("Content-Type"))
 	}
-	if err = json.NewDecoder(io.LimitReader(res.Body, 8<<20)).Decode(result); err != nil {
+	if err = json.Unmarshal(data, result); err != nil {
 		return fmt.Errorf("decode salary API response: %w", err)
 	}
 	return nil

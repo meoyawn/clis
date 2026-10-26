@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -77,25 +78,36 @@ func TestNativeSalaryReport(t *testing.T) {
 
 func TestNoReportOnAccessOrChangedScope(t *testing.T) {
 	for _, tc := range []struct {
-		name   string
-		status int
-		body   string
+		name, body, contentType, mitigated string
+		status                             int
+		human                              bool
 	}{
-		{"rate limit", 429, `PRIVATE_ERROR_BODY`},
-		{"challenge", 403, `PRIVATE_ERROR_BODY`},
-		{"server errors", 200, `{"errors":[{"message":"PRIVATE_ERROR_BODY"}]}`},
-		{"missing data", 200, `{"data":{"occSalaryEstimates":null}}`},
-		{"wrong location", 200, `{"data":{"occSalaryEstimates":{"jobTitle":{"id":123,"text":"Golang Developer"},"queryLocation":{"id":999,"type":"COUNTRY"}}}}`},
+		{name: "rate limit", status: 429, body: `<title>Just a moment...</title>PRIVATE_ERROR_BODY`, contentType: "text/html"},
+		{name: "ordinary forbidden", status: 403, body: `PRIVATE_ERROR_BODY`},
+		{name: "challenge header", status: 403, body: `PRIVATE_ERROR_BODY`, mitigated: "challenge", human: true},
+		{name: "challenge HTML", status: 403, body: `<title>Just a moment...</title>PRIVATE_ERROR_BODY`, contentType: "text/html", human: true},
+		{name: "challenge with 200", status: 200, body: `<h1>Humans only</h1>PRIVATE_ERROR_BODY`, contentType: "text/html", human: true},
+		{name: "server errors", status: 200, body: `{"errors":[{"message":"PRIVATE_ERROR_BODY"}]}`},
+		{name: "missing data", status: 200, body: `{"data":{"occSalaryEstimates":null}}`},
+		{name: "wrong location", status: 200, body: `{"data":{"occSalaryEstimates":{"jobTitle":{"id":123,"text":"Golang Developer"},"queryLocation":{"id":999,"type":"COUNTRY"}}}}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls := 0
 			c := NewClient(&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 				calls++
-				return &http.Response{StatusCode: tc.status, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(tc.body))}, nil
+				contentType := tc.contentType
+				if contentType == "" {
+					contentType = "application/json"
+				}
+				return &http.Response{StatusCode: tc.status, Header: http.Header{"Content-Type": {contentType}, "Cf-Mitigated": {tc.mitigated}}, Body: io.NopCloser(strings.NewReader(tc.body))}, nil
 			})}, nil)
 			_, err := c.Estimate(context.Background(), domain.Query{Title: domain.Title{ID: 123, JobTitle: "Golang Developer"}, Location: domain.Location{Type: "N", LocationID: 205, Name: "Russia"}, Experience: domain.AllExperience()})
 			if err == nil || calls != 1 || strings.Contains(err.Error(), "PRIVATE_ERROR_BODY") {
 				t.Fatalf("unexpected retry/leak/report: calls=%d err=%v", calls, err)
+			}
+			var challenge *HumanVerificationError
+			if errors.As(err, &challenge) != tc.human {
+				t.Fatalf("human-verification classification: expected %v, got %v", tc.human, err)
 			}
 		})
 	}

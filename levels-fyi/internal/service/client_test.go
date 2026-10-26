@@ -16,6 +16,30 @@ import (
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestLocationsAcceptsNativeJSONArray(t *testing.T) {
+	c, err := NewClient(&http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Path != "/geo/autocompleteCity" || r.URL.Query().Get("q") != "Example" {
+			t.Fatalf("wrong autocomplete request: %s", r.URL)
+		}
+		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(`[{"id":"123","countryId":"456","name":"Example City","coordinates":"DO_NOT_EXPORT"}]`))}, nil
+	})}, http.Header{"Authorization": {"Bearer synthetic"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	locations, err := c.Locations(context.Background(), "Example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(locations) != 1 || locations[0].ID != "123" || locations[0].CountryID != "456" || locations[0].Name != "Example City" {
+		t.Fatalf("native city identifiers were lost: %+v", locations)
+	}
+	encoded, err := json.Marshal(locations)
+	if err != nil || strings.Contains(string(encoded), "DO_NOT_EXPORT") {
+		t.Fatal("unrequested location metadata leaked")
+	}
+}
+
 func TestGlobalRemoteNativeReport(t *testing.T) {
 	fixture, err := os.ReadFile("testdata/search.encrypted.json")
 	if err != nil {

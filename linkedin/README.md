@@ -1,6 +1,6 @@
 # linkedin
 
-A Go CLI that returns LinkedIn company people, profiles, mutual connections, and messages as JSON using your browser's
+A Go CLI that returns LinkedIn people searches, company people, profiles, mutual connections, and messages as JSON using your browser's
 signed-in session. Cookie import uses [SweetCookie](https://github.com/steipete/sweetcookie/).
 
 ```sh
@@ -21,6 +21,7 @@ replace them with the company you want to look up.
 ```sh
 linkedin --help
 linkedin companies people --help
+linkedin people search --help
 linkedin people profile --help
 linkedin people mutuals --help
 linkedin auth login --help
@@ -83,6 +84,39 @@ which can change or be restricted by your account.
 
 Successful commands emit JSON to stdout. Help is plain text. Diagnostics go to
 stderr; failures exit nonzero without emitting a partial result.
+
+## Keyword people search
+
+Run one query or a batch of name/affiliation variants:
+
+```sh
+go run . people search 'Trung Kien Ngo Oulu'
+go run . people search 'Trung Kien Ngo Oulu' 'Ngo Trung Kien Palermo' --limit 5
+go run . people search 'Example Person Example Company' --save-response private/search.json
+```
+
+Quote each complete query separately. Queries run sequentially with the usual
+request spacing; they are not combined into a single Boolean query. Use relevant
+keywords directly, without a web-search-only `LinkedIn` suffix or `site:` operator.
+
+Output contains `searches` and `fetched_at`. Each search preserves its `query`,
+`search_url`, `people`, `returned`, and `has_more`. The first page only is read;
+`--limit` accepts 1–10 (default 10) per query. `has_more` also includes results
+omitted by that limit; no total or complete-coverage claim is inferred.
+
+Each query makes one authenticated HTML GET to the captured people-search route.
+The parser verifies the search box's keyword state, including the initial
+document's JSON hydration records, without executing scripts. It does not replay
+typeahead, search-history, analytics, or profile-prefetch requests. Failures stop
+the batch without retries, later queries, or partial JSON. Zero matches require
+the explicit visible "No results found" state; unrecognized pages fail.
+
+Search results are discovery candidates, not confirmed identities or mutuals.
+Read the strongest candidate with `people profile`, corroborate the affiliation,
+then use `people mutuals` for verified introduction paths. A zero-person company
+listing does not establish that no personal profile or warm path exists.
+`--save-response` writes raw documents to a new private 0600 file, including
+available documents on failure; never commit those captures.
 
 ## Profiles and referral introductions
 
@@ -180,7 +214,7 @@ Reading messages uses three GET requests without an existing conversation and
 four with one. A new-message preview/send adds one compose-options GET and,
 for free InMail, one compose-context GET. Actual sending adds one POST.
 
-The people API accepts the company ID directly, so no general search or HTML
+The company people API accepts the company ID directly, so no general search or HTML
 page load is needed.
 
 - Slug or slug URL: one lookup, then one request per page.

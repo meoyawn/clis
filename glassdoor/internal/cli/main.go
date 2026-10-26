@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -55,6 +57,10 @@ Usage: glassdoor [--anonymous] COMMAND [OPTIONS]
 Queries/catalogs are cached for 24h; salary estimates are fetched fresh.
 Default: saved Chrome session required. --anonymous is explicit, never a
 fallback after a block. Stop on 403/429, login or challenge; no automatic retry.
+An identified human-verification challenge opens Glassdoor in your default
+browser, then exits unsuccessfully. Complete it yourself, reimport that Chrome
+profile with auth login, and rerun the original command. Ordinary 403s and
+rate limits do not launch a browser; no challenge is solved automatically.
 No salary/review/profile submissions and no telemetry mutations. No daemon:
 HTTP connection reuse lasts only for one foreground invocation.
 Errors go to stderr; cookies, personal account data and tokens never go to stdout.
@@ -62,9 +68,34 @@ Errors go to stderr; cookies, personal account data and tokens never go to stdou
 
 func Main() {
 	if err := run(context.Background(), os.Args[1:], os.Stdout); err != nil {
-		fmt.Fprintln(os.Stderr, "glassdoor:", err)
+		reportError(context.Background(), err, os.Stderr)
 		os.Exit(1)
 	}
+}
+
+func reportError(ctx context.Context, err error, out io.Writer) {
+	fmt.Fprintln(out, "glassdoor:", err)
+	var challenge *service.HumanVerificationError
+	if !errors.As(err, &challenge) {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.CommandContext(ctx, "open", service.VerificationURL)
+	case "windows":
+		cmd = exec.CommandContext(ctx, "rundll32", "url.dll,FileProtocolHandler", service.VerificationURL)
+	default:
+		cmd = exec.CommandContext(ctx, "xdg-open", service.VerificationURL)
+	}
+	if openErr := cmd.Run(); openErr != nil {
+		fmt.Fprintf(out, "Could not open the default browser: %v. Open %s manually.\n", openErr, service.VerificationURL)
+	} else {
+		fmt.Fprintf(out, "Opened %s in your default browser.\n", service.VerificationURL)
+	}
+	fmt.Fprintln(out, "Complete the human-verification challenge first. Then run go run . auth login --browser chrome --profile <the same profile>, and rerun your original command. No request was retried.")
 }
 
 func run(ctx context.Context, args []string, out io.Writer) error {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -20,6 +21,8 @@ import (
 const Origin = "https://api.levels.fyi"
 const Website = "https://www.levels.fyi"
 
+var errExpiredToken = errors.New("saved Levels.fyi idToken is expired")
+
 type Client struct {
 	http    *http.Client
 	headers http.Header
@@ -34,14 +37,19 @@ func NewClient(client *http.Client, headers http.Header) (*Client, error) {
 
 // The selected Cognito account's idToken is the website's actual API bearer.
 // No refresh request or account/profile endpoint is needed to import it.
-func Authorize(s *Session) error {
+func authUser(s *Session) string {
 	const prefix = "CognitoIdentityServiceProvider.76of0ich18hd8uehju7fniv2u1."
-	var user string
 	for _, c := range s.Cookies {
 		if c.Name == prefix+"LastAuthUser" {
-			user = c.Value
+			return c.Value
 		}
 	}
+	return ""
+}
+
+func Authorize(s *Session) error {
+	const prefix = "CognitoIdentityServiceProvider.76of0ich18hd8uehju7fniv2u1."
+	user := authUser(s)
 	if user == "" {
 		return fmt.Errorf("selected Chrome profile has no active Levels.fyi Cognito account")
 	}
@@ -62,8 +70,11 @@ func Authorize(s *Session) error {
 	var claims struct {
 		Exp int64 `json:"exp"`
 	}
-	if json.Unmarshal(payload, &claims) != nil || claims.Exp <= time.Now().Unix() {
-		return fmt.Errorf("chrome idToken is expired; refresh Levels.fyi in that profile and import again")
+	if json.Unmarshal(payload, &claims) != nil || claims.Exp <= 0 {
+		return fmt.Errorf("chrome idToken has invalid expiry metadata; sign in there and import again")
+	}
+	if claims.Exp <= time.Now().Unix() {
+		return fmt.Errorf("%w; open Levels.fyi in the selected Chrome profile to renew its session", errExpiredToken)
 	}
 	if s.Headers == nil {
 		s.Headers = http.Header{}

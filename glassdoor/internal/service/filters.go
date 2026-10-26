@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -26,10 +27,11 @@ func (c *Client) Industries(ctx context.Context) ([]domain.Industry, error) {
 		return nil, fmt.Errorf("read native industry catalog: %w; not retried", err)
 	}
 	defer res.Body.Close()
-	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("industry catalog: HTTP %d, Retry-After=%q; stopped", res.StatusCode, res.Header.Get("Retry-After"))
+	data, err := readResponse(res)
+	if err != nil {
+		return nil, fmt.Errorf("industry catalog: %w", err)
 	}
-	return parseIndustries(io.LimitReader(res.Body, 8<<20))
+	return parseIndustries(bytes.NewReader(data))
 }
 
 // Decode JSON payloads from the observed Next Flight transport; never execute
