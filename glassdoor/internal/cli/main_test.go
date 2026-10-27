@@ -2,8 +2,8 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -13,7 +13,7 @@ import (
 	"github.com/meoyawn/clis/glassdoor/internal/service"
 )
 
-func TestHumanChallengeOpensDefaultBrowserAndReturns(t *testing.T) {
+func TestHumanChallengePrintsRecoveryURLWithoutOpeningBrowser(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell opener fixture targets macOS/Linux")
 	}
@@ -29,17 +29,21 @@ func TestHumanChallengeOpensDefaultBrowserAndReturns(t *testing.T) {
 	t.Setenv("PATH", dir)
 	t.Setenv("SALARY_TEST_OPEN_LOG", log)
 	var out bytes.Buffer
-	reportError(context.Background(), &service.HumanVerificationError{StatusCode: 403}, &out)
-	opened, err := os.ReadFile(log)
-	if err != nil || string(opened) != "https://www.glassdoor.com/Salaries/index.htm\n" {
-		t.Fatalf("challenge did not open exactly one trusted URL: %q, %v", opened, err)
+	reportError(fmt.Errorf("salary request: %w", &service.HumanVerificationError{StatusCode: 403}), &out)
+	if _, err := os.Stat(log); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("CLI launched a browser instead of handing off the recovery URL: %v", err)
 	}
-	if !strings.Contains(out.String(), "Complete") || !strings.Contains(out.String(), "auth login") {
-		t.Fatalf("missing human recovery instructions: %s", out.String())
+	if !strings.Contains(out.String(), "https://www.glassdoor.com/Salaries/index.htm") || !strings.Contains(out.String(), "Chrome") || !strings.Contains(out.String(), "auth login") {
+		t.Fatalf("missing Chrome recovery URL or session-import instructions: %s", out.String())
 	}
-	reportError(context.Background(), errors.New("HTTP 429; stopped"), &out)
-	after, err := os.ReadFile(log)
-	if err != nil || string(after) != string(opened) {
-		t.Fatal("an ordinary error opened another browser tab")
+	for _, message := range []string{"HTTP 403; stopped", "HTTP 429; stopped"} {
+		out.Reset()
+		reportError(errors.New(message), &out)
+		if strings.Contains(out.String(), "https://") {
+			t.Fatalf("ordinary access error incorrectly offered challenge recovery: %s", out.String())
+		}
+	}
+	if _, err := os.Stat(log); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("an ordinary error launched a browser")
 	}
 }

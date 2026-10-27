@@ -4,4 +4,4 @@
 - Never replay telemetry mutations or submit salaries, reviews, applications or profile changes. Keep captures and credentials outside Git.
 - One foreground command per account at a time. Reuse HTTP connections within that process and close them on exit; no daemon or connections retained between processes.
 - Stop on authentication, access challenges and rate limits. Do not add automatic retries.
-- On a confirmed human-verification challenge, open the fixed Glassdoor salary-page URL in the default browser, exit nonzero, and ask the human to pass it before reimporting the selected Chrome session and rerunning the command. Do not solve challenges or retry automatically; an ordinary 403 or 429 alone must not launch a browser.
+- On a confirmed human-verification challenge, print the fixed Glassdoor salary-page verification URL and exit nonzero. The CLI must not launch a browser or retry. Follow the Glassdoor skill to open the printed URL in Chrome, complete verification, reimport the same Chrome profile, and resume the original CLI command. An ordinary 403 or 429 alone must not trigger this recovery flow.
