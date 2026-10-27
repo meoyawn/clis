@@ -21,6 +21,28 @@ func connectionDocument(controls string) string {
 		`<script type="application/json">{"unused":"` + pendingControl + `"}</script></section></main></body></html>`
 }
 
+// The More menu serializes every alternative. Only modelStates selects the
+// current invitation state; finding a dormant Connect action is insufficient.
+const connectionMenuFlight = `1:{"modelStates":[{"key":{"key":{"value":{"id":"state:invitation:urn:li:member:123456"}}},"value":{"$case":"stringValue","stringValue":"Connect"}}]}
+2:{"viewTrackingSpecs":{"viewName":"profile-overflow-button"},"children":{"triggers":[{"action":{"actions":[{"$type":"proto.sdui.actions.core.ShowMenu","value":{"component":{"role":"menu","children":{"selectedStateKey":{"key":{"value":{"id":"state:invitation:urn:li:member:123456"}}},"states":"$Q3"}}}}]}}]}}
+3:[["Connect","$L4"],["Pending","$L5"]]
+4:{"children":{"role":"menuitem","componentkey":"ConnectButtonstate:invitation:urn:li:member:123456_connect","triggers":[{"action":{"actionLabel":"Invite Example Person to connect","actions":[{"$type":"proto.sdui.actions.core.Navigate","value":{"content":{"url":{"urlValue":{"url":"/preload/custom-invite/?vanityName=example-person"}}}}}]}}]}}
+5:{"children":{"role":"menuitem","componentkey":"ConnectButtonstate:invitation:urn:li:member:123456_pending","triggers":[{"action":{"actionLabel":"Pending, click to withdraw invitation sent to Example Person"}}]}}
+`
+
+func connectionMenuScript(t *testing.T, flight string) string {
+	t.Helper()
+	payload, err := json.Marshal([]string{flight})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return "<script>window.__como_rehydration__ = " + string(payload) + "</script>"
+}
+
+func pendingMenuFlight() string {
+	return strings.Replace(connectionMenuFlight, `"stringValue":"Connect"`, `"stringValue":"Pending"`, 1)
+}
+
 func TestConnectPreviewSendAndUncertainOutcomes(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
@@ -41,6 +63,9 @@ func TestConnectPreviewSendAndUncertainOutcomes(t *testing.T) {
 		{name: "pending preview", before: pendingControl, wantReads: 1, wantPending: true},
 		{name: "pending send is a no-op", send: true, before: pendingControl, wantReads: 1, wantPending: true},
 		{name: "send confirmed by pending", send: true, before: connectControl, after: pendingControl, wantPosts: 1, wantReads: 2, wantSent: true, wantPending: true},
+		{name: "More menu preview", before: connectionMenuScript(t, connectionMenuFlight), wantReads: 1, wantCan: true},
+		{name: "More menu pending is a no-op", send: true, before: connectionMenuScript(t, pendingMenuFlight()), wantReads: 1, wantPending: true},
+		{name: "More menu send confirmed by pending", send: true, before: connectionMenuScript(t, connectionMenuFlight), after: connectionMenuScript(t, pendingMenuFlight()), wantPosts: 1, wantReads: 2, wantSent: true, wantPending: true},
 		{name: "HTTP success is not confirmation", send: true, before: connectControl, after: connectControl, wantPosts: 1, wantReads: 2, wantError: true},
 		{name: "readback cannot confirm a different member", send: true, before: connectControl, after: strings.ReplaceAll(pendingControl, "123456", "999999"), wantPosts: 1, wantReads: 2, wantError: true},
 		{name: "transport failure is not retried", send: true, before: connectControl, postError: true, wantPosts: 1, wantReads: 1, wantError: true},
@@ -133,6 +158,13 @@ func TestConnectRejectsUnverifiedControlsBeforePosting(t *testing.T) {
 		{name: "sidebar alone", document: connectionDocument("") + `<aside>` + connectControl + `</aside>`},
 		{name: "wrong profile title", document: strings.ReplaceAll(connectionDocument(connectControl), "Example Person | LinkedIn", "Someone Else | LinkedIn")},
 		{name: "resolved different URN", ref: profileRef{ID: "ACoDifferentPerson"}, document: connectionDocument(connectControl)},
+		{name: "menu alternatives without a current state", document: connectionDocument(connectionMenuScript(t, strings.Replace(connectionMenuFlight, `"modelStates"`, `"unusedStates"`, 1)))},
+		{name: "menu state from another member", document: connectionDocument(connectionMenuScript(t, strings.Replace(connectionMenuFlight, "state:invitation:urn:li:member:123456", "state:invitation:urn:li:member:999999", 1)))},
+		{name: "unsupported current menu state", document: connectionDocument(connectionMenuScript(t, strings.Replace(connectionMenuFlight, `"stringValue":"Connect"`, `"stringValue":"Withdrawn"`, 1)))},
+		{name: "conflicting current menu states", document: connectionDocument(connectionMenuScript(t, strings.Replace(connectionMenuFlight, `"modelStates":[`, `"modelStates":[{"key":{"key":{"value":{"id":"state:invitation:urn:li:member:123456"}}},"value":{"$case":"stringValue","stringValue":"Pending"}},`, 1)))},
+		{name: "disabled menu action", document: connectionDocument(connectionMenuScript(t, strings.Replace(connectionMenuFlight, `"modelStates":[`, `"modelStates":[{"key":{"key":{"value":{"id":"connect-button-disabled-example-person"}}},"value":{"$case":"booleanValue","booleanValue":true}},`, 1)))},
+		{name: "menu routes to another person", document: connectionDocument(connectionMenuScript(t, strings.ReplaceAll(connectionMenuFlight, "vanityName=example-person", "vanityName=someone-else")))},
+		{name: "menu selector uses another member", document: connectionDocument(connectionMenuScript(t, strings.Replace(connectionMenuFlight, `"selectedStateKey":{"key":{"value":{"id":"state:invitation:urn:li:member:123456"`, `"selectedStateKey":{"key":{"value":{"id":"state:invitation:urn:li:member:999999"`, 1)))},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			client := connectionTestClient(t, func() (*http.Response, error) {

@@ -23,6 +23,7 @@ Usage:
   go run . auth import [--profile 'Default']
   go run . auth status
   go run . me
+  go run . api status
   go run . posts list
   go run . posts read [--save-response NEW.json] ID|https://x.com/HANDLE/status/ID
   go run . posts replies [--save-response NEW.json] ID|https://x.com/HANDLE/status/ID
@@ -70,7 +71,8 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if args[0] == "posts" && len(args) > 1 && args[1] == "create" {
 		return create(ctx, args[2:], dir, out, errOut)
 	}
-	if (args[0] != "me" || len(args) != 1) && (args[0] != "posts" || len(args) < 2 || (args[1] != "read" && args[1] != "list" && args[1] != "replies")) {
+	apiStatus := len(args) == 2 && args[0] == "api" && args[1] == "status"
+	if !apiStatus && (args[0] != "me" || len(args) != 1) && (args[0] != "posts" || len(args) < 2 || (args[1] != "read" && args[1] != "list" && args[1] != "replies")) {
 		return fmt.Errorf("unknown command %q; run go run . --help", strings.Join(args, " "))
 	}
 	var ref domain.PostRef
@@ -105,6 +107,12 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	}
 	if args[0] == "me" {
 		return writeJSON(out, map[string]any{"profile": owner, "verified": true, "fetched_at": time.Now().UTC()})
+	}
+	if apiStatus {
+		if err := c.PrepareWriteMetadata(ctx); err != nil {
+			return err
+		}
+		return writeJSON(out, map[string]any{"owner": owner, "operations": c.Operations(), "write_metadata_ready": true, "fetched_at": time.Now().UTC()})
 	}
 	if capturePath != "" {
 		f, err := os.OpenFile(capturePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)

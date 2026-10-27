@@ -181,10 +181,12 @@ sender, resolved recipient, empty `note`, `can_connect`, `pending`,
 `profile_evidence`, `sent` and `checked_at`. Review the exact sender and recipient
 with the human before using `--send`. This command sends without a note only.
 
-The profile must render a Connect control bound to that recipient's member ID,
-name and invitation URL. Serialized UI alternatives, other people's controls,
-disabled actions and ambiguous states do not authorize a send. A target-specific
-Pending control returns a no-op even with `--send`; the command never withdraws,
+The profile must expose a Connect control bound to that recipient's member ID,
+name and invitation URL. Controls under More are supported by reading the exact
+member's current model state and resolving only that selected menu variant.
+Dormant serialized alternatives, other people's controls, disabled actions and
+ambiguous states do not authorize a send. A target-specific Pending control,
+including the selected More-menu variant, returns a no-op even with `--send`; the command never withdraws,
 accepts or resends an existing invitation. Unsupported states, including profiles
 already connected without a supported control, fail without a POST.
 
@@ -244,22 +246,25 @@ Test changes with local fixtures or mocks; never send live test messages.
 Run these commands from this module:
 
 ```sh
-go run . posts create --text-file /path/to/post.txt
-go run . posts create --text-file /path/to/post.txt --publish --expect-author https://www.linkedin.com/in/example-person/ --expect-sha256 PREVIEW_HASH
+go run . posts create --text-file /path/to/post.txt --image /path/to/illustration.webp
+go run . posts create --text-file /path/to/post.txt --image /path/to/illustration.webp --publish --expect-author https://www.linkedin.com/in/example-person/ --expect-sha256 PREVIEW_HASH
 go run . posts read urn:li:activity:123456789
+go run . posts comment urn:li:activity:123456789 --text-file /path/to/comment.txt
+go run . posts comments urn:li:activity:123456789
 ```
 
 Create previews by default, using two sequential identity GETs. It prints the
-signed-in author, exact plain text, SHA-256, public audience and comment setting.
+signed-in author, exact plain text, optional image metadata, SHA-256, public audience and comment setting.
 Show the full package to the human and obtain approval before adding `--publish`.
-The author and text hash must match that review. Text is limited to 3,000 UTF-16
-code units; no truncation, scheduling, media, link cards or comments are supported.
-Native image publishing remains unsupported: the inspected image-upload flow
-returned HTTP 504 before its final post contract could be captured.
+The author and content hash must match that review. Text is limited to 3,000 UTF-16
+code units; no truncation, scheduling or link-preview cards. One native PNG, JPEG
+or WebP image up to 5 MiB is supported. The content hash includes its exact bytes;
+preview never uploads. Publishing initializes an upload, PUTs the reviewed bytes,
+registers the returned asset, and binds that asset to the new post.
 
 An approved publication records a new private 0600 attempt before one CreatePost
 POST. It saves the raw receipt privately, requires an error-free activity receipt,
-and independently reads the exact permalink to verify author and text. Only then
+and independently reads the exact permalink to verify author, text and uploaded image asset. Only then
 does output report `published:true` and `verified:true`. A confirmed duplicate is
 a no-op; any uncertain attempt blocks another POST, including across invocations.
 Inspect the account and private record before manually deciding how to reconcile
@@ -270,6 +275,36 @@ publication has intentionally not been tested with an unapproved post.
 Read accepts an exact activity URN or canonical LinkedIn feed-update permalink.
 It checks the activity marker and focus card, excluding comments and sidebar
 content. `--save-response NEW.html` creates a private debugging capture.
+
+Comments are restricted to your own posts and 1,250 UTF-16 code units. Preview
+prints author, parent, exact text and a package hash. Use `--publish --expect-author
+PROFILE_URL --expect-sha256 HASH` only for an approved package. A private attempt
+precedes the single comment POST. Readback must identify the exact comment, owner,
+parent and text, including expanded external-link targets. An existing matching
+comment is a verified no-op and reconciles a saved uncertain attempt. Without a
+matching readback, an uncertain attempt blocks another send. `posts comments`
+reads the rendered first page; it does not exhaust older history.
+
+## Article drafts and contract inspection
+
+```sh
+go run . articles read-draft https://www.linkedin.com/article/edit/123456789/
+go run . articles delete-draft 123456789
+go run . articles delete-draft 123456789 --delete --expect-author PROFILE_URL --expect-sha256 PREVIEW_HASH
+go run . api capture --save-response /private/path/new.html https://www.linkedin.com/article/edit/123456789/
+```
+
+Draft deletion requires the exact reviewed personal draft, its sole signed-in
+author, DRAFT state and no scheduled/published metadata. The CLI saves a private
+copy before one DELETE and independently queries the exact draft finder to verify
+absence. A timeout is not retried. Published articles are refused. The endpoint
+comes from the editor's observed public application bundle, not a guessed route.
+
+`api capture` is a read-only debugging tool for LinkedIn pages/API responses and
+observed public `static.licdn.com/aero-v1/sc/h/` assets. It saves a new 0600 file,
+never executes scripts or follows redirects, and never sends cookies to the asset
+host. Keep captures outside Git. Website UI/network inspection is for learning
+changed contracts; perform account actions and verification through the CLI.
 
 ## Private analytics
 

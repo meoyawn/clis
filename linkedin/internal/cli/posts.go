@@ -59,6 +59,9 @@ func runPosts(ctx context.Context, args []string, store authStore, stdout, stder
 		return writeHelp(stdout, []string{"posts"})
 	}
 	command := args[0]
+	if command == "comment" || command == "comments" {
+		return runComments(ctx, args, store, stdout, stderr)
+	}
 	if command != "create" && command != "read" {
 		return fmt.Errorf("unknown posts command %q; expected create or read", command)
 	}
@@ -146,28 +149,36 @@ func runPosts(ctx context.Context, args []string, store authStore, stdout, stder
 }
 
 func (c *linkedinClient) readPost(ctx context.Context, ref domain.PostRef, capture io.Writer) (domain.Post, error) {
-	u, err := url.Parse(ref.URL())
+	data, err := c.readPostDocument(ctx, ref, capture)
 	if err != nil {
 		return domain.Post{}, err
 	}
+	return service.ParsePostDocument(ref, string(data))
+}
+
+func (c *linkedinClient) readPostDocument(ctx context.Context, ref domain.PostRef, capture io.Writer) ([]byte, error) {
+	u, err := url.Parse(ref.URL())
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.get(ctx, u.RequestURI(), http.Header{"Accept": {"text/html"}, "Accept-Language": {"en-US,en;q=0.9"}})
 	if err != nil {
-		return domain.Post{}, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(resp.Body, (16<<20)+1))
 	if err != nil {
-		return domain.Post{}, fmt.Errorf("read post document: %w", err)
+		return nil, fmt.Errorf("read post document: %w", err)
 	}
 	if len(data) > 16<<20 {
-		return domain.Post{}, fmt.Errorf("post document exceeds 16 MiB")
+		return nil, fmt.Errorf("post document exceeds 16 MiB")
 	}
 	if capture != nil {
 		if _, err := capture.Write(data); err != nil {
-			return domain.Post{}, fmt.Errorf("save post document: %w", err)
+			return nil, fmt.Errorf("save post document: %w", err)
 		}
 	}
-	return service.ParsePostDocument(ref, string(data))
+	return data, nil
 }
 
 func postContentHash(draft domain.PostDraft, image *service.PostImage) string {
@@ -384,6 +395,8 @@ const postsHelp = `Preview and publish approved personal LinkedIn feed posts.
 Usage:
   linkedin posts create --text-file FILE [--image FILE] [--publish --expect-author URL --expect-sha256 HASH]
   linkedin posts read <feed-permalink-or-activity-URN>
+  linkedin posts comment <post> --text-file FILE [--publish --expect-author URL --expect-sha256 HASH]
+  linkedin posts comments <post>
 
 Create previews the signed-in author, public audience (Anyone), comments (Anyone),
 exact UTF-8 text, optional image metadata and SHA-256. It makes only two identity GETs and writes nothing.
@@ -400,4 +413,13 @@ No retries. Repeating a confirmed post is a local no-op; an unconfirmed attempt
 blocks another POST. Inspect the saved receipt and your profile before retrying.
 History prevents duplicates made by this CLI/config directory, not other clients.
 Read is one GET, with no reactions, read receipts, comments or other mutations.
+
+Comment previews require your own parent post and print the exact author, target,
+text and package SHA-256. Comments are limited to 1250 UTF-16 code units. Publishing
+saves a private attempt before one comment POST and reads the parent again to
+verify the new comment's ID, author, text and parent. A matching existing comment
+is a verified no-op, including reconciliation after an uncertain local receipt.
+An uncertain attempt without a matching readback blocks another POST.
+comments reads the rendered first page, preserving expanded external link targets;
+it does not claim to exhaust older comments. No image, reply or link-preview cards.
 `

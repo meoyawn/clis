@@ -235,6 +235,9 @@ func (c *linkedinClient) request(ctx context.Context, method, path string, body 
 		if method == http.MethodPut && strings.HasPrefix(path, "/dms-uploads/") {
 			return resp, nil
 		}
+		if resp.StatusCode == http.StatusNoContent && method == http.MethodDelete && strings.HasPrefix(path, "/voyager/api/voyagerPublishingDashFirstPartyArticles/urn:li:fsd_firstPartyArticle:") {
+			return resp, nil
+		}
 		statusError = fmt.Errorf("unexpected LinkedIn HTTP %d for %s", resp.StatusCode, method)
 	case http.StatusUnauthorized, http.StatusForbidden, 999:
 		statusError = fmt.Errorf("LinkedIn returned HTTP %d: sign in in your browser, complete any checkpoint, and run linkedin auth login again", resp.StatusCode)

@@ -346,6 +346,9 @@ func (c *Client) CreatePost(ctx context.Context, draft domain.Draft, image *Imag
 	if c.owner.ID == "" || c.operations[domain.CreateOperation().String()] == "" {
 		return domain.Post{}, fmt.Errorf("publication requires a verified signed-in account and create operation")
 	}
+	if err := c.PrepareWriteMetadata(ctx); err != nil {
+		return domain.Post{}, err
+	}
 	media := []map[string]any{}
 	var mediaID string
 	if image != nil {
@@ -359,10 +362,10 @@ func (c *Client) CreatePost(ctx context.Context, draft domain.Draft, image *Imag
 	variables := map[string]any{"tweet_text": draft.Text(), "media": map[string]any{"media_entities": media, "possibly_sensitive": false}, "semantic_annotation_ids": []string{}, "disallowed_reply_options": nil, "semantic_annotation_options": map[string]any{"composition_signal_1": true, "source": "Profile"}}
 	if replyTo != "" {
 		variables["reply"] = map[string]any{"in_reply_to_tweet_id": replyTo, "exclude_reply_user_ids": []string{}}
-		variables["semantic_annotation_options"] = map[string]any{"composition_signal_1": true, "source": "Unknown"}
+		variables["semantic_annotation_options"] = map[string]any{"composition_signal_1": true, "source": "UniversalLink"}
 	}
 	id := c.operations["CreateTweet"]
-	body, err := json.Marshal(map[string]any{"variables": variables, "features": features, "queryId": id})
+	body, err := json.Marshal(map[string]any{"variables": variables, "features": writeFeatures(), "queryId": id})
 	if err != nil {
 		return domain.Post{}, err
 	}
@@ -395,6 +398,9 @@ func (c *Client) CreatePost(ctx context.Context, draft domain.Draft, image *Imag
 		return domain.Post{}, fmt.Errorf("decode create receipt: %w", err)
 	}
 	created := receipt.Data.Create.Results.Result
+	if created.ID == "" && created.Legacy.ID == "" {
+		return domain.Post{}, fmt.Errorf("the X API returned an empty create result without a post ID; publication is unconfirmed; inspect the private receipt and own replies before any retry")
+	}
 	if (created.Core.User.Result.ID != "" && created.Core.User.Result.ID != c.owner.ID) || (created.Legacy.AuthorID != "" && created.Legacy.AuthorID != c.owner.ID) {
 		return domain.Post{}, fmt.Errorf("create receipt belongs to a different author")
 	}
@@ -416,4 +422,17 @@ func (c *Client) CreatePost(ctx context.Context, draft domain.Draft, image *Imag
 		return domain.Post{}, fmt.Errorf("post may be published at %s but author/text/media/reply readback did not match; inspect before retrying", readback.URL)
 	}
 	return readback, nil
+}
+
+func writeFeatures() map[string]bool {
+	// The captured write contract excludes profile-only read switches.
+	result := map[string]bool{}
+	for key, value := range features {
+		switch key {
+		case "rweb_video_screen_enabled", "creator_subscriptions_tweet_preview_api_enabled", "responsive_web_enhance_cards_enabled", "hidden_profile_subscriptions_enabled", "subscriptions_verification_info_is_identity_verified_enabled", "subscriptions_verification_info_verified_since_enabled", "highlights_tweets_tab_ui_enabled", "responsive_web_twitter_article_notes_tab_enabled", "subscriptions_feature_can_gift_premium":
+			continue
+		}
+		result[key] = value
+	}
+	return result
 }

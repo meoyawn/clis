@@ -8,6 +8,7 @@ go run . --help
 go run . auth import --profile Default
 go run . auth status
 go run . me
+go run . api status
 go run . posts list
 go run . posts read https://x.com/example/status/123456789
 ```
@@ -37,6 +38,11 @@ posts do not substitute for the focal post. `posts list` reads one page of up to
 exhaust historical posts or replies, infer unseen views as zero, or attribute
 job-search outcomes to a post. Profile output excludes private contact fields.
 
+`posts replies POST_URL` checks direct own replies in the conversation and the
+first own-replies timeline page. This is a bounded read, not an exhaustive history.
+`posts read` and `posts replies` accept `--save-response NEW.json` before the ID to
+save the raw conversation response privately for debugging.
+
 ## Preview and publish
 
 ```sh
@@ -65,6 +71,21 @@ media IDs and reply target yield `published:true` and `verified:true`. Confirmed
 duplicates are no-ops; unconfirmed records block another attempt even after a
 timeout or process restart. Inspect your profile and the record before manually
 reconciling it. Do not delete a record and blindly retry.
+
+The raw create response is reserved in a separate 0600 receipt file before
+transmission and retained even for HTTP/API errors or an empty create result.
+An empty result is unconfirmed, never a successful publication or permission to
+resend. Read the exact post and own replies before reconciling a saved attempt.
+
+Writes derive fresh `x-client-transaction-id` metadata from the current bootstrap
+verification key, animation frames and public `ondemand.s` bundle. Values are
+bound to the HTTP method, pathname and time; they are never replayed or printed.
+`api status` verifies that these materials can be read and shows only public query
+IDs and readiness. Missing/changed materials stop before uploading or publishing.
+The pure Go animation/signing implementation derives from
+[George Santiago's MIT implementation](https://github.com/ichioda/x-client-transaction-id),
+with attribution in `internal/service/transaction/LICENSE`. It performs no HTTP,
+executes no website scripts, and uses the owning service's explicit HTTP client.
 
 The contracts were inspected in signed-in Chrome on 27 October 2026. Publish
 and reply requests were intercepted at request stage and aborted before

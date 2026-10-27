@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -145,7 +144,6 @@ func (c *linkedinClient) searchKeywords(ctx context.Context, queries []string, l
 // the search box value during hydration. Decode those JSON records as data,
 // never execute scripts or treat an echoed URL/initialParams as confirmation.
 func searchQueryConfirmed(doc *html.Node, query string) bool {
-	var flight strings.Builder
 	for n := range doc.Descendants() {
 		if n.Type != html.ElementNode {
 			continue
@@ -153,28 +151,9 @@ func searchQueryConfirmed(doc *html.Node, query string) bool {
 		if n.Data == "input" && attr(n, "componentkey") == "SearchResults_SearchTyahInputRef" && attr(n, "value") == query {
 			return true
 		}
-		if n.Data != "script" || n.FirstChild == nil || n.FirstChild.Type != html.TextNode {
-			continue
-		}
-		text, ok := strings.CutPrefix(strings.TrimSpace(n.FirstChild.Data), "window.__como_rehydration__ =")
-		if !ok {
-			continue
-		}
-		var chunks []string
-		if json.Unmarshal([]byte(strings.TrimSuffix(strings.TrimSpace(text), ";")), &chunks) != nil {
-			continue
-		}
-		for _, chunk := range chunks {
-			flight.WriteString(chunk)
-		}
 	}
-	for line := range strings.SplitSeq(flight.String(), "\n") {
-		_, payload, ok := strings.Cut(line, ":")
-		if !ok {
-			continue
-		}
-		var value any
-		if json.Unmarshal([]byte(payload), &value) == nil && hasSearchKeywordState(value, query) {
+	for _, value := range readDocumentData(doc) {
+		if hasSearchKeywordState(value, query) {
 			return true
 		}
 	}
@@ -206,8 +185,8 @@ func hasSearchKeywordState(value any, query string) bool {
 	switch v := value.(type) {
 	case map[string]any:
 		if v["$type"] == "proto.sdui.actions.core.SetState" &&
-			searchStateString(v, "value", "state", "key", "key", "value", "id") == "SearchResultsGlobalTyahKeywordsBinding" &&
-			searchStateString(v, "value", "state", "value", "stringValue") == query {
+			jsonStringAt(v, "value", "state", "key", "key", "value", "id") == "SearchResultsGlobalTyahKeywordsBinding" &&
+			jsonStringAt(v, "value", "state", "value", "stringValue") == query {
 			return true
 		}
 		for _, child := range v {
@@ -223,18 +202,6 @@ func hasSearchKeywordState(value any, query string) bool {
 		}
 	}
 	return false
-}
-
-func searchStateString(value any, path ...string) string {
-	for _, key := range path {
-		object, ok := value.(map[string]any)
-		if !ok {
-			return ""
-		}
-		value = object[key]
-	}
-	text, _ := value.(string)
-	return text
 }
 
 func peopleSearchDocument(r io.Reader) (*html.Node, *html.Node, error) {

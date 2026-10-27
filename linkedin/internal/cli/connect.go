@@ -176,9 +176,7 @@ func parseConnectionAvailability(body string, target person) (connectionAvailabi
 			if label != "Invite "+target.Name+" to connect" || attr(n, "aria-disabled") != "false" {
 				continue
 			}
-			u, err := url.Parse(attr(n, "href"))
-			if err != nil || u.User != nil || (u.Host != "" && u.Host != "www.linkedin.com") || (u.Scheme != "" && u.Scheme != "https") ||
-				u.Path != "/preload/custom-invite/" || len(u.Query()["vanityName"]) != 1 || u.Query().Get("vanityName") != ref.Slug {
+			if !validConnectURL(attr(n, "href"), ref) {
 				continue
 			}
 			state.CanConnect, state.Evidence = true, label
@@ -188,10 +186,19 @@ func parseConnectionAvailability(body string, target person) (connectionAvailabi
 			}
 		}
 	}
+	if !state.CanConnect && !state.Pending {
+		state = connectionMenuAvailability(root, target, ref)
+	}
 	if state.CanConnect == state.Pending {
 		return connectionAvailability{}, fmt.Errorf("profile %q does not expose one supported target-specific Connect or Pending state; existing connections, other invitation flows and changed responses are not sent", target.URL)
 	}
 	return state, nil
+}
+
+func validConnectURL(raw string, ref profileRef) bool {
+	u, err := url.Parse(raw)
+	return err == nil && u.User == nil && (u.Host == "" || u.Host == "www.linkedin.com") && (u.Scheme == "" || u.Scheme == "https") &&
+		u.Path == "/preload/custom-invite/" && len(u.Query()["vanityName"]) == 1 && u.Query().Get("vanityName") == ref.Slug
 }
 
 func connectionControlHidden(n *html.Node) bool {

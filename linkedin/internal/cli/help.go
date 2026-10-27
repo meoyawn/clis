@@ -22,6 +22,11 @@ Commands:
   messages send <person>      Preview or send approved plain text
   posts create                Preview or publish an approved personal feed post
   posts read <post>            Read one exact feed post
+  posts comment <post>         Preview or publish a comment on your own post
+  posts comments <post>        Read the rendered comments on an exact post
+  articles read-draft <draft>  Read one exact personal article draft
+  articles delete-draft <id>   Preview or delete an exact unpublished draft
+  api capture                 Save a private read-only contract capture
   analytics summary           Read your profile and content analytics
   analytics compare <a> <b>    Compare two local analytics snapshots
   auth login                  Import browser cookies with SweetCookie
@@ -217,7 +222,8 @@ Examples:
   linkedin people connect example-person --send
 
 Default is read-only: identify sender and recipient, then verify the exact
-target's rendered Connect or Pending control. Output includes sender, recipient,
+target's Connect or Pending control, including the active More-menu state.
+Output includes sender, recipient,
 note (always empty), can_connect, pending, profile_evidence, sent and checked_at.
 Pending invitations are a no-op, including with --send. Already connected,
 restricted, unsupported or ambiguous profiles never trigger a POST.
@@ -384,8 +390,12 @@ func writeHelp(w io.Writer, commands []string) error {
 		help = messagesReadHelp
 	case "messages send":
 		help = messagesSendHelp
-	case "posts", "posts create", "posts read":
+	case "posts", "posts create", "posts read", "posts comment", "posts comments":
 		help = postsHelp
+	case "articles", "articles read-draft", "articles delete-draft":
+		help = articlesHelp
+	case "api", "api capture":
+		help = apiHelp
 	case "analytics", "analytics summary", "analytics compare":
 		help = analyticsHelp
 	case "experience", "experience update":

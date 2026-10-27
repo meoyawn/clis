@@ -81,6 +81,10 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return runMessages(ctx, args[1:], store, stdout, stderr)
 	case "posts":
 		return runPosts(ctx, args[1:], store, stdout, stderr)
+	case "api":
+		return runAPICapture(ctx, args[1:], store, stdout, stderr)
+	case "articles":
+		return runArticles(ctx, args[1:], store, stdout, stderr)
 	case "analytics":
 		return runAnalytics(ctx, args[1:], store, stdout, stderr)
 	case "experience":

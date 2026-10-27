@@ -13,18 +13,21 @@ import (
 	"time"
 
 	"github.com/meoyawn/clis/twitter/internal/domain"
+	"github.com/meoyawn/clis/twitter/internal/service/transaction"
 )
 
 const Origin = "https://x.com"
 const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
 
 type Client struct {
-	http          *http.Client
-	session       Session
-	bearer        string
-	operations    map[string]string
-	owner         domain.Profile
-	threadCapture io.Writer
+	http              *http.Client
+	session           Session
+	bearer            string
+	operations        map[string]string
+	owner             domain.Profile
+	threadCapture     io.Writer
+	bootstrapDocument string
+	transaction       *transaction.Generator
 }
 
 func NewClient(httpClient *http.Client, session Session) *Client {
@@ -58,6 +61,13 @@ func (c *Client) request(ctx context.Context, method, target, contentType string
 			req.Header.Set("X-Twitter-Auth-Type", "OAuth2Session")
 			req.Header.Set("X-Twitter-Active-User", "yes")
 			req.Header.Set("X-Twitter-Client-Language", "en")
+			if c.transaction != nil && strings.HasPrefix(u.Path, "/i/api/graphql/") {
+				header, err := c.transaction.Header(method, u.Path, time.Now())
+				if err != nil {
+					return nil, err
+				}
+				req.Header.Set("X-Client-Transaction-Id", header)
+			}
 		}
 	}
 	for _, headers := range extraHeaders {
@@ -143,7 +153,27 @@ func (c *Client) Bootstrap(ctx context.Context) (domain.Profile, error) {
 		return domain.Profile{}, fmt.Errorf("signed-in bootstrap profile does not match selected Chrome cookie identity")
 	}
 	c.owner = owner
+	c.bootstrapDocument = string(data)
 	return owner, nil
+}
+
+func (c *Client) PrepareWriteMetadata(ctx context.Context) error {
+	if c.transaction != nil {
+		return nil
+	}
+	chunkURL, _, err := transaction.ChunkURL(c.bootstrapDocument)
+	if err != nil {
+		return fmt.Errorf("prepare per-request write metadata: %w", err)
+	}
+	chunk, err := c.request(ctx, http.MethodGet, chunkURL, "", nil)
+	if err != nil {
+		return err
+	}
+	c.transaction, err = transaction.New(c.bootstrapDocument, string(chunk))
+	if err != nil {
+		return fmt.Errorf("prepare per-request write metadata: %w", err)
+	}
+	return nil
 }
 
 type bootstrapState struct {
@@ -215,6 +245,16 @@ func HTTPClient() *http.Client {
 }
 
 func (c *Client) Owner() domain.Profile { return c.owner }
+
+// Operations exposes only public persisted query identifiers for contract
+// inspection. Session credentials and public client authorization stay private.
+func (c *Client) Operations() map[string]string {
+	result := map[string]string{}
+	for _, op := range []domain.Operation{domain.ProfileOperation(), domain.TimelineOperation(), domain.RepliesOperation(), domain.ReadOperation(), domain.CreateOperation()} {
+		result[op.String()] = c.operations[op.String()]
+	}
+	return result
+}
 
 func (c *Client) CapturePostResponses(w io.Writer) { c.threadCapture = w }
 

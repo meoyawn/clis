@@ -16,8 +16,10 @@ const diagnosticBodyLimit = 16 << 10
 var diagnosticCredential = regexp.MustCompile(`(?i)((?:authorization|cookie|csrf[-_]?token|li_at|jsessionid|access[-_]?token|refresh[-_]?token|password|secret)["']?\s*[=:]\s*["']?)[^\r\n;,<>&"'()]+`)
 
 type diagnosticError struct {
-	cause  error
-	detail string
+	cause       error
+	detail      string
+	status      int
+	restliError bool
 }
 
 func (e *diagnosticError) Error() string { return e.detail }
@@ -132,5 +134,10 @@ func (c *linkedinClient) requestFailure(req *http.Request, resp *http.Response, 
 	}
 	encoded, _ := json.MarshalIndent(detail, "", "  ")
 	summary := c.redactDiagnostic(strings.ReplaceAll(cause.Error(), req.URL.String(), safeURL))
-	return &diagnosticError{cause: cause, detail: fmt.Sprintf("%s\nHTTP diagnostics:\n%s", summary, encoded)}
+	failure := &diagnosticError{cause: cause, detail: fmt.Sprintf("%s\nHTTP diagnostics:\n%s", summary, encoded)}
+	if resp != nil {
+		failure.status = resp.StatusCode
+		failure.restliError = resp.Header.Get("X-Restli-Error-Response") == "true"
+	}
+	return failure
 }

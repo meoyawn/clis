@@ -3,6 +3,9 @@ package cli
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +31,18 @@ func response(status int, body string) *http.Response {
 
 const userJSON = `{"__typename":"User","rest_id":"42","core":{"name":"Example Author","screen_name":"example"},"relationship_counts":{"followers":12}}`
 const tweetJSON = `{"__typename":"Tweet","rest_id":"123","core":{"user_results":{"result":` + userJSON + `}},"legacy":{"id_str":"123","user_id_str":"42","full_text":"Keep the session running https://t.co/example https://t.co/media","created_at":"Tue Oct 27 10:00:00 +0000 2026","favorite_count":1,"reply_count":0,"retweet_count":0,"quote_count":0,"bookmark_count":0,"entities":{"urls":[{"url":"https://t.co/example","expanded_url":"https://example.com/article"}]},"extended_entities":{"media":[{"id_str":"456","url":"https://t.co/media"}]}},"views":{"count":"9"}}`
+
+func signingDocument() string {
+	key := make([]byte, 48)
+	for i := range key {
+		key[i] = byte(i)
+	}
+	doc := `<meta name="twitter-site-verification" content="` + base64.StdEncoding.EncodeToString(key) + `"><script>,12345:"ondemand.s",12345:"abcdef"</script>`
+	for i := range 4 {
+		doc += fmt.Sprintf(`<svg id="loading-x-anim-%d"><path d="M0"/><path d="M00000000%s"/></svg>`, i, strings.Repeat("C10 20 30 40 50 60 70 80 90 100 110", 16))
+	}
+	return doc
+}
 
 // This boundary test owns the publish lifecycle: read-only preview, exact image
 // upload, independent readback, and a private durable guard across invocations.
@@ -79,6 +94,9 @@ func TestPostPackageLifecycle(t *testing.T) {
 					if r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" {
 						t.Fatal("account secrets leaked to public asset host")
 					}
+					if strings.Contains(r.URL.Path, "/ondemand.s.") {
+						return response(200, `(a[1],16);(a[2],16);`), nil
+					}
 					bundle := `const token="AAAAA` + strings.Repeat("a", 70) + `";`
 					for _, op := range []string{"UserByScreenName", "TweetDetail", "CreateTweet", "UserOriginalsTimeline"} {
 						bundle += `({queryId:"test-query",operationName:"` + op + `"});`
@@ -89,7 +107,7 @@ func TestPostPackageLifecycle(t *testing.T) {
 					gets++
 					switch {
 					case r.URL.Path == "/home":
-						return response(200, `<script src="https://abs.twimg.com/responsive-web/client-web/main.fixture.js"></script><script>window.__INITIAL_STATE__={"settings":{"remote":{"settings":{"screen_name":"example"}}}};</script>`), nil
+						return response(200, signingDocument()+`<script src="https://abs.twimg.com/responsive-web/client-web/main.fixture.js"></script><script>window.__INITIAL_STATE__={"settings":{"remote":{"settings":{"screen_name":"example"}}}};</script>`), nil
 					case strings.HasSuffix(r.URL.Path, "/UserByScreenName"):
 						return response(200, `{"data":{"user":{"result":`+userJSON+`}}}`), nil
 					case strings.HasSuffix(r.URL.Path, "/TweetDetail"):
@@ -109,6 +127,27 @@ func TestPostPackageLifecycle(t *testing.T) {
 					}
 				}
 				// The attempt must be persisted before even uploading an image.
+				if strings.HasSuffix(r.URL.Path, "/CreateTweet") {
+					wire, err := base64.RawStdEncoding.DecodeString(r.Header.Get("X-Client-Transaction-Id"))
+					if err != nil || len(wire) != 70 {
+						t.Fatal("create is missing valid per-request transaction metadata")
+					}
+					for i := 1; i < len(wire); i++ {
+						wire[i] ^= wire[0]
+					}
+					for i := range 48 {
+						if wire[i+1] != byte(i) {
+							t.Fatal("transaction uses a different bootstrap key")
+						}
+					}
+					seconds := binary.LittleEndian.Uint32(wire[49:53])
+					// Synthetic frames resolve to the start color and identity
+					// transform, so the independent animation string is fixed.
+					digest := sha256.Sum256([]byte(fmt.Sprintf("%s!%s!%dobfiowerehiringa141e100100", r.Method, r.URL.Path, seconds)))
+					if !bytes.Equal(wire[53:69], digest[:16]) || wire[69] != 3 {
+						t.Fatal("transaction metadata is not bound to this method/path/time")
+					}
+				}
 				data, err := os.ReadFile(packagePath)
 				if err != nil {
 					t.Fatalf("POST before private attempt: %v", err)

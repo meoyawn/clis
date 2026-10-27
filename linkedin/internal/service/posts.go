@@ -117,6 +117,13 @@ func PostReceipt(data []byte) (domain.PostRef, error) {
 		visit = func(value any) {
 			switch value := value.(type) {
 			case map[string]any:
+				// Current completions pass the new activity to follow-up feed
+				// actions as a numeric activityId instead of a permalink.
+				if id, ok := value["activityId"].(string); ok {
+					if ref, err := domain.NewPostRef("urn:li:activity:" + id); err == nil {
+						found[ref.URN()] = ref
+					}
+				}
 				for _, child := range value {
 					visit(child)
 				}
