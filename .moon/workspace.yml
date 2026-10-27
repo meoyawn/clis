@@ -6,10 +6,13 @@ projects:
   hh: hh
   invitro: invitro
   linkedin: linkedin
+  lemana: lemana
   levels-fyi: levels-fyi
   megastroy: megastroy
   ozon: ozon
   planeta: planeta
+  santehnika: santehnika
+  twitter: twitter
   uslugi-tatar: uslugi-tatar
 
 versionConstraint: '>=2.6.2 <3.0.0'

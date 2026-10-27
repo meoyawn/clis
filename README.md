@@ -8,7 +8,10 @@ A set of useful Go CLIs.
 | [bris](bris/) | Utility meter readings |
 | [hh](hh/) | Jobs, resumes, and applications |
 | [invitro](invitro/) | Medical test catalog and promotions |
-| [linkedin](linkedin/) | Profiles, connections, and messages |
+| [linkedin](linkedin/) | Profiles, connections, messages, text posts, and private analytics |
+| [lemana](lemana/) | Lemana PRO catalog, characteristics, reviews and Kazan stock |
+| [santehnika](santehnika/) | Santehnika Online catalog and product details |
+| [twitter](twitter/) | X posts, native images, own-post replies, and engagement counters |
 | [megastroy](megastroy/) | Home improvement catalog |
 | [ozon](ozon/) | Products, reviews, and shopping cart |
 | [planeta](planeta/) | Pharmacy catalog and availability |

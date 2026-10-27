@@ -21,6 +21,15 @@ import (
 const DefaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
 const maxPageBytes = 16 << 20
 
+// DDoSGuardError identifies a blocked catalog request that needs human clearance.
+type DDoSGuardError struct {
+	URL string
+}
+
+func (e *DDoSGuardError) Error() string {
+	return fmt.Sprintf("DDoS-Guard rejected the anonymous session at %s; no request was retried", e.URL)
+}
+
 type Client struct {
 	http     *http.Client
 	base     *url.URL
@@ -91,6 +100,9 @@ func (c *Client) get(ctx context.Context, u *url.URL) (*goquery.Document, int, e
 		return nil, 0, err
 	}
 	defer response.Body.Close()
+	if response.StatusCode == http.StatusForbidden {
+		return nil, 0, &DDoSGuardError{URL: u.String()}
+	}
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxPageBytes+1))
 	if err != nil {
 		return nil, 0, fmt.Errorf("read %s: %w", u.Path, err)
@@ -99,8 +111,8 @@ func (c *Client) get(ctx context.Context, u *url.URL) (*goquery.Document, int, e
 		return nil, 0, fmt.Errorf("page exceeds %d bytes", maxPageBytes)
 	}
 	lower := bytes.ToLower(body)
-	if bytes.Contains(lower, []byte("<title>ddos-guard")) || bytes.Contains(lower, []byte("data-ddg-origin=")) || response.StatusCode == http.StatusForbidden {
-		return nil, 0, fmt.Errorf("DDoS-Guard rejected the anonymous session; open %s in Chrome, then run `megastroy auth import --browser chrome` and retry (no automatic retry)", Origin)
+	if bytes.Contains(lower, []byte("<title>ddos-guard")) || bytes.Contains(lower, []byte("data-ddg-origin=")) {
+		return nil, 0, &DDoSGuardError{URL: u.String()}
 	}
 	if response.StatusCode >= 300 && response.StatusCode < 400 {
 		return nil, 0, fmt.Errorf("HTTP %d redirect from %s; redirect not followed", response.StatusCode, u.Path)

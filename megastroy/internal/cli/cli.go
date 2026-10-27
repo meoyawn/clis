@@ -20,7 +20,6 @@ Usage:
                         [--filter KEY=VALUE]... [--sort ORDER]
                         [--page N] [--limit N]
   megastroy details CODE|URL
-  megastroy image IMAGE_URL [--output FILE]
   megastroy auth import [--browser chrome] [--browser-profile PROFILE]
   megastroy auth status
 
@@ -40,25 +39,34 @@ Search cards and details include rating (displayed stars out of 5) and
 review_count; unpublished values are null. Ratings need no additional request.
 id and show are aliases for details.
 
-Search and details return product image URLs in images. Use image with one of
-those URLs to download a picture for viewing, with one HTTP request and no auth
-required. JSON includes the absolute local path, content_type, and bytes.
-Without --output a temporary file is created; existing files are never replaced.
-Images are not fetched automatically by search or details.
+Search and details return direct product image URLs in images. Download only
+the pictures you need with curl/wget, then view the saved files locally.
+Do not open images in a browser. Images are not fetched automatically.
 
 All commands support --timeout 60s and --user-agent TEXT. JSON is the default;
 --json is accepted for compatibility. Options can precede/follow positional
 arguments; -- ends option parsing.
 
-No browser is launched. auth import reads only anonymous DDoS-Guard cookies
-from your existing browser; import/status make no HTTP requests. If access is
-rejected, open kazan.megastroy.com in the browser and repeat auth import.
+auth import reads only anonymous DDoS-Guard cookies from your existing browser;
+import/status make no HTTP requests. On DDoS-Guard rejection, the CLI prints only
+the complete rejected URL to stderr and exits unsuccessfully. Open that URL in
+Chrome, complete the check, then run auth import for that same browser/profile
+and rerun your original command. The CLI does not launch a browser or retry.
 `
 
 type repeated []string
 
 func (r *repeated) String() string     { return strings.Join(*r, ", ") }
 func (r *repeated) Set(s string) error { *r = append(*r, s); return nil }
+
+func reportError(err error, stderr io.Writer) {
+	var blocked *megastroy.DDoSGuardError
+	if errors.As(err, &blocked) {
+		fmt.Fprintln(stderr, blocked.URL)
+		return
+	}
+	fmt.Fprintln(stderr, "megastroy:", err)
+}
 
 func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
@@ -69,8 +77,8 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if command == "auth" {
 		return runAuth(ctx, args[1:], stdout)
 	}
-	if command != "search" && command != "details" && command != "id" && command != "show" && command != "image" {
-		return fmt.Errorf("unknown command %q; use search, details, image, or auth", command)
+	if command != "search" && command != "details" && command != "id" && command != "show" {
+		return fmt.Errorf("unknown command %q; use search, details, or auth", command)
 	}
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -79,10 +87,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	flags.Bool("json", false, "JSON output (default)")
 	o := megastroy.SearchOptions{Page: 1}
 	var rawFilters repeated
-	var sortValue, category, output string
-	if command == "image" {
-		flags.StringVar(&output, "output", "", "save image to a new file; default is a temporary file")
-	}
+	var sortValue, category string
 	if command == "search" {
 		flags.BoolVar(&o.IncludeFilters, "include-filters", false, "include current filters and category hierarchy")
 		flags.IntVar(&o.Page, "page", 1, "server page, starting at 1")
@@ -99,22 +104,6 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	if err := validateCommon(*timeout, *userAgent); err != nil {
 		return err
-	}
-	if command == "image" {
-		if flags.NArg() != 1 {
-			return fmt.Errorf("image requires exactly one URL from a product's images array")
-		}
-		client, err := megastroy.NewClient(megastroy.Session{UserAgent: *userAgent})
-		if err != nil {
-			return err
-		}
-		ctx, cancel := context.WithTimeout(ctx, *timeout)
-		defer cancel()
-		result, err := client.Image(ctx, flags.Arg(0), output)
-		if err != nil {
-			return err
-		}
-		return writeJSON(stdout, result)
 	}
 	if command == "search" {
 		o.Query = strings.TrimSpace(strings.Join(flags.Args(), " "))

@@ -7,10 +7,13 @@ use (
 	./glassdoor
 	./hh
 	./invitro
-	./linkedin
+	./lemana
 	./levels-fyi
+	./linkedin
 	./megastroy
 	./ozon
 	./planeta
+	./santehnika
+	./twitter
 	./uslugi-tatar
 )

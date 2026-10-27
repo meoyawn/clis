@@ -20,6 +20,10 @@ Commands:
   experience update <person> Preview or update your experience description
   messages read <person>      Read recent messages in a direct conversation
   messages send <person>      Preview or send approved plain text
+  posts create                Preview or publish an approved personal feed post
+  posts read <post>            Read one exact feed post
+  analytics summary           Read your profile and content analytics
+  analytics compare <a> <b>    Compare two local analytics snapshots
   auth login                  Import browser cookies with SweetCookie
   auth status                 Check saved cookies locally
   auth logout                 Remove saved cookies
@@ -380,6 +384,10 @@ func writeHelp(w io.Writer, commands []string) error {
 		help = messagesReadHelp
 	case "messages send":
 		help = messagesSendHelp
+	case "posts", "posts create", "posts read":
+		help = postsHelp
+	case "analytics", "analytics summary", "analytics compare":
+		help = analyticsHelp
 	case "experience", "experience update":
 		help = experienceHelp
 	case "auth":

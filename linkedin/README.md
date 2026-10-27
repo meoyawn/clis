@@ -1,6 +1,6 @@
 # linkedin
 
-A Go CLI that returns LinkedIn people searches, company people, profiles, mutual connections, and messages as JSON using your browser's
+A Go CLI that returns LinkedIn people searches, company people, profiles, mutual connections, messages, text posts and private analytics as JSON using your browser's
 signed-in session. Cookie import uses [SweetCookie](https://github.com/steipete/sweetcookie/).
 
 ```sh
@@ -238,6 +238,63 @@ Only a matching server receipt is reported as `sent:true`. No send is retried
 automatically. After an uncertain outcome, read the conversation and inspect
 the returned text and origin token before deciding whether to send again.
 Test changes with local fixtures or mocks; never send live test messages.
+
+## Posts
+
+Run these commands from this module:
+
+```sh
+go run . posts create --text-file /path/to/post.txt
+go run . posts create --text-file /path/to/post.txt --publish --expect-author https://www.linkedin.com/in/example-person/ --expect-sha256 PREVIEW_HASH
+go run . posts read urn:li:activity:123456789
+```
+
+Create previews by default, using two sequential identity GETs. It prints the
+signed-in author, exact plain text, SHA-256, public audience and comment setting.
+Show the full package to the human and obtain approval before adding `--publish`.
+The author and text hash must match that review. Text is limited to 3,000 UTF-16
+code units; no truncation, scheduling, media, link cards or comments are supported.
+Native image publishing remains unsupported: the inspected image-upload flow
+returned HTTP 504 before its final post contract could be captured.
+
+An approved publication records a new private 0600 attempt before one CreatePost
+POST. It saves the raw receipt privately, requires an error-free activity receipt,
+and independently reads the exact permalink to verify author and text. Only then
+does output report `published:true` and `verified:true`. A confirmed duplicate is
+a no-op; any uncertain attempt blocks another POST, including across invocations.
+Inspect the account and private record before manually deciding how to reconcile
+it. There are no automatic retries or live test posts. The request contract was
+captured and aborted before transmission on 27 October 2026; successful live
+publication has intentionally not been tested with an unapproved post.
+
+Read accepts an exact activity URN or canonical LinkedIn feed-update permalink.
+It checks the activity marker and focus card, excluding comments and sidebar
+content. `--save-response NEW.html` creates a private debugging capture.
+
+## Private analytics
+
+```sh
+go run . analytics summary
+go run . analytics summary --save /private/path/before.json
+go run . analytics summary --save /private/path/after.json
+go run . analytics compare /private/path/before.json /private/path/after.json
+```
+
+Summary verifies the signed-in owner and reads the dashboard with three sequential
+GETs. It returns profile viewers, post impressions, search appearances and optional
+followers, preserving each card's displayed period, comparison text, source URL
+and UTC fetch time. Different cards can cover different periods; search reporting
+can lag. Rounded values keep their display text with a null exact count. Missing
+requested cards fail explicitly instead of becoming zero. No viewer identities
+are exported. `--save` creates a new 0600 snapshot; `--save-response NEW.html`
+creates a private raw capture. Neither overwrites a file.
+
+Compare is local-only. It verifies account identity and increasing timestamps,
+and calculates a difference only for exact counts with matching period labels.
+Overlapping rolling totals are not new events; aggregate changes cannot establish
+that a particular post caused profile visits, search appearances or interviews.
+Take a baseline before publication and fresh snapshots after 24 hours, 72 hours
+and seven days; preserve the dated windows when assessing the experiment.
 
 ## HTTP budget
 

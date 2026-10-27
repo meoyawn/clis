@@ -1,0 +1,6 @@
+/twitter
+/private/
+*.har
+*.har.*
+*cookies*.json
+*.log

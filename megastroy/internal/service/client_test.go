@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -290,19 +291,41 @@ func TestHTTPFailuresNeverRetryOrRenewSession(t *testing.T) {
 	for _, tt := range []struct {
 		name, body, message string
 		status              int
+		blocked             bool
+		search              bool
 	}{
-		{"challenge", "<title>DDoS-Guard</title>", "auth import", 200},
-		{"forbidden", "Forbidden", "auth import", 403},
-		{"redirect", "redirect", "redirect not followed", 302},
-		{"rate limit", "Too many requests", "HTTP 429", 429},
-		{"not found", "<h1>Страница не найдена</h1>", "HTTP 404", 404},
+		{"challenge", "<title>DDoS-Guard</title>", "DDoS-Guard", 200, true, false},
+		{"search challenge", `<script data-ddg-origin="kazan.megastroy.com"></script>`, "DDoS-Guard", 503, true, true},
+		{"forbidden", "Forbidden", "DDoS-Guard", 403, true, false},
+		{"redirect", "redirect", "redirect not followed", 302, false, false},
+		{"rate limit", "Too many requests", "HTTP 429", 429, false, false},
+		{"not found", "<h1>Страница не найдена</h1>", "HTTP 404", 404, false, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			headers := http.Header{"Location": {Origin + "/"}, "Set-Cookie": {"__ddg2_=rejected; Path=/; Domain=.megastroy.com"}}
 			client, requests := servedClient(t, tt.body, tt.status, headers, nil)
-			got, err := client.Details(context.Background(), "416479")
-			if err == nil || got != nil || !strings.Contains(err.Error(), tt.message) || requests.Load() != 1 {
-				t.Fatalf("unexpected failure handling: result=%v err=%v requests=%d", got, err, requests.Load())
+			var err error
+			var hasResult bool
+			target := Origin + "/products/416479"
+			if tt.search {
+				got, searchErr := client.Search(context.Background(), SearchOptions{
+					Query: "Terminus", Page: 2, Filters: url.Values{"category_id": {"1102"}}, Sort: PriceAscending(),
+				})
+				err, hasResult = searchErr, got != nil
+				target = Origin + "/catalog/search?category_id=1102&noredirect=1&page=1&q=Terminus&sort=price"
+			} else {
+				got, detailErr := client.Details(context.Background(), "416479")
+				err, hasResult = detailErr, got != nil
+			}
+			if err == nil || hasResult || !strings.Contains(err.Error(), tt.message) || requests.Load() != 1 {
+				t.Fatalf("unexpected failure handling: hasResult=%t err=%v requests=%d", hasResult, err, requests.Load())
+			}
+			var blocked *DDoSGuardError
+			if errors.As(err, &blocked) != tt.blocked {
+				t.Fatalf("wrong DDoS-Guard classification: %v", err)
+			}
+			if tt.blocked && blocked.URL != target {
+				t.Errorf("lost blocked request URL: got %q, want %q", blocked.URL, target)
 			}
 			if client.Session().Cookies[0].Value != "test-clearance" {
 				t.Error("failed response replaced saved clearance")

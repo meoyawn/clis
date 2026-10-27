@@ -1,0 +1,4 @@
+language: go
+layer: application
+toolchains:
+  default: go
