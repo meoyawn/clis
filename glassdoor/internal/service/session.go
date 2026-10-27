@@ -49,34 +49,28 @@ func ImportSession(ctx context.Context, profile, headersFile string) (*Session, 
 	if strings.TrimSpace(profile) == "" {
 		return nil, fmt.Errorf("invalid Chrome profile %q", profile)
 	}
-	var headers http.Header
-	var err error
-	if headersFile == "" {
-		headers, err = ChromeHeaders(ctx)
-	} else {
-		data, readErr := os.ReadFile(headersFile)
-		if readErr != nil {
-			return nil, readErr
-		}
-		var values map[string]string
-		if err = json.Unmarshal(data, &values); err != nil {
-			return nil, fmt.Errorf("decode headers file: %w", err)
-		}
-		headers = http.Header{}
-		for k, v := range values {
-			switch strings.ToLower(k) {
-			case "user-agent", "accept-language", "dnt", "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform", "sec-ch-ua-arch", "sec-ch-ua-bitness", "sec-ch-ua-full-version", "sec-ch-ua-full-version-list", "sec-ch-ua-model", "sec-ch-ua-platform-version":
-				if strings.ContainsAny(v, "\r\n") {
-					return nil, fmt.Errorf("invalid header %q", k)
-				}
-				headers.Set(k, v)
-			default:
-				return nil, fmt.Errorf("header %q is not allowed in a browser header snapshot", k)
-			}
-		}
+	if strings.TrimSpace(headersFile) == "" {
+		return nil, fmt.Errorf("--headers-file is required: capture native request headers from the running Chrome profile; its version may differ from the installed app")
 	}
+	data, err := os.ReadFile(headersFile)
 	if err != nil {
 		return nil, err
+	}
+	var values map[string]string
+	if err = json.Unmarshal(data, &values); err != nil {
+		return nil, fmt.Errorf("decode headers file: %w", err)
+	}
+	headers := http.Header{}
+	for k, v := range values {
+		switch strings.ToLower(k) {
+		case "user-agent", "accept-language", "dnt", "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform", "sec-ch-ua-arch", "sec-ch-ua-bitness", "sec-ch-ua-full-version", "sec-ch-ua-full-version-list", "sec-ch-ua-model", "sec-ch-ua-platform-version":
+			if strings.ContainsAny(v, "\r\n") {
+				return nil, fmt.Errorf("invalid header %q", k)
+			}
+			headers.Set(k, v)
+		default:
+			return nil, fmt.Errorf("header %q is not allowed in a browser header snapshot", k)
+		}
 	}
 	if headers.Get("User-Agent") == "" {
 		return nil, fmt.Errorf("headers file must include the selected Chrome User-Agent")

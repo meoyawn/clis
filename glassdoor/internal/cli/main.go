@@ -23,10 +23,11 @@ const help = `Glassdoor salary research, as JSON. Read-only native requests.
 
 Usage: glassdoor [--anonymous] COMMAND [OPTIONS]
 
-  auth login [--browser chrome] [--profile Default] [--headers-file FILE]
+  auth login --headers-file FILE [--browser chrome] [--profile Default]
       Import one Chrome profile with SweetCookie, session file mode 0600.
-      Use a safe native browser header snapshot for the same Chrome session;
-      otherwise derive headers from installed macOS Chrome. No network calls.
+      Required: safe native request headers from that running Chrome profile,
+      including User-Agent and client hints. The installed app version may
+      differ from the running browser; never guess it. No network calls.
   auth status
       Local session-presence/expiry metadata, not online authentication proof.
   search titles --query TEXT [--refresh]
@@ -57,7 +58,8 @@ Default: saved Chrome session required. --anonymous is explicit, never a
 fallback after a block. Stop on 403/429, login or challenge; no automatic retry.
 An identified human-verification challenge prints a verification URL and exits
 unsuccessfully. Open that URL in Chrome, complete verification, reimport the
-same Chrome profile with auth login, and rerun the original command.
+same Chrome profile with auth login --headers-file FILE, using fresh native
+request headers from that session, and rerun the original command once.
 The CLI never launches a browser, solves a challenge, or retries a request.
 No salary/review/profile submissions and no telemetry mutations. No daemon:
 HTTP connection reuse lasts only for one foreground invocation.
@@ -78,7 +80,7 @@ func reportError(err error, out io.Writer) {
 		return
 	}
 	fmt.Fprintf(out, "Verification URL: %s\n", service.VerificationURL)
-	fmt.Fprintln(out, "Open this URL in Chrome and complete verification. Then run go run . auth login --browser chrome --profile <the same profile>, and rerun your original command. No browser was launched and no request was retried.")
+	fmt.Fprintln(out, "Open this URL in Chrome and complete verification. Capture safe native request headers from that running profile, then run go run . auth login --browser chrome --profile <the same profile> --headers-file <snapshot.json>, and rerun your original command once. No browser was launched and no request was retried.")
 }
 
 func run(ctx context.Context, args []string, out io.Writer) error {
