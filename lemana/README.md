@@ -16,7 +16,9 @@ The site was inspected through Chrome on 2026-10-27. Cookie-free requests, inclu
 
 Protection responses, including challenge HTML with status 200, stop the command without retries. The entrypoint opens the page in Chrome (the storefront for POST endpoints); complete the check manually, import the same profile, and retry explicitly. Session import does not guarantee that the protection service accepts a separate HTTP client.
 
-`list`/`search` make one GET and decode the JSON embedded in the server-rendered page. This already includes filter definitions, prices, delivery dates, characteristics, photos and ratings. It avoids the browser's separate `hybrid/v1/products:search`, `products-data:search` and `products-media:search` calls. Product-specific and grouped ratings remain separate. The generic SEO JSON-LD rating is deliberately ignored.
+`list`/`search` make one GET and decode the JSON embedded in the server-rendered page. This already includes filter definitions, prices, delivery dates, characteristics, photos and ratings. It avoids the browser's separate `hybrid/v1/products:search`, `products-data:search` and `products-media:search` calls. The generic SEO JSON-LD rating is deliberately ignored.
+
+`rating` and `review_count` always refer to the exact product. `product_rating` and `product_review_count` retain those same values for existing consumers. Variant totals live only in `group_rating` and `group_review_count`. Unknown own counters remain `null`; an explicit zero remains zero, even if the group has many reviews. The website's sort order may use grouped scores, so apply exact-product rating/count thresholds to the returned products locally.
 
 `details` makes one GET and includes the first review page. `--availability` adds one observed POST to `experience/LeroymerlinWebsite/v1/navigation-pdp-api/get-stocks`; the public API configuration is read from the same product HTML, never persisted or printed. No tracking, advertisements or shopping actions are replayed.
 

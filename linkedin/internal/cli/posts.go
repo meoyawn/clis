@@ -59,11 +59,14 @@ func runPosts(ctx context.Context, args []string, store authStore, stdout, stder
 		return writeHelp(stdout, []string{"posts"})
 	}
 	command := args[0]
+	if command == "edit" {
+		return runPostEdit(ctx, args[1:], store, stdout, stderr)
+	}
 	if command == "comment" || command == "comments" {
 		return runComments(ctx, args, store, stdout, stderr)
 	}
 	if command != "create" && command != "read" {
-		return fmt.Errorf("unknown posts command %q; expected create or read", command)
+		return fmt.Errorf("unknown posts command %q; expected create, read, edit, comment, or comments", command)
 	}
 	fs := flag.NewFlagSet("posts "+command, flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -116,16 +119,16 @@ func runPosts(ctx context.Context, args []string, store authStore, stdout, stder
 		if len(positionals) != 1 {
 			return fmt.Errorf("posts read requires one exact feed permalink or activity URN; got %d arguments", len(positionals))
 		}
-		ref, err = domain.NewPostRef(positionals[0])
-		if err != nil {
-			return err
-		}
 	}
 	client, err := newLinkedinClient(store)
 	if err != nil {
 		return err
 	}
 	if command == "read" {
+		ref, err = client.resolvePost(ctx, positionals[0])
+		if err != nil {
+			return err
+		}
 		var capture io.Writer
 		if saveResponse != "" {
 			f, err := os.OpenFile(saveResponse, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
@@ -395,6 +398,7 @@ const postsHelp = `Preview and publish approved personal LinkedIn feed posts.
 Usage:
   linkedin posts create --text-file FILE [--image FILE] [--publish --expect-author URL --expect-sha256 HASH]
   linkedin posts read <feed-permalink-or-activity-URN>
+  linkedin posts edit <post> --text-file FILE [--apply --expect-author URL --expect-sha256 HASH --expect-current-sha256 HASH]
   linkedin posts comment <post> --text-file FILE [--publish --expect-author URL --expect-sha256 HASH]
   linkedin posts comments <post>
 
@@ -413,6 +417,17 @@ No retries. Repeating a confirmed post is a local no-op; an unconfirmed attempt
 blocks another POST. Inspect the saved receipt and your profile before retrying.
 History prevents duplicates made by this CLI/config directory, not other clients.
 Read is one GET, with no reactions, read receipts, comments or other mutations.
+Read and edit also resolve https://lnkd.in/p/ links without sending account
+cookies to the shortener; share permalinks are read to identify the activity.
+
+Edit previews the exact signed-in author, current post, original images,
+replacement text and both text hashes. It reads the native post menu and edit
+form without saving changes. --apply requires an authorized edit of that target
+and all three expectation flags. It preserves the existing media, journals the
+attempt privately, follows only native update actions bound to the target/text,
+then reads the original activity to verify author, commentary and image assets.
+Concurrent text changes stop the update. Unconfirmed attempts are never retried;
+an already matching post is a verified no-op. No new post or image is created.
 
 Comment previews require your own parent post and print the exact author, target,
 text and package SHA-256. Comments are limited to 1250 UTF-16 code units. Publishing

@@ -20,6 +20,8 @@ type Product struct {
 	ReviewCount        *int             `json:"review_count"`
 	ProductRating      *float64         `json:"product_rating"`
 	ProductReviewCount *int             `json:"product_review_count"`
+	GroupRating        *float64         `json:"group_rating"`
+	GroupReviewCount   *int             `json:"group_review_count"`
 	InStock            *bool            `json:"in_stock"`
 	Purchasable        *bool            `json:"purchasable"`
 	Images             []string         `json:"images"`
@@ -47,6 +49,15 @@ type Result struct {
 	HTTPRequests int             `json:"http_requests"`
 	Warnings     []string        `json:"warnings"`
 }
+
+type AvailabilityResult struct {
+	URL          string          `json:"url"`
+	ProductAPIID string          `json:"product_api_id"`
+	City         string          `json:"city"`
+	Availability json.RawMessage `json:"availability"`
+	HTTPRequests int             `json:"http_requests"`
+}
+
 type Sort struct{ value string }
 
 const popular = "popular"

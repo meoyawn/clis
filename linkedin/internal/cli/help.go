@@ -22,6 +22,7 @@ Commands:
   messages send <person>      Preview or send approved plain text
   posts create                Preview or publish an approved personal feed post
   posts read <post>            Read one exact feed post
+  posts edit <post>            Preview or apply a text edit to your own post
   posts comment <post>         Preview or publish a comment on your own post
   posts comments <post>        Read the rendered comments on an exact post
   articles read-draft <draft>  Read one exact personal article draft
@@ -390,7 +391,7 @@ func writeHelp(w io.Writer, commands []string) error {
 		help = messagesReadHelp
 	case "messages send":
 		help = messagesSendHelp
-	case "posts", "posts create", "posts read", "posts comment", "posts comments":
+	case "posts", "posts create", "posts read", "posts edit", "posts comment", "posts comments":
 		help = postsHelp
 	case "articles", "articles read-draft", "articles delete-draft":
 		help = articlesHelp

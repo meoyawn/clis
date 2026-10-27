@@ -33,15 +33,27 @@ func TestSearchUsesOneJSONRequestAndPreservesRatingScopes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if requests != 1 || result.HTTPRequests != 1 || len(result.Products) != 2 || !result.HasMore {
+	if requests != 1 || result.HTTPRequests != 1 || len(result.Products) != 4 || !result.HasMore {
 		t.Fatalf("result %+v requests=%d", result, requests)
 	}
 	p := result.Products[0]
-	if *p.ProductReviewCount != 2 || *p.ReviewCount != 15 || *p.Rating != 4.13 || len(p.Characteristics) != 2 || p.Characteristics[1].Value != "13.2 см" {
+	if *p.ProductReviewCount != 2 || *p.ReviewCount != 2 || *p.Rating != 4.5 || len(p.Characteristics) != 2 || p.Characteristics[1].Value != "13.2 см" {
 		t.Fatalf("incorrect product %+v", p)
+	}
+	if p.GroupReviewCount == nil || *p.GroupReviewCount != 15 || p.GroupRating == nil || *p.GroupRating != 4.13 {
+		t.Fatalf("group ratings were not kept separately: %+v", p)
 	}
 	if result.Products[1].ReviewCount != nil || result.Products[1].Rating != nil {
 		t.Fatal("unknown rating was fabricated")
+	}
+	if p := result.Products[2]; p.ReviewCount == nil || *p.ReviewCount != 0 || p.Rating != nil {
+		t.Fatalf("zero own reviews must not inherit the group's reviews: %+v", p)
+	}
+	if p := result.Products[3]; p.ReviewCount != nil || p.Rating != nil {
+		t.Fatalf("unknown own reviews must not inherit the group's reviews: %+v", p)
+	}
+	if result.Products[2].GroupReviewCount == nil || result.Products[3].GroupReviewCount == nil || *result.Products[2].GroupReviewCount != 59 || *result.Products[3].GroupReviewCount != 80 {
+		t.Fatal("group counters were lost for products without own reviews")
 	}
 }
 func TestHTMLListIncludesFiltersWithoutAnotherCall(t *testing.T) {
@@ -72,8 +84,11 @@ func TestProductIgnoresOtherJSONLDAndExtractsSSRCharacteristics(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := result.Products[0]
-	if p.ID != "343831" || p.Code != "343831" || p.Article != "BA365AA" || p.Brand != "Vidima" || *p.ReviewCount != 4 || p.ProductReviewCount != nil || len(p.Characteristics) != 2 || len(p.Images) != 1 || *p.Price != 12000 {
+	if p.ID != "343831" || p.Code != "343831" || p.Article != "BA365AA" || p.Brand != "Vidima" || p.Rating != nil || p.ReviewCount != nil || p.ProductReviewCount != nil || len(p.Characteristics) != 2 || len(p.Images) != 1 || *p.Price != 12000 {
 		t.Fatalf("incorrect details %+v", p)
+	}
+	if p.GroupReviewCount == nil || *p.GroupReviewCount != 4 || p.GroupRating == nil || *p.GroupRating != 5 {
+		t.Fatalf("displayed aggregate was not kept separately: %+v", p)
 	}
 }
 

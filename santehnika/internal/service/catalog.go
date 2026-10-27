@@ -12,26 +12,25 @@ import (
 	"strings"
 )
 
+type soRating struct {
+	Rating *float64 `json:"rating"`
+	Amount *int     `json:"amount"`
+}
+
 type soProduct struct {
-	Countries   []string `json:"countries"`
-	ID          int      `json:"id"`
-	Code        string   `json:"code"`
-	Title       string   `json:"title"`
-	Link        string   `json:"link"`
-	Brand       string   `json:"brand"`
-	Price       *float64 `json:"price"`
-	Images      []string `json:"images"`
-	InStock     *bool    `json:"isInStock"`
-	Purchasable *bool    `json:"isPurchasable"`
-	Reviews     *struct {
-		Rating *float64 `json:"rating"`
-		Amount *int     `json:"amount"`
-	} `json:"reviews"`
-	ReviewStats *struct {
-		Rating *float64 `json:"rating"`
-		Amount *int     `json:"amount"`
-	} `json:"reviewStats"`
-	Features []struct {
+	Countries   []string  `json:"countries"`
+	ID          int       `json:"id"`
+	Code        string    `json:"code"`
+	Title       string    `json:"title"`
+	Link        string    `json:"link"`
+	Brand       string    `json:"brand"`
+	Price       *float64  `json:"price"`
+	Images      []string  `json:"images"`
+	InStock     *bool     `json:"isInStock"`
+	Purchasable *bool     `json:"isPurchasable"`
+	Reviews     *soRating `json:"reviews"`
+	ReviewStats *soRating `json:"reviewStats"`
+	Features    []struct {
 		Title string          `json:"title"`
 		Text  json.RawMessage `json:"text"`
 	} `json:"fullFeatures"`
@@ -69,16 +68,7 @@ func (c *Client) parseList(b []byte, target string, o Options) (*domain.Result, 
 		if out.Images == nil {
 			out.Images = []string{}
 		}
-		if p.Reviews != nil {
-			out.ProductRating = p.Reviews.Rating
-			out.ProductReviewCount = p.Reviews.Amount
-			out.Rating = p.Reviews.Rating
-			out.ReviewCount = p.Reviews.Amount
-		}
-		if p.ReviewStats != nil {
-			out.Rating = p.ReviewStats.Rating
-			out.ReviewCount = p.ReviewStats.Amount
-		}
+		setReviews(&out, p.Reviews, p.ReviewStats)
 		for _, f := range p.Features {
 			var text string
 			var values []string
@@ -92,6 +82,26 @@ func (c *Client) parseList(b []byte, target string, o Options) (*domain.Result, 
 	trimResult(r, o.Limit)
 	return r, nil
 }
+
+func setReviews(out *domain.Product, own, group *soRating) {
+	if own != nil {
+		out.Rating = own.Rating
+		out.ReviewCount = own.Amount
+		if own.Amount != nil && *own.Amount == 0 {
+			out.Rating = nil
+		}
+		out.ProductRating = out.Rating
+		out.ProductReviewCount = out.ReviewCount
+	}
+	if group != nil {
+		out.GroupRating = group.Rating
+		out.GroupReviewCount = group.Amount
+		if group.Amount != nil && *group.Amount == 0 {
+			out.GroupRating = nil
+		}
+	}
+}
+
 func soSort(o Options, q url.Values) error {
 	field, order := "SORT", "DESC"
 	switch o.Sort.String() {
@@ -290,7 +300,8 @@ func (c *Client) parseDetails(b []byte, target string) (*domain.Result, error) {
 	if data.Type != "Product" || data.Code == "" {
 		return nil, fmt.Errorf("product identity is missing; response schema changed")
 	}
-	out := domain.Product{ID: data.Code, Code: data.Code, Article: data.Article, Title: strings.TrimSpace(doc.Find("h1").First().Text()), URL: target, Brand: data.Brand.Name, Price: data.Offers.Price, Currency: data.Offers.Currency, Rating: data.Aggregate.Rating, ReviewCount: data.Aggregate.Count, Images: data.Images, Characteristics: []domain.Characteristic{}, Description: clean(data.Description)}
+	out := domain.Product{ID: data.Code, Code: data.Code, Article: data.Article, Title: strings.TrimSpace(doc.Find("h1").First().Text()), URL: target, Brand: data.Brand.Name, Price: data.Offers.Price, Currency: data.Offers.Currency, Images: data.Images, Characteristics: []domain.Characteristic{}, Description: clean(data.Description)}
+	setReviews(&out, nil, &soRating{Rating: data.Aggregate.Rating, Amount: data.Aggregate.Count})
 	if out.Title == "" {
 		out.Title = data.Name
 	}
@@ -318,7 +329,7 @@ func (c *Client) parseDetails(b []byte, target string) (*domain.Result, error) {
 	total := 1
 	r.Total = &total
 	r.Products = append(r.Products, out)
-	r.Warnings = append(r.Warnings, "Details contain server-rendered characteristics; check the dimension drawing for mounting dimensions. Rating may aggregate variants; product-specific count is unknown.")
+	r.Warnings = append(r.Warnings, "Details contain server-rendered characteristics; check the dimension drawing for mounting dimensions. Exact-product rating/review_count are unknown in this HTML; group_* retain the displayed aggregate. Use search/list for exact-product review counts.")
 	return r, nil
 }
 

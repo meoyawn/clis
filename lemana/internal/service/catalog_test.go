@@ -23,16 +23,28 @@ func TestListUsesOneResponseForProductsFiltersAndRealRatings(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := &Client{http: srv.Client(), origin: srv.URL, session: Session{UserAgent: BrowserUserAgent}}
-	result, err := c.List(context.Background(), "/catalogue/kuhonnye-smesiteli/", Options{Page: 2, Limit: 1, Sort: domain.Rating(), IncludeFilters: true, Filters: url.Values{"10844": {"Германия", "Испания"}}})
+	result, err := c.List(context.Background(), "/catalogue/kuhonnye-smesiteli/", Options{Page: 2, Limit: 3, Sort: domain.Rating(), IncludeFilters: true, Filters: url.Values{"10844": {"Германия", "Испания"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	p := result.Products[0]
-	if requests != 1 || result.HTTPRequests != 1 || result.PageSize != 2 || len(result.Products) != 1 || !result.HasMore || len(result.Filters) == 0 {
+	if requests != 1 || result.HTTPRequests != 1 || result.PageSize != 4 || len(result.Products) != 3 || !result.HasMore || len(result.Filters) == 0 {
 		t.Fatalf("unexpected result %+v requests=%d", result, requests)
 	}
-	if p.ProductReviewCount == nil || *p.ProductReviewCount != 2 || p.ReviewCount == nil || *p.ReviewCount != 11 || p.Rating == nil || *p.Rating != 4.7 {
+	if p.ProductReviewCount == nil || *p.ProductReviewCount != 2 || p.ReviewCount == nil || *p.ReviewCount != 2 || p.Rating == nil || *p.Rating != 4 {
 		t.Fatalf("wrong exact/group ratings %+v", p)
+	}
+	if p.GroupReviewCount == nil || *p.GroupReviewCount != 11 || p.GroupRating == nil || *p.GroupRating != 4.7 {
+		t.Fatalf("group ratings were not kept separately: %+v", p)
+	}
+	if p := result.Products[1]; p.ReviewCount == nil || *p.ReviewCount != 0 || p.Rating != nil {
+		t.Fatalf("zero own reviews must not inherit the group's reviews: %+v", p)
+	}
+	if p := result.Products[2]; p.ReviewCount != nil || p.Rating != nil {
+		t.Fatalf("unknown own reviews must not inherit the group's reviews: %+v", p)
+	}
+	if result.Products[1].GroupReviewCount == nil || result.Products[2].GroupReviewCount == nil || *result.Products[1].GroupReviewCount != 59 || *result.Products[2].GroupReviewCount != 80 {
+		t.Fatal("group counters were lost for products without own reviews")
 	}
 	if len(p.Characteristics) == 0 || p.Price == nil || len(p.Images) != 1 {
 		t.Fatalf("missing product data %+v", p)
@@ -88,8 +100,11 @@ func TestDetailsStocksAreOneOptionalRequest(t *testing.T) {
 				t.Fatalf("gets=%d posts=%d requests=%d", gets, posts, result.HTTPRequests)
 			}
 			p := result.Products[0]
-			if *p.ProductReviewCount != 2 || *p.ReviewCount != 11 || !strings.Contains(string(p.Reviews), "Synthetic catalog review") || len(p.Images) < 2 {
+			if *p.ProductReviewCount != 2 || *p.ReviewCount != 2 || p.Rating == nil || *p.Rating != 4 || !strings.Contains(string(p.Reviews), "Synthetic catalog review") || len(p.Images) < 2 {
 				t.Fatalf("missing detail data %+v", p)
+			}
+			if p.GroupReviewCount == nil || *p.GroupReviewCount != 11 || p.GroupRating == nil || *p.GroupRating != 4.8 {
+				t.Fatalf("group ratings were not kept separately: %+v", p)
 			}
 			if (len(p.Availability) > 0) != withStocks {
 				t.Fatalf("unexpected availability %s", p.Availability)

@@ -167,22 +167,8 @@ func (c *Client) parseList(body []byte, target string, o Options) (*domain.Resul
 		out := c.product(p)
 		v, found := ratings[p.ID]
 		if found {
-			out.ProductRating = v.Rating
-			if v.Count != nil && *v.Count == 0 {
-				out.ProductRating = nil
-			}
-			out.ProductReviewCount = v.Count
-			out.Rating = out.ProductRating
-			out.ReviewCount = v.Count
-			if v.GroupRating != nil && v.GroupCount != nil && *v.GroupCount > 0 {
-				out.Rating = v.GroupRating
-			}
-			if v.GroupCount != nil {
-				out.ReviewCount = v.GroupCount
-			}
+			setReviews(&out, v)
 		}
-		out.Rating = displayRating(out.Rating)
-		out.ProductRating = displayRating(out.ProductRating)
 		r.Products = append(r.Products, out)
 	}
 	if o.IncludeFilters {
@@ -275,28 +261,29 @@ func (c *Client) parseDetails(body []byte, target string) (*domain.Result, strin
 	out.Documents = state.PDP.PDP.Product.Media.Manuals
 	out.Reviews = state.PDP.PDP.Reviews.Reviews.Cards
 	v := state.PDP.PDP.Reviews.Reviews.Rating.Total
-	out.ProductRating = v.Score
-	if v.Count != nil && *v.Count == 0 {
-		out.ProductRating = nil
-	}
-	out.ProductReviewCount = v.Count
-	out.Rating = out.ProductRating
-	out.ReviewCount = v.Count
-	if v.GroupScore != nil && v.GroupCount != nil && *v.GroupCount > 0 {
-		out.Rating = v.GroupScore
-	}
-	if v.GroupCount != nil {
-		out.ReviewCount = v.GroupCount
-	}
+	setReviews(&out, lmRating{Rating: v.Score, Count: v.Count, GroupRating: v.GroupScore, GroupCount: v.GroupCount})
 	r := c.result(target)
 	r.Page = 1
 	total := 1
 	r.Total = &total
 	r.PageSize = 1
-	out.Rating = displayRating(out.Rating)
-	out.ProductRating = displayRating(out.ProductRating)
 	r.Products = append(r.Products, out)
 	return r, state.PDP.Env.APIKey, p.Source, nil
+}
+
+func setReviews(out *domain.Product, v lmRating) {
+	out.Rating = displayRating(v.Rating)
+	out.ReviewCount = v.Count
+	if v.Count != nil && *v.Count == 0 {
+		out.Rating = nil
+	}
+	out.ProductRating = out.Rating
+	out.ProductReviewCount = out.ReviewCount
+	out.GroupRating = displayRating(v.GroupRating)
+	out.GroupReviewCount = v.GroupCount
+	if v.GroupCount != nil && *v.GroupCount == 0 {
+		out.GroupRating = nil
+	}
 }
 
 func displayRating(value *float64) *float64 {

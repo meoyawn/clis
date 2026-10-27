@@ -22,6 +22,7 @@ Usage:
   santehnika search QUERY [--include-filters] [--filter KEY=VALUE]...
   santehnika list CATEGORY_PATH_OR_URL [--include-filters] [--filter KEY=VALUE]...
   santehnika details PRODUCT_URL
+  santehnika availability API_ID
   santehnika list --section ID [--filter KEY=VALUE]...
   santehnika auth import [--browser chrome] [--browser-profile Default]
   santehnika auth status
@@ -41,10 +42,16 @@ For property filters use properties.code=values.id, such as BRAND=499.
 Section lists and search without --include-filters use compact JSON API calls.
 The category HTML includes filter definitions without an extra request.
 Details include published characteristics, direct image URLs and rating.
-review_count/rating follow the site's grouped display; product_review_count/
-product_rating describe this exact item when available. Unknowns are null.
+rating/review_count describe this exact item, never a variants total.
+product_rating/product_review_count retain the same exact-item values.
+group_rating/group_review_count hold variant-group aggregates separately.
+Unknowns are null; an explicit zero own count stays zero without fallback.
+Product HTML only exposes an aggregate; its exact-item review fields are null.
+Use search/list for exact-item review counts, without extra requests.
 Details expose server-rendered fields; mounting dimensions need the drawing.
 This site does not offer a rating sort.
+availability uses api_id from search/list and makes one JSON GET for Kazan.
+It returns the site's delivery/pickup calculation without fetching product HTML.
 
 No images are fetched automatically. Download selected URLs with curl/wget and
 view saved files locally. There is no image subcommand.
@@ -70,7 +77,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 	command := args[0]
-	if command != "search" && command != "list" && command != "details" && command != "auth" {
+	if command != "search" && command != "list" && command != "details" && command != "availability" && command != "auth" {
 		return fmt.Errorf("unknown command %q; use --help", command)
 	}
 	fs := flag.NewFlagSet(command, flag.ContinueOnError)
@@ -133,6 +140,9 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if command == "details" && fs.NArg() != 1 {
 		return fmt.Errorf("details requires exactly one product URL")
 	}
+	if command == "availability" && fs.NArg() != 1 {
+		return fmt.Errorf("availability requires exactly one api_id from search/list")
+	}
 	if command == "auth" && (fs.NArg() != 1 || (fs.Arg(0) != "import" && fs.Arg(0) != "status")) {
 		return fmt.Errorf("auth requires import or status")
 	}
@@ -176,7 +186,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	var result *domain.Result
+	var result any
 	switch command {
 	case "search":
 		result, err = client.Search(ctx, strings.Join(fs.Args(), " "), o)
@@ -188,6 +198,8 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		}
 	case "details":
 		result, err = client.Details(ctx, fs.Arg(0), availability)
+	case "availability":
+		result, err = client.Availability(ctx, fs.Arg(0))
 	}
 	if err != nil {
 		return err

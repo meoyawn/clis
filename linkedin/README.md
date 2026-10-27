@@ -249,6 +249,9 @@ Run these commands from this module:
 go run . posts create --text-file /path/to/post.txt --image /path/to/illustration.webp
 go run . posts create --text-file /path/to/post.txt --image /path/to/illustration.webp --publish --expect-author https://www.linkedin.com/in/example-person/ --expect-sha256 PREVIEW_HASH
 go run . posts read urn:li:activity:123456789
+go run . posts read https://lnkd.in/p/example
+go run . posts edit urn:li:activity:123456789 --text-file /path/to/replacement.txt
+go run . posts edit urn:li:activity:123456789 --text-file /path/to/replacement.txt --apply --expect-author PROFILE_URL --expect-sha256 PREVIEW_HASH --expect-current-sha256 CURRENT_TEXT_HASH
 go run . posts comment urn:li:activity:123456789 --text-file /path/to/comment.txt
 go run . posts comments urn:li:activity:123456789
 ```
@@ -275,6 +278,25 @@ publication has intentionally not been tested with an unapproved post.
 Read accepts an exact activity URN or canonical LinkedIn feed-update permalink.
 It checks the activity marker and focus card, excluding comments and sidebar
 content. `--save-response NEW.html` creates a private debugging capture.
+
+Read and edit accept `https://lnkd.in/p/` short links. Resolution sends no account
+cookies to the shortener and accepts only LinkedIn post destinations. A share
+permalink is read to identify its activity rather than treating its share ID as
+an activity ID.
+
+`posts edit` changes only your own post commentary. Preview verifies the signed-in
+owner, exact current post and native edit form, then prints the current text hash,
+replacement hash and original image assets. The read-only native menu and screen
+requests are POSTs, but do not save, publish or upload anything. `--apply` requires
+an authorized edit and the three expectation flags; a concurrent text change stops
+the update. The observed contract comes from the exact post's hydrated control
+menu, returned Edit post navigation and native edit form, inspected on 27 October
+2026. Only its existing-media launch and observed UpdateNormShare chain is followed, with final updates required to
+bind the exact activity and replacement text. All other form state is preserved.
+The command journals the attempt and raw receipts privately, makes no automatic
+retry, and independently verifies the original author, text and image assets.
+An uncertain attempt blocks resending; an already matching readback is a no-op.
+Use `--save-response NEW.rsc` to save a private edit-form contract capture.
 
 Comments are restricted to your own posts and 1,250 UTF-16 code units. Preview
 prints author, parent, exact text and a package hash. Use `--publish --expect-author

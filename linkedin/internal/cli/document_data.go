@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -28,12 +29,38 @@ func readDocumentData(doc *html.Node) documentData {
 			flight.WriteString(chunk)
 		}
 	}
+	return readFlightData(flight.String())
+}
+
+func readFlightData(flight string) documentData {
 	rows := documentData{}
-	for line := range strings.SplitSeq(flight.String(), "\n") {
-		id, payload, ok := strings.Cut(line, ":")
+	for flight != "" {
+		id, rest, ok := strings.Cut(flight, ":")
 		if !ok {
-			continue
+			break
 		}
+		// React length-prefixed text/binary records need not end in a newline.
+		// An empty Uint8Array (id:o0,) can precede the model-state JSON row.
+		if len(rest) > 0 && strings.ContainsRune("TAOoUSsLlGgMmV", rune(rest[0])) {
+			if length, data, found := strings.Cut(rest[1:], ","); found {
+				if size, err := strconv.ParseUint(length, 16, 32); err == nil && size <= uint64(len(data)) {
+					if rest[0] == 'T' {
+						rows[id] = data[:size]
+					} else if rest[0] == 'o' {
+						// Uint8Array's native JSON representation uses numeric keys.
+						value := map[string]any{}
+						for i, b := range []byte(data[:size]) {
+							value[strconv.Itoa(i)] = int(b)
+						}
+						rows[id] = value
+					}
+					flight = data[size:]
+					continue
+				}
+			}
+		}
+		payload, next, _ := strings.Cut(rest, "\n")
+		flight = next
 		var value any
 		if json.Unmarshal([]byte(payload), &value) == nil {
 			if _, duplicate := rows[id]; duplicate {

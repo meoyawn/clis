@@ -44,6 +44,30 @@
       "title": "Synthetic unrated faucet",
       "link": "/product/unrated/2/",
       "price": 9000
+    },
+    {
+      "id": 3,
+      "code": "3",
+      "title": "Synthetic zero-review faucet",
+      "link": "/product/zero-own/3/",
+      "reviews": {
+        "rating": 5,
+        "amount": 0
+      },
+      "reviewStats": {
+        "rating": 4.9,
+        "amount": 59
+      }
+    },
+    {
+      "id": 4,
+      "code": "4",
+      "title": "Synthetic group-only faucet",
+      "link": "/product/group-only/4/",
+      "reviewStats": {
+        "rating": 4.8,
+        "amount": 80
+      }
     }
   ]
 }

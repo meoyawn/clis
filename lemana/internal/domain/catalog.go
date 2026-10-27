@@ -20,6 +20,8 @@ type Product struct {
 	ReviewCount        *int             `json:"review_count"`
 	ProductRating      *float64         `json:"product_rating"`
 	ProductReviewCount *int             `json:"product_review_count"`
+	GroupRating        *float64         `json:"group_rating"`
+	GroupReviewCount   *int             `json:"group_review_count"`
 	InStock            *bool            `json:"in_stock"`
 	Purchasable        *bool            `json:"purchasable"`
 	Images             []string         `json:"images"`

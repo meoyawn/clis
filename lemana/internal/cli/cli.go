@@ -39,8 +39,11 @@ Search/list normally make one HTTP request, including filters when requested.
 For ordinary checkbox facets use id=values.name; values.value is a count.
 Repeated values are joined with the website's underscore separator.
 Details include published characteristics, direct image URLs and rating.
-review_count/rating follow the site's grouped display; product_review_count/
-product_rating describe this exact item when available. Unknowns are null.
+rating/review_count describe this exact item, never a variants total.
+product_rating/product_review_count retain the same exact-item values.
+group_rating/group_review_count hold variant-group aggregates separately.
+Unknowns are null; an explicit zero own count stays zero without fallback.
+Sorts follow the site's ordering; apply exact-item thresholds locally.
 Details include the first review page already delivered in the HTML.
 --availability adds one POST for regional stock; otherwise it is not requested.
 

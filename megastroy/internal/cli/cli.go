@@ -35,8 +35,9 @@ keys/values from --include-filters; ranges expose from_key and to_key.
 Sort orders: popular, price, price-desc, sale, latest, striked-price.
 Page numbers start at 1. Each data command fetches one page; --limit only trims
 output. details always includes all published characteristics and dimensions.
-Search cards and details include rating (displayed stars out of 5) and
-review_count; unpublished values are null. Ratings need no additional request.
+Search cards and details include the specific product's rating (displayed
+stars out of 5) and review_count; no other variant's counter is substituted.
+Unpublished values are null. Ratings need no additional request.
 id and show are aliases for details.
 
 Search and details return direct product image URLs in images. Download only
