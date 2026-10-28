@@ -2,21 +2,6 @@
 
 A set of useful Go CLIs.
 
-| CLI | Purpose |
-| --- | --- |
-| [avito](avito/) | Classified listings and seller details |
-| [bris](bris/) | Utility meter readings |
-| [hh](hh/) | Jobs, resumes, and applications |
-| [invitro](invitro/) | Medical test catalog and promotions |
-| [linkedin](linkedin/) | Profiles, connections, messages, text posts, and private analytics |
-| [lemana](lemana/) | Lemana PRO catalog, characteristics, reviews and Kazan stock |
-| [santehnika](santehnika/) | Santehnika Online catalog and product details |
-| [twitter](twitter/) | X posts, native images, own-post replies, and engagement counters |
-| [megastroy](megastroy/) | Home improvement catalog |
-| [ozon](ozon/) | Products, reviews, and shopping cart |
-| [planeta](planeta/) | Pharmacy catalog and availability |
-| [uslugi-tatar](uslugi-tatar/) | Tatarstan utility accounts and meter readings |
-
 Run any CLI from the repository root:
 
 ```sh
