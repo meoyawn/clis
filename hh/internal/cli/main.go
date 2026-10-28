@@ -98,6 +98,22 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       Read-only verification of expected fields against both saved API data
       and the actual print view. Use after an uncertain write, never resend
       blindly. Experience content can be verified after native row-ID cloning.
+  resume duplicate ID --browser-metadata FILE [--apply] [--backup-dir DIR] [--output FILE]
+      Preview or clone one exact account resume through HH's native adapter.
+      Metadata contains origin, user_agent, captured_at and user_print from a
+      paused native Duplicate request; no cookies/tokens, no invented values.
+      --apply writes once, saves a backup, binds the returned URL to exactly one
+      new public hash and verifies all existing resumes stayed unchanged.
+      Reports actual clone status/visibility; never calls a publish endpoint.
+      After an uncertain write, list/get/view before retrying to avoid duplicates.
+  resume complete ID --browser-metadata FILE [--apply] [--backup-dir DIR] [--output FILE]
+      Preview or finish a fully populated clone whose only remaining builder
+      step is profession confirmation. Retains its current title, profession,
+      contact/privacy settings and content. Other builder flows stop explicitly.
+      --apply can publish under the existing access settings: user authorization
+      is required. Saves a backup, posts once, checks the completion receipt,
+      all resume content, shared profile fields and the employer print view.
+      Does not apply for jobs. An uncertain result requires readback, not retry.
   har inspect FILE
       Offline, redacted endpoint/request-schema summary of a recorded HAR.
   --help
@@ -215,7 +231,7 @@ func run(ctx context.Context, args []string) error {
 	if args[0] != "resume" && !(args[0] == "application" && (args[1] == "get" || args[1] == "letter" || args[1] == "questions" || args[1] == "prepare" || args[1] == "submit")) && !(args[0] == "applications" && args[1] == "list") && !(args[0] == "vacancy" && (args[1] == "get" || args[1] == "response-options")) && !(args[0] == "resumes" && args[1] == "list") && !(args[0] == "profile" && (args[1] == "get" || args[1] == "contacts")) {
 		return fmt.Errorf("unknown command %q: run hh --help", strings.Join(args[:2], " "))
 	}
-	if args[0] == "resume" && args[1] != "get" && args[1] != "view" && args[1] != "update" && args[1] != "verify" {
+	if args[0] == "resume" && args[1] != "get" && args[1] != "view" && args[1] != "update" && args[1] != "verify" && args[1] != "duplicate" && args[1] != "complete" {
 		return fmt.Errorf("unknown resume command %q: run hh --help", args[1])
 	}
 	contactsAction := ""
@@ -253,6 +269,7 @@ func run(ctx context.Context, args []string) error {
 	patchPath := options.String("patch", "", "JSON patch file")
 	apply := options.Bool("apply", false, "apply after verification")
 	backupDir := options.String("backup-dir", "", "backup directory")
+	browserMetadata := options.String("browser-metadata", "", "native resume browser metadata JSON")
 	resumeText := options.String("resume", "", "explicit resume hash for application")
 	textFile := options.String("text-file", "", "exact application letter UTF-8 file")
 	answersFile := options.String("answers-file", "", "JSON mapping native question IDs to exact reviewed answers")
@@ -272,6 +289,19 @@ func run(ctx context.Context, args []string) error {
 		return fmt.Errorf("unexpected arguments %q", options.Args())
 	}
 	var application hh.ApplicationDraft
+	var cloneMetadata hh.CloneMetadata
+	if args[0] == "resume" && (args[1] == "duplicate" || args[1] == "complete") {
+		if *browserMetadata == "" {
+			return fmt.Errorf("resume %s requires --browser-metadata FILE from the native browser request", args[1])
+		}
+		data, err := os.ReadFile(*browserMetadata)
+		if err != nil {
+			return fmt.Errorf("read browser metadata: %w", err)
+		}
+		if err := json.Unmarshal(data, &cloneMetadata); err != nil {
+			return fmt.Errorf("decode browser metadata: %w", err)
+		}
+	}
 	var letter string
 	var answers map[string]string
 	if args[0] == "application" {
@@ -471,6 +501,24 @@ func run(ctx context.Context, args []string) error {
 		return outputJSON(*output, hh.Redact(data))
 	}
 	switch args[1] {
+	case "complete":
+		if *backupDir == "" {
+			*backupDir = filepath.Join(stateDir(), "backups")
+		}
+		result, err := client.Complete(ctx, id, cloneMetadata, *apply, *backupDir)
+		if err != nil {
+			return err
+		}
+		return outputJSON(*output, result)
+	case "duplicate":
+		if *backupDir == "" {
+			*backupDir = filepath.Join(stateDir(), "backups")
+		}
+		result, err := client.Duplicate(ctx, id, cloneMetadata, *apply, *backupDir)
+		if err != nil {
+			return err
+		}
+		return outputJSON(*output, result)
 	case "get":
 		res, err := client.Get(ctx, id)
 		if err != nil {

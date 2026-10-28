@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -34,10 +35,11 @@ const help = `Levels.fyi salary research. JSON output, read-only native API.
   salaries estimate --role ROLE --level all|junior|middle|senior [--remote]
                     [--country-ids IDS] [--company SLUG]
                     [--job-family software-engineer] [--since YYYY-MM-DD]
-                    [--limit 50] [--max-pages 5] [--refresh]
+                    [--new-offers-only] [--limit 50] [--max-pages 5] [--refresh]
       Example: salaries estimate --role golang --level senior --remote
       No country IDs = all available countries, including US. --remote is
-      the native global work-arrangement filter, not a US Remote location.
+      the native work-arrangement filter, not worldwide hiring eligibility.
+      Country coverage does not establish location-independent pay.
       Role is native broad text search (cities/tags/etc); software-engineer
       means no text restriction. Job family is a native slug.
       Native levels mean years: junior 0..1, middle 2..6, senior 7+.
@@ -48,6 +50,20 @@ const help = `Levels.fyi salary research. JSON output, read-only native API.
       Return annual USD {amount,currency,interval}; base, stock, bonus and total
       stay separate. Group gross/net and employment type separately; include
       per-country distributions and exact retrieved coverage/source URLs.
+      --new-offers-only is the native 0 years-at-company filter, not a promise
+      that a past offer remains available. Percentiles describe the retrieved sample.
+  salaries cohort --companies SLUG,SLUG --role ROLE --level LEVEL [--remote]
+                  [--focus EXACT_TAG]... [--new-offers-only]
+                  [--country-ids IDS] [--since YYYY-MM-DD]
+                  [--job-family software-engineer] [--limit 50] [--max-pages 5]
+      Query the selected employers sequentially with the native company filter.
+      Repeat --focus to retain exact focusTag values, e.g. 'ML / AI',
+      'Full Stack', 'API Development (Back-End)'. Omission keeps all tags.
+      Return selected/excluded counts, per-employer coverage, countries and
+      pooled sample distributions; preserve gross/net and employment types.
+      Fresh data only. Use for explicitly requested employer comparisons;
+      this is not a broad worldwide-hiring market cohort. No built-in employer
+      whitelist or automatic worldwide classification.
 
 An expired saved token triggers one local reimport from the same Chrome
 profile before the first API request. A changed account or an expired browser
@@ -83,8 +99,9 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	command := strings.Join(args[:2], " ")
 	f := flag.NewFlagSet(command, flag.ContinueOnError)
 	f.SetOutput(io.Discard)
-	var profile, browser, headersFile, role, level, countryIDs, company, family, sinceValue, query string
-	var remote, refresh bool
+	var profile, browser, headersFile, role, level, countryIDs, company, companies, family, sinceValue, query string
+	var remote, refresh, newOffers bool
+	var focusTags []string
 	var limit, pages int
 	switch command {
 	case "auth login":
@@ -94,12 +111,17 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	case "auth status", "salaries filters":
 	case "search locations":
 		f.StringVar(&query, "query", "", "native city search")
-	case "salaries estimate":
+	case "salaries estimate", "salaries cohort":
 		f.StringVar(&role, "role", "", "native free-text role/tag search")
 		f.StringVar(&level, "level", "", "explicit native experience band")
-		f.BoolVar(&remote, "remote", false, "native global remote filter")
+		f.BoolVar(&remote, "remote", false, "reported remote work arrangement; worldwide hiring eligibility unknown")
 		f.StringVar(&countryIDs, "country-ids", "", "comma-separated native country IDs")
 		f.StringVar(&company, "company", "", "native exact employer slug")
+		f.BoolVar(&newOffers, "new-offers-only", false, "native zero years-at-company filter")
+		if command == "salaries cohort" {
+			f.StringVar(&companies, "companies", "", "comma-separated exact employer slugs")
+			f.Func("focus", "repeatable exact focus tag inclusion filter", func(v string) error { focusTags = append(focusTags, v); return nil })
+		}
 		f.StringVar(&family, "job-family", "software-engineer", "native job family slug")
 		f.StringVar(&sinceValue, "since", time.Now().UTC().AddDate(0, 0, -365).Format(time.DateOnly), "lower date bound")
 		f.IntVar(&limit, "limit", 50, "rows per native page, <=50")
@@ -117,7 +139,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	var q domain.Query
 	var since time.Time
 	var err error
-	if command == "salaries estimate" {
+	if command == "salaries estimate" || command == "salaries cohort" {
 		if strings.TrimSpace(role) == "" {
 			return fmt.Errorf("--role is required")
 		}
@@ -138,7 +160,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("invalid --since %q: use YYYY-MM-DD", sinceValue)
 		}
-		q = domain.Query{Role: role, JobFamily: family, Level: lev, Remote: remote, Company: company, Limit: limit, MaxPages: pages, CountryIDs: []int{}}
+		q = domain.Query{Role: role, JobFamily: family, Level: lev, Remote: remote, NewOffersOnly: newOffers, Company: company, Limit: limit, MaxPages: pages, CountryIDs: []int{}}
 		if countryIDs != "" {
 			for _, part := range strings.Split(countryIDs, ",") {
 				id, err := strconv.Atoi(strings.TrimSpace(part))
@@ -149,11 +171,14 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 			}
 		}
 	}
+	if command == "salaries cohort" && (companies == "" || company != "") {
+		return fmt.Errorf("salaries cohort requires --companies and does not accept --company")
+	}
 	if command == "search locations" && strings.TrimSpace(query) == "" {
 		return fmt.Errorf("--query is required")
 	}
 	if command == "salaries filters" {
-		return json.NewEncoder(out).Encode(map[string]any{"levels": map[string]string{"all": "any experience", "junior": "0..1 years", "middle": "2..6 years", "senior": "7+ years"}, "remote": "native workArrangement=remote across all countries unless country IDs restrict it", "country_discovery": "search locations --query CITY; use returned countryId (Kazan -> 203, US -> 254); omit country IDs for global scope", "role_semantics": "native searchText over cities/tags/etc; not a verified language classifier", "salary_units": "annual USD normalized by source; components and gross/net separate", "filter_source": "https://www.levels.fyi/t/software-engineer, native table filters observed 2026-10-25"})
+		return json.NewEncoder(out).Encode(map[string]any{"levels": map[string]string{"all": "any experience", "junior": "0..1 years", "middle": "2..6 years", "senior": "7+ years"}, "remote": "native workArrangement=remote across all countries unless country IDs restrict it; does not establish worldwide hiring eligibility or location-independent pay", "country_discovery": "search locations --query CITY; use returned countryId (Kazan -> 203, US -> 254); omit country IDs to sample all available countries", "role_semantics": "native searchText over cities/tags/etc; not a verified language classifier", "salary_units": "annual USD normalized by source; components and gross/net separate", "filter_source": "https://www.levels.fyi/t/software-engineer, native table filters observed 2026-10-25"})
 	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
@@ -212,6 +237,9 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 				var saved domain.Report
 				if json.Unmarshal(b, &saved) == nil && time.Since(saved.FetchedAt) >= 0 && time.Since(saved.FetchedAt) < 6*time.Hour {
 					saved.Requests = 0
+					if q.Remote && !slices.Contains(saved.Limitations, service.RemoteScopeLimitation) {
+						saved.Limitations = append(saved.Limitations, service.RemoteScopeLimitation)
+					}
 					saved.Limitations = append(saved.Limitations, "Read from local cache; fetched_at retains the source retrieval time.")
 					return json.NewEncoder(out).Encode(saved)
 				}
@@ -237,6 +265,17 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 			return err
 		}
 		return json.NewEncoder(out).Encode(locations)
+	}
+	if command == "salaries cohort" {
+		companyList := strings.Split(companies, ",")
+		for i := range companyList {
+			companyList[i] = strings.TrimSpace(companyList[i])
+		}
+		report, err := client.Cohort(ctx, q, companyList, focusTags, since)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(out).Encode(report)
 	}
 	report, err := client.Estimate(ctx, q, since)
 	if err != nil {

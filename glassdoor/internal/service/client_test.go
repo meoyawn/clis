@@ -76,6 +76,43 @@ func TestNativeSalaryReport(t *testing.T) {
 	}
 }
 
+func TestCompanySalaryFiltersAndNativeUnits(t *testing.T) {
+	for _, location := range []string{"Synthetic Market", "Unexpected US default"} {
+		t.Run(location, func(t *testing.T) {
+			calls := 0
+			c := NewClient(&http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				calls++
+				var input map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+					t.Fatal(err)
+				}
+				if r.URL.Path != "/bff/employer-profile-mono/agg-salary-estimates" || r.Method != "POST" || input["employerId"] != float64(456) || input["countryId"] != float64(6) || input["payPeriod"] != "ANNUAL" || input["jobTitle"] != "Engineer" || input["page"] != float64(2) {
+					t.Fatalf("wrong company/location/title/period/page: %+v", input)
+				}
+				body := `{"data":{"aggregatedSalaryEstimates":{"jobTitleCount":12,"numPages":2,"queryLocation":{"name":"` + location + `"},"results":[{"basePayStatistics":{"percentiles":[{"ident":"P25","value":360000},{"ident":"P50","value":420000},{"ident":"P75","value":480000}]},"totalPayStatistics":{"percentiles":[{"ident":"P25","value":400000},{"ident":"P50","value":460000},{"ident":"P75","value":520000}]},"currency":{"code":"AED"},"jobTitle":{"id":123,"text":"Software Engineer"},"mostRecent":"2026-05-25T05:00:31","salaryCount":1}]}}}`
+				return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(body))}, nil
+			})}, nil)
+			r, err := c.CompanySalaries(context.Background(), domain.CompanyQuery{Employer: domain.Employer{ID: 456, Name: "Synthetic Company"}, Location: domain.Location{LocationID: 6, Type: "N", Name: "Synthetic Market"}, Title: "Engineer", Period: domain.Year(), Page: 2})
+			if location != "Synthetic Market" {
+				if err == nil || calls != 1 {
+					t.Fatalf("wrong-location response accepted/retried: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if calls != 1 || len(r.Results) != 1 || r.NumPages != 2 || r.JobTitleCount != 12 || r.Results[0].SalaryCount != 1 {
+				t.Fatalf("company coverage lost: %+v", r)
+			}
+			row := r.Results[0]
+			if row.BasePay.P50.Amount != 420000 || row.TotalPay.P50.Amount != 460000 || row.BasePay.P50.Currency != "AED" || row.BasePay.P50.Interval != domain.Year() || row.MostRecent != "2026-05-25T05:00:31" {
+				t.Fatalf("native component/units/date changed: %+v", row)
+			}
+		})
+	}
+}
+
 func TestNoReportOnAccessOrChangedScope(t *testing.T) {
 	for _, tc := range []struct {
 		name, body, contentType, mitigated string

@@ -23,9 +23,10 @@ import (
 var hashes = []string{strings.Repeat("a", 38), strings.Repeat("b", 38), strings.Repeat("c", 38)}
 
 func TestResumeUpdateIsolationAndPrintVerification(t *testing.T) {
-	for _, scenario := range []string{"preview", "apply", "hide-contacts", "decorative-metadata", "fork-shared-experience", "hidden-print-experience", "cross-resume-write", "stale-print", "hidden-print-text", "wrong-print-id", "rate-limit"} {
+	for _, scenario := range []string{"preview", "apply", "hide-contacts", "decorative-metadata", "fork-shared-experience", "hidden-print-experience", "cross-resume-write", "stale-print", "hidden-print-text", "wrong-print-id", "rate-limit", "pruned-unused-skills", "changed-used-skill-level", "missing-used-skill-level"} {
 		t.Run(scenario, func(t *testing.T) {
 			resumes := make(map[string]hh.Object)
+			skillChange := scenario == "pruned-unused-skills" || scenario == "changed-used-skill-level" || scenario == "missing-used-skill-level"
 			for i, hash := range hashes {
 				resumes[hash] = hh.Object{
 					"_attributes": hh.Object{"hash": hash, "id": fmt.Sprint(100 + i), "permission": "edit"},
@@ -34,6 +35,15 @@ func TestResumeUpdateIsolationAndPrintVerification(t *testing.T) {
 					"keySkills":   []any{hh.Object{"string": "Go"}},
 					"experience":  []any{hh.Object{"id": float64(42), "companyName": "Shared historical employer", "position": "Engineer", "startDate": "2020-01-01", "endDate": nil, "description": fmt.Sprintf("History %d", i)}},
 				}
+				if skillChange {
+					resumes[hash]["resumeApplicantSkills"] = []any{
+						hh.Object{"name": "Go", "category": "SKILL", "level": hh.Object{"internalId": "advanced"}},
+						hh.Object{"name": "Rust", "category": "SKILL", "level": hh.Object{"internalId": "middle"}},
+					}
+				}
+			}
+			if skillChange {
+				resumes[hashes[1]]["keySkills"] = []any{hh.Object{"string": "Go"}, hh.Object{"string": "Rust"}}
 			}
 			posts := 0
 			reads := 0
@@ -80,7 +90,19 @@ func TestResumeUpdateIsolationAndPrintVerification(t *testing.T) {
 					if len(patch) != 1 {
 						t.Errorf("unrequested fields sent: %v", patch)
 					}
-					if scenario == "hide-contacts" {
+					if skillChange {
+						resumes[hashes[1]]["keySkills"] = []any{hh.Object{"string": "Go"}}
+						for _, resume := range resumes {
+							level := "advanced"
+							if scenario == "changed-used-skill-level" {
+								level = "middle"
+							}
+							resume["resumeApplicantSkills"] = []any{hh.Object{"name": "Go", "category": "SKILL", "level": hh.Object{"internalId": level}}}
+							if scenario == "missing-used-skill-level" {
+								resume["resumeApplicantSkills"] = []any{}
+							}
+						}
+					} else if scenario == "hide-contacts" {
 						resumes[hashes[1]]["hiddenFields"] = []any{hh.Object{"string": "phones"}, hh.Object{"string": "other_contacts"}}
 					} else if scenario == "fork-shared-experience" || scenario == "hidden-print-experience" {
 						row := patch["experience"].([]any)[0].(map[string]any)
@@ -111,6 +133,9 @@ func TestResumeUpdateIsolationAndPrintVerification(t *testing.T) {
 						hash = hashes[0]
 					}
 					printResume := hh.Object{"hash": hash, "skills": hh.Object{"value": about}, "experience": hh.Object{"value": resumes[hash]["experience"]}}
+					if skillChange {
+						printResume["keySkills"] = hh.Object{"value": []any{"Go"}}
+					}
 					if scenario == "hide-contacts" {
 						// HH prints hiddenFields as a direct scalar array, without the
 						// {value: ...} wrapper used by most resume fields.
@@ -142,6 +167,9 @@ func TestResumeUpdateIsolationAndPrintVerification(t *testing.T) {
 			id, _ := hh.NewResumeIDFromValue(hashes[1])
 			backupDir := t.TempDir()
 			patch := hh.Object{"skills": "New independently rendered <Go> & TypeScript"}
+			if skillChange {
+				patch = hh.Object{"keySkills": []any{"Go"}}
+			}
 			if scenario == "hide-contacts" {
 				patch = hh.Object{"hiddenFields": []any{"phones", "other_contacts"}}
 			}
@@ -149,7 +177,7 @@ func TestResumeUpdateIsolationAndPrintVerification(t *testing.T) {
 				patch = hh.Object{"experience": []any{hh.Object{"id": float64(42), "companyName": "Shared historical employer", "position": "Engineer", "startDate": "2020-01-01", "endDate": nil, "description": "New history only in selected resume"}}}
 			}
 			plan, err := client.Update(context.Background(), id, patch, scenario != "preview", backupDir)
-			wantError := map[string]string{"cross-resume-write": "ISOLATION FAILURE", "stale-print": "print view differs", "hidden-print-text": "absent from employer print view", "hidden-print-experience": "absent from employer print view", "wrong-print-id": "identity mismatch", "rate-limit": "rate_limited"}[scenario]
+			wantError := map[string]string{"cross-resume-write": "ISOLATION FAILURE", "stale-print": "print view differs", "hidden-print-text": "absent from employer print view", "hidden-print-experience": "absent from employer print view", "wrong-print-id": "identity mismatch", "rate-limit": "rate_limited", "changed-used-skill-level": "proficiency levels changed", "missing-used-skill-level": "proficiency levels changed"}[scenario]
 			if wantError != "" {
 				if err == nil || !strings.Contains(err.Error(), wantError) {
 					t.Fatalf("want %q, got %v", wantError, err)
@@ -177,7 +205,7 @@ func TestResumeUpdateIsolationAndPrintVerification(t *testing.T) {
 			if !reflect.DeepEqual(plan.OtherResumesUnchanged, []string{hashes[0], hashes[2]}) {
 				t.Fatalf("N-resume isolation not checked: %v", plan.OtherResumesUnchanged)
 			}
-			if scenario != "fork-shared-experience" && scenario != "hide-contacts" && !strings.Contains(plan.PrintText, "<Go> & TypeScript") {
+			if !skillChange && scenario != "fork-shared-experience" && scenario != "hide-contacts" && !strings.Contains(plan.PrintText, "<Go> & TypeScript") {
 				t.Fatal("print output did not preserve decoded text")
 			}
 			if scenario == "fork-shared-experience" {

@@ -214,6 +214,8 @@ type searchPage struct {
 	Rows   []nativeRow `json:"rows"`
 }
 
+const RemoteScopeLimitation = "Remote means reported work arrangement, not worldwide hiring eligibility or location-independent pay; pooled country percentiles are sample statistics, not a verified worldwide-remote market benchmark."
+
 func (c *Client) Estimate(ctx context.Context, q domain.Query, since time.Time) (*domain.Report, error) {
 	if _, err := domain.NewLevelFromValue(q.Level.String()); err != nil {
 		return nil, err
@@ -232,6 +234,10 @@ func (c *Client) Estimate(ctx context.Context, q domain.Query, since time.Time) 
 	}
 	if q.Remote {
 		values.Set("workArrangement", "remote")
+	}
+	if q.NewOffersOnly {
+		values.Set("minYearsAtCompany", "0")
+		values.Set("maxYearsAtCompany", "0")
 	}
 	minYears, maxYears := q.Level.Years()
 	if minYears > 0 {
@@ -258,6 +264,9 @@ func (c *Client) Estimate(ctx context.Context, q domain.Query, since time.Time) 
 	}}
 	if len(q.CountryIDs) > 0 {
 		r.Geography = "explicit country IDs only"
+	}
+	if q.Remote {
+		r.Limitations = append(r.Limitations, RemoteScopeLimitation)
 	}
 	ids := map[string]bool{}
 	for page := 0; page < q.MaxPages; page++ {

@@ -47,14 +47,38 @@ func (l Level) Years() (int, *int) {
 }
 
 type Query struct {
-	Role       string `json:"role"`
-	JobFamily  string `json:"job_family"`
-	Level      Level  `json:"-"`
-	Remote     bool   `json:"remote"`
-	CountryIDs []int  `json:"country_ids"`
-	Company    string `json:"company_slug,omitempty"`
-	Limit      int    `json:"limit"`
-	MaxPages   int    `json:"max_pages"`
+	Role          string `json:"role"`
+	JobFamily     string `json:"job_family"`
+	Level         Level  `json:"-"`
+	Remote        bool   `json:"remote"`
+	NewOffersOnly bool   `json:"new_offers_only"`
+	CountryIDs    []int  `json:"country_ids"`
+	Company       string `json:"company_slug,omitempty"`
+	Limit         int    `json:"limit"`
+	MaxPages      int    `json:"max_pages"`
+}
+type EmployerSample struct {
+	Company             string  `json:"company_slug"`
+	SourceReportedTotal int     `json:"source_reported_total"`
+	RetrievedCount      int     `json:"retrieved_count"`
+	SelectedCount       int     `json:"selected_count"`
+	Groups              []Group `json:"sample_distributions"`
+}
+type CohortReport struct {
+	FetchedAt      time.Time        `json:"fetched_at"`
+	Companies      []string         `json:"company_slugs"`
+	FocusTags      []string         `json:"exact_focus_tags"`
+	Query          Query            `json:"query"`
+	LevelFilter    string           `json:"level_filter"`
+	Employers      []EmployerSample `json:"by_employer"`
+	RetrievedCount int              `json:"retrieved_count"`
+	SelectedCount  int              `json:"selected_count"`
+	ExcludedCount  int              `json:"excluded_count"`
+	Submissions    []Submission     `json:"submissions"`
+	Groups         []Group          `json:"sample_distributions"`
+	Countries      []Group          `json:"by_country"`
+	Evidence       []string         `json:"evidence"`
+	Limitations    []string         `json:"limitations"`
 }
 type Money struct {
 	Amount   float64 `json:"amount"`

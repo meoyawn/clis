@@ -18,6 +18,9 @@ Commands:
   people mutuals <person>     Find shared first-degree connections
   people connect <person>     Preview or send a connection request without a note
   experience update <person> Preview or update your experience description
+  profile headline <person>  Preview or update your own profile headline
+  profile about <person>     Preview or update your About section
+  profile project <person>   Preview or add a dated project
   messages read <person>      Read recent messages in a direct conversation
   messages send <person>      Preview or send approved plain text
   posts create                Preview or publish an approved personal feed post
@@ -401,6 +404,12 @@ func writeHelp(w io.Writer, commands []string) error {
 		help = analyticsHelp
 	case "experience", "experience update":
 		help = experienceHelp
+	case "profile", "profile about":
+		help = profileEditHelp
+	case "profile headline":
+		help = headlineHelp
+	case "profile project":
+		help = profileProjectHelp
 	case "auth":
 		help = authHelp
 	case "auth login":

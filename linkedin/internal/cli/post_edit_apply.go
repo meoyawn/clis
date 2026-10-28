@@ -135,6 +135,12 @@ func (p postEditPlan) requestedStates(action map[string]any) ([]any, error) {
 		case "stringListValue":
 			list, _ := v.(map[string]any)
 			v = list["stringValues"]
+		case "expression":
+			var err error
+			v, err = p.formExpression(v, 0)
+			if err != nil {
+				return nil, fmt.Errorf("serialize state %q: %w", key, err)
+			}
 		default:
 			return nil, fmt.Errorf("edit state %q uses unsupported type %q", key, kind)
 		}

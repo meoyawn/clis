@@ -149,6 +149,89 @@ func isolatedState(fields Object) Object {
 	return state
 }
 
+// HH exposes the union of skills currently selected by any resume. Removing
+// the last use hides the inventory row, but reselecting it restores its saved
+// rating (verified against the live account on 2026-10-28). Only such unused
+// SKILL rows may disappear; retained ratings and language rows must not change.
+func unusedSkillNames(before *Resume, patch Object, others map[string]Object) map[string]bool {
+	selected, changed := patch["keySkills"].([]any)
+	if !changed {
+		return nil
+	}
+	used := map[string]bool{}
+	for _, value := range selected {
+		used[fmt.Sprint(value)] = true
+	}
+	for _, other := range others {
+		values, _ := other["keySkills"].([]any)
+		for _, value := range values {
+			used[fmt.Sprint(value)] = true
+		}
+	}
+	unused := map[string]bool{}
+	rows, _ := before.Fields["resumeApplicantSkills"].([]any)
+	for _, row := range rows {
+		item, ok := row.(map[string]any)
+		if !ok || item["category"] != "SKILL" {
+			continue
+		}
+		name, _ := item["name"].(string)
+		if name != "" && !used[name] {
+			unused[name] = true
+		}
+	}
+	return unused
+}
+
+func sameSkillInventory(before, after any, mayDisappear map[string]bool) bool {
+	if reflect.DeepEqual(before, after) {
+		return true
+	}
+	oldRows, oldOK := before.([]any)
+	newRows, newOK := after.([]any)
+	if !oldOK || !newOK {
+		return false
+	}
+	remaining := map[string]any{}
+	for _, row := range newRows {
+		item, ok := row.(map[string]any)
+		if !ok {
+			return false
+		}
+		name, _ := item["name"].(string)
+		if name == "" || remaining[name] != nil {
+			return false
+		}
+		remaining[name] = row
+	}
+	for _, row := range oldRows {
+		item, ok := row.(map[string]any)
+		if !ok {
+			return false
+		}
+		name, _ := item["name"].(string)
+		current, exists := remaining[name]
+		if !exists {
+			if !mayDisappear[name] {
+				return false
+			}
+		} else if !reflect.DeepEqual(row, current) {
+			return false
+		}
+		delete(remaining, name)
+	}
+	return len(remaining) == 0
+}
+
+func sameIsolatedState(before Object, after *Resume, mayDisappear map[string]bool) bool {
+	current := isolatedState(after.Fields)
+	if !sameSkillInventory(before["resumeApplicantSkills"], current["resumeApplicantSkills"], mayDisappear) {
+		return false
+	}
+	current["resumeApplicantSkills"] = before["resumeApplicantSkills"]
+	return reflect.DeepEqual(before, current)
+}
+
 type Change struct {
 	Before any `json:"before"`
 	After  any `json:"after"`
@@ -231,6 +314,7 @@ func (c *Client) Update(ctx context.Context, id ResumeID, patch Object, apply bo
 	if !found {
 		return nil, fmt.Errorf("selected resume %s is not in this account's resume list; no write attempted", id)
 	}
+	unusedSkills := unusedSkillNames(before, patch, others)
 	if backupDir == "" {
 		return nil, fmt.Errorf("backup directory is empty; no write attempted")
 	}
@@ -279,7 +363,7 @@ func (c *Client) Update(ctx context.Context, id ResumeID, patch Object, apply bo
 	// survive. HH's derived status/interval metadata is excluded by Editable.
 	afterFields := Editable(after.Fields)
 	beforeFields := Editable(before.Fields)
-	if !reflect.DeepEqual(before.Fields["resumeApplicantSkills"], after.Fields["resumeApplicantSkills"]) {
+	if !sameSkillInventory(before.Fields["resumeApplicantSkills"], after.Fields["resumeApplicantSkills"], unusedSkills) {
 		return nil, fmt.Errorf("profile proficiency levels changed unexpectedly; stop; backup: %s", plan.BackupPath)
 	}
 	for key, value := range beforeFields {
@@ -293,7 +377,7 @@ func (c *Client) Update(ctx context.Context, id ResumeID, patch Object, apply bo
 		if err != nil {
 			return nil, fmt.Errorf("write completed but other-resume verification failed: %w", err)
 		}
-		if !reflect.DeepEqual(old, isolatedState(res.Fields)) {
+		if !sameIsolatedState(old, res, unusedSkills) {
 			return nil, fmt.Errorf("ISOLATION FAILURE: non-target resume %s changed; stop; backup: %s", hash, plan.BackupPath)
 		}
 		plan.OtherResumesUnchanged = append(plan.OtherResumesUnchanged, hash)

@@ -50,8 +50,25 @@ Usage: glassdoor [--anonymous] COMMAND [OPTIONS]
       sample size, provider confidence and source update timestamp.
       --remote requires explicit --location Remote (United States); it never
       substitutes that market for worldwide remote.
+      No verified worldwide-hiring cohort is exposed by this API. Levels.fyi's
+      all-country remote sample also requires separate hiring-scope evidence.
+      Percentiles are provider estimates for
+      the selected location, not an automatic market benchmark or recommended ask.
+      Provider confidence does not establish comparability or gross/net basis.
       --location is required; no city/country is inferred. Unsupported or ambiguous locations stop.
       Industry 0 means all; nonzero IDs are checked against the live catalog.
+  salaries company --company NAME --location LOCATION [--company-id ID]
+                   [--location-id ID] [--title TEXT] [--period year|month|hour]
+                   [--page 1] [--refresh]
+      Resolve the exact employer and location, then query the native employer
+      salary table. Default period year; no currency/annualization guess.
+      Return each matching title separately with base/total percentiles,
+      sample size, latest report date and pagination. Title is native text
+      search, not an exact title or seniority assertion. No country default.
+      Use for explicitly requested employer comparisons. This table has no
+      remote/experience/worldwide-hiring filter; employer or country selection
+      does not produce a broad worldwide-hiring market cohort.
+      --location Worldwide is not a supported catalog value.
 
 Queries/catalogs are cached for 24h; salary estimates are fetched fresh.
 Default: saved Chrome session required. --anonymous is explicit, never a
@@ -108,7 +125,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	if len(args) < 2 {
 		return fmt.Errorf("expected auth, search or salaries command; run --help")
 	}
-	valid := args[0] == "auth" && (args[1] == "login" || args[1] == "status") || args[0] == "search" && (args[1] == "titles" || args[1] == "locations" || args[1] == "companies") || args[0] == "salaries" && (args[1] == "filters" || args[1] == "estimate")
+	valid := args[0] == "auth" && (args[1] == "login" || args[1] == "status") || args[0] == "search" && (args[1] == "titles" || args[1] == "locations" || args[1] == "companies") || args[0] == "salaries" && (args[1] == "filters" || args[1] == "estimate" || args[1] == "company")
 	if !valid {
 		return fmt.Errorf("unknown command %q", strings.Join(args[:2], " "))
 	}
@@ -118,6 +135,8 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	var refresh, remote bool
 	var role, level string
 	var titleID, locationID, industryID int
+	var company, period string
+	var companyID, page int
 	if args[0] == "auth" && args[1] == "login" {
 		f.StringVar(&profile, "profile", "Default", "Chrome profile")
 		f.StringVar(&browser, "browser", "chrome", "browser")
@@ -129,6 +148,15 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	}
 	if args[0] == "salaries" {
 		f.BoolVar(&refresh, "refresh", false, "refresh catalog cache")
+		if args[1] == "company" {
+			f.StringVar(&company, "company", "", "exact employer name")
+			f.IntVar(&companyID, "company-id", 0, "disambiguating native employer ID")
+			f.StringVar(&location, "location", "", "explicit native location")
+			f.IntVar(&locationID, "location-id", 0, "disambiguating native location ID")
+			f.StringVar(&title, "title", "", "native job title text search")
+			f.StringVar(&period, "period", "year", "native pay period: year, month, hour")
+			f.IntVar(&page, "page", 1, "native result page")
+		}
 		if args[1] == "estimate" {
 			f.StringVar(&title, "title", "", "exact job title")
 			f.StringVar(&role, "role", "", "role alias or native title")
@@ -148,7 +176,23 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return fmt.Errorf("unexpected arguments: %v", f.Args())
 	}
 	var exp domain.Experience
+	var interval domain.Interval
 	var err error
+	if args[0] == "salaries" && args[1] == "company" {
+		if strings.TrimSpace(company) == "" || strings.TrimSpace(location) == "" {
+			return fmt.Errorf("salaries company requires --company and --location")
+		}
+		if companyID < 0 || locationID < 0 || page < 1 {
+			return fmt.Errorf("invalid company-id=%d location-id=%d page=%d", companyID, locationID, page)
+		}
+		if period != "year" && period != "month" && period != "hour" {
+			return fmt.Errorf("invalid --period %q: use year, month or hour", period)
+		}
+		interval, err = domain.NewIntervalFromValue(period)
+		if err != nil {
+			return err
+		}
+	}
 	if args[0] == "search" && strings.TrimSpace(query) == "" {
 		return fmt.Errorf("--query is required")
 	}
@@ -169,7 +213,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 			return fmt.Errorf("--level applies to --role; --title is already the exact native title")
 		}
 		if remote && !strings.EqualFold(location, "Remote") {
-			return fmt.Errorf("glassdoor has no verified global remote cohort in this API; native Remote is United States only. Use an explicit --location Remote for that market, or levels-fyi for worldwide remote evidence")
+			return fmt.Errorf("--remote with --location %q is unsupported: Glassdoor Remote is a United States location, not worldwide hiring. Use --location Remote only for US evidence; verify worldwide hiring separately. Levels.fyi's all-country remote sample does not establish it either", location)
 		}
 		if title == "" || location == "" {
 			return fmt.Errorf("--title and --location are required; no geographic default is assumed")
@@ -282,6 +326,31 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		}
 		return json.NewEncoder(out).Encode(map[string]any{"experience_aliases": []string{"all", "0-1", "1-3", "4-6", "7-9", "10-14", "15+"}, "industries": industries, "all_industries_id": 0, "industry_source_url": service.FilterSourceURL, "location_discovery": "search locations --query TEXT", "title_discovery": "search titles --query TEXT"})
 	}
+	chosenLocation, err := resolveLocation(ctx, client, cacheDir, location, locationID, refresh)
+	if err != nil {
+		return err
+	}
+	if args[1] == "company" {
+		companies, err := cached(ctx, cacheDir, "companies:"+company, refresh, func() ([]domain.Employer, error) { return client.Employers(ctx, company) })
+		if err != nil {
+			return err
+		}
+		chosen := []domain.Employer{}
+		for _, v := range companies {
+			if companyID > 0 && v.ID == companyID || companyID == 0 && strings.EqualFold(v.Name, company) {
+				chosen = append(chosen, v)
+			}
+		}
+		if len(chosen) != 1 {
+			data, _ := json.Marshal(companies)
+			return fmt.Errorf("company %q is missing or ambiguous; select --company-id from %s", company, data)
+		}
+		report, err := client.CompanySalaries(ctx, domain.CompanyQuery{Employer: chosen[0], Location: chosenLocation, Title: title, Period: interval, Page: page})
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(out).Encode(report)
+	}
 	titles, err := cached(ctx, cacheDir, "titles:"+title, refresh, func() ([]domain.Title, error) { return client.Titles(ctx, title) })
 	if err != nil {
 		return err
@@ -295,20 +364,6 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	if len(chosenTitles) != 1 {
 		data, _ := json.Marshal(titles)
 		return fmt.Errorf("title %q is missing or ambiguous; select --title-id from these suggestions: %s", title, data)
-	}
-	locations, err := cached(ctx, cacheDir, "locations:"+location, refresh, func() ([]domain.Location, error) { return client.Locations(ctx, location) })
-	if err != nil {
-		return err
-	}
-	var chosenLocations []domain.Location
-	for _, v := range locations {
-		if locationID > 0 && v.LocationID == locationID || locationID == 0 && (strings.EqualFold(v.Name, location) || strings.EqualFold(v.Label, location) || strings.EqualFold(v.LongName, location)) {
-			chosenLocations = append(chosenLocations, v)
-		}
-	}
-	if len(chosenLocations) != 1 {
-		data, _ := json.Marshal(locations)
-		return fmt.Errorf("location %q is missing or ambiguous; select --location-id from these suggestions: %s", location, data)
 	}
 	industry := domain.Industry{ID: 0, Name: "All industries"}
 	if industryID > 0 {
@@ -328,11 +383,29 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 			return fmt.Errorf("industry ID %d is absent from the native catalog; run salaries filters --refresh", industryID)
 		}
 	}
-	report, err := client.Estimate(ctx, domain.Query{Title: chosenTitles[0], Location: chosenLocations[0], Experience: exp, Industry: industry})
+	report, err := client.Estimate(ctx, domain.Query{Title: chosenTitles[0], Location: chosenLocation, Experience: exp, Industry: industry})
 	if err != nil {
 		return err
 	}
 	return json.NewEncoder(out).Encode(report)
+}
+
+func resolveLocation(ctx context.Context, client *service.Client, cacheDir, location string, locationID int, refresh bool) (domain.Location, error) {
+	locations, err := cached(ctx, cacheDir, "locations:"+location, refresh, func() ([]domain.Location, error) { return client.Locations(ctx, location) })
+	if err != nil {
+		return domain.Location{}, err
+	}
+	chosen := []domain.Location{}
+	for _, v := range locations {
+		if locationID > 0 && v.LocationID == locationID || locationID == 0 && (strings.EqualFold(v.Name, location) || strings.EqualFold(v.Label, location) || strings.EqualFold(v.LongName, location)) {
+			chosen = append(chosen, v)
+		}
+	}
+	if len(chosen) != 1 {
+		data, _ := json.Marshal(locations)
+		return domain.Location{}, fmt.Errorf("location %q is missing or ambiguous; select --location-id from %s", location, data)
+	}
+	return chosen[0], nil
 }
 
 type cacheEnvelope[T any] struct {

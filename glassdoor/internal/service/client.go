@@ -180,6 +180,7 @@ func (c *Client) Estimate(ctx context.Context, q domain.Query) (*domain.Report, 
 		return nil, err
 	}
 	r := &domain.Report{FetchedAt: time.Now().UTC(), SourceURL: salaryURL(q.Title.JobTitle, q.Location), Endpoint: endpoint, SourceKind: "glassdoor_salary_estimate", Title: q.Title, Location: q.Location, Experience: q.Experience.String(), Industry: q.Industry, NativeRequest: input, Currency: d.Currency.Code, Period: period, NativePayPeriod: d.PayPeriod, SalaryCount: *d.Count, ProviderConfidence: d.Confidence, SourceUpdatedAt: d.UpdatedAt, Limitations: []string{"Glassdoor estimate and reported salaries are not an employer-confirmed hiring budget.", "Gross/net basis and contracted hours are not supplied by this endpoint.", "Native payPeriod is authoritative here; generic FAQ copy and globally scoped recent-salary feeds are not used for unit or location inference."}}
+	r.Limitations = append(r.Limitations, "This API has no verified worldwide-hiring cohort; selected-location pay does not establish worldwide hiring or location-independent pay. Provider confidence does not establish cohort fit or representativeness.")
 	if r.BasePay, err = parsePay(d.Base, d.Currency.Code, interval); err != nil {
 		return nil, err
 	}

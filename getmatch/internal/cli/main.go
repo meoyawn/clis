@@ -20,7 +20,7 @@ import (
 	"github.com/meoyawn/clis/getmatch/internal/service"
 )
 
-const help = `Getmatch salary research, as JSON. Read-only; no profile/salary submissions.
+const help = `Getmatch salary research, profiles and native job applications, as JSON.
 
 Usage: getmatch [--anonymous] COMMAND [OPTIONS]
 
@@ -44,6 +44,45 @@ Usage: getmatch [--anonymous] COMMAND [OPTIONS]
       from that same session; otherwise derive UA from installed macOS Chrome.
   auth status
       Local cookie presence/expiry metadata only; never print credentials.
+  vacancies get --id ID
+      Read the exact live vacancy; accepts a canonical Getmatch vacancy URL.
+  profile get --output FILE
+      Export the shared profile privately (mode 0600). No account changes.
+  profile cv --output FILE
+      Download Getmatch's generated profile PDF and report its SHA256. GET only.
+      This is not proof that the original uploaded file is retained.
+  profile update --patch FILE [--apply] [--backup-dir DIR] [--output FILE]
+      Preview or update the shared profile through native editing endpoints.
+      Supported fields: first_name, last_name, phone, summary, skills, languages, links,
+      experience. Arrays replace their section. Export before editing IDs.
+      --apply saves a private backup and checks changed and preserved fields.
+  applications list [--all | --offset N] [--output FILE]
+      Read application IDs, vacancies, current status, dates, cover letters
+      and rejection reasons. --all follows every page; otherwise 20 per page.
+  application status --id ID
+      Read authenticated already_applied and matching records from the complete
+      applications list, including their reported status. GET only.
+  application verify --draft FILE --receipt FILE [--output FILE]
+      Recheck the saved submission through GET only; never resubmit. Report
+      exact destination/status, letter equality or observed URL masking, and
+      the actual downloadable PDF hash versus the reviewed attachment.
+  application prepare --id ID --letter-file FILE --answers-file FILE
+                      --output FILE
+      GET-only preparation; freeze destination, cover letter,
+      answers and shared-profile fingerprint in a private review package.
+      Answers: first_name, last_name, salary_from, salary_currency (RUB/USD),
+      location_id, optional citizenships/work_permits arrays. Salary is monthly
+      take-home as labelled by the native form. No profile defaults invented.
+  application submit --draft FILE [--send --reviewed SHA256] [--output FILE]
+      Without --send, inspect the package locally. --send posts it ONCE after
+      fresh preflight and verifies already_applied plus the listed application
+      ID, company, vacancy and exact cover letter. Requires user authorization
+      and completion of application review; the hash binds bytes, not consent.
+      Uses the reviewed native profile plus cover_letter. PDF sending is disabled:
+      uploads reimport and overwrite the shared profile, confusing projects and
+      employment (observed 28 Oct 2026; user prohibited future PDF uploads).
+      Candidate list readback masks external letter URLs; report this explicitly.
+      On an uncertain result, use status/list before any retry.
 
 Use --anonymous before COMMAND to avoid loading a saved session. With no saved
 session the public endpoints are used anonymously. A blocked/partial report
@@ -52,7 +91,8 @@ foreground process: no daemon, no connection reuse between processes.
 Errors go to stderr. Stop on 403/429, login, checkpoint or changed API shape.
 No automatic retries. Source currency/period and unknown gross/net stay explicit.
 GETs: /api/specializations (cached), /api/salaries and /api/salaries/stats.
-The API's personal salary/profile fields are not included in output or caches.
+Salary reports exclude personal salary/profile data. Explicit profile exports
+and application packages contain personal data; keep their files private.
 `
 
 func Main() {
@@ -87,9 +127,13 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	if len(args) < 2 {
 		return fmt.Errorf("expected salaries filters, salaries estimate, auth login or auth status")
 	}
-	known := args[0] == "salaries" && (args[1] == "filters" || args[1] == "estimate") || args[0] == "auth" && (args[1] == "login" || args[1] == "status")
+	account := args[0] == "profile" && (args[1] == "get" || args[1] == "cv" || args[1] == "update") || args[0] == "vacancies" && args[1] == "get" || args[0] == "applications" && args[1] == "list" || args[0] == "application" && (args[1] == "prepare" || args[1] == "submit" || args[1] == "status" || args[1] == "verify")
+	known := account || args[0] == "salaries" && (args[1] == "filters" || args[1] == "estimate") || args[0] == "auth" && (args[1] == "login" || args[1] == "status")
 	if !known {
 		return fmt.Errorf("unknown command %q; run --help", strings.Join(args[:2], " "))
+	}
+	if account {
+		return runAccount(ctx, args, *anon, out)
 	}
 	flags := flag.NewFlagSet(strings.Join(args[:2], " "), flag.ContinueOnError)
 	flags.SetOutput(io.Discard)

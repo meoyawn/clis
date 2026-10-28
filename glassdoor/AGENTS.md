@@ -1,6 +1,8 @@
 # Glassdoor salary CLI
 
 - Read-only salary research through the observed native website contracts. Keep base pay and total pay separate; preserve source currency, period, sample size and scope.
+- Require an explicit verified location. Native `Remote` is a US location, not worldwide hiring. This API has no worldwide-hiring cohort; Levels.fyi's all-country remote sample does not verify one either. State that limitation in help, errors and JSON instead of redirecting to another source as if its hiring scope were established.
+- Percentiles are provider estimates for the selected title/location/experience, not automatically representative market percentiles. Provider confidence does not establish fit, worldwide hiring or gross/net basis. Never infer annual units or tax basis from generic page text; use the native pay-period field and keep unknowns explicit.
 - Never replay telemetry mutations or submit salaries, reviews, applications or profile changes. Keep captures and credentials outside Git.
 - One foreground command per account at a time. Reuse HTTP connections within that process and close them on exit; no daemon or connections retained between processes.
 - Stop on authentication, access challenges and rate limits. Do not add automatic retries.

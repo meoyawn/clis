@@ -42,6 +42,7 @@ func runExperience(ctx context.Context, args []string, store authStore, stdout, 
 	harPath := fs.String("har", "", "native experience-save HAR")
 	positionID := fs.String("position-id", "", "exact existing position ID")
 	textPath := fs.String("description-file", "", "UTF-8 description file")
+	title := fs.String("title", "", "replacement position title")
 	apply := fs.Bool("apply", false, "apply the explicitly requested description change")
 	positionals, err := parseFlags(fs, args[1:])
 	if errors.Is(err, flag.ErrHelp) {
@@ -51,12 +52,44 @@ func runExperience(ctx context.Context, args []string, store authStore, stdout, 
 	if err != nil {
 		return err
 	}
-	if len(positionals) != 1 || *harPath == "" || *positionID == "" || *textPath == "" {
-		return fmt.Errorf("experience update requires one profile plus --position-id, --har and --description-file")
+	if len(positionals) != 1 || *positionID == "" || *textPath == "" {
+		return fmt.Errorf("experience update requires one profile plus --position-id and --description-file")
 	}
 	ref, err := parseProfile(positionals[0])
 	if err != nil {
 		return err
+	}
+	if *harPath == "" {
+		if !digits.MatchString(*positionID) || strings.HasPrefix(*positionID, "0") {
+			return fmt.Errorf("invalid position ID %q", *positionID)
+		}
+		text, err := os.ReadFile(*textPath)
+		if err != nil {
+			return err
+		}
+		if err := validateProfileText("description", string(text), 2000); err != nil {
+			return err
+		}
+		changes := map[string]any{"description": string(text)}
+		if *title != "" {
+			if err := validateProfileText("title", *title, 100); err != nil {
+				return err
+			}
+			changes["title"] = *title
+		}
+		client, err := newLinkedinClient(store)
+		if err != nil {
+			return err
+		}
+		spec := profileFormSpec{path: "details/experience/edit/forms/" + *positionID + "/", screen: "com.linkedin.sdui.flagshipnav.profile.ProfilePositionForm", initialRequest: uploadPositionMedia, saveRequest: savePosition, fieldRequest: "com.linkedin.sdui.requests.profile.deleteProfilePositionForm", entityID: *positionID}
+		result, err := client.editProfileForm(ctx, ref, spec, changes, *apply, profileBackupDir(store))
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, result)
+	}
+	if *title != "" {
+		return fmt.Errorf("--title uses the fresh native form; omit --har")
 	}
 	f, err := os.Open(*harPath)
 	if err != nil {
@@ -204,7 +237,12 @@ func (c *linkedinClient) updateExperience(ctx context.Context, ref profileRef, c
 const experienceHelp = `Update an existing experience description on your own LinkedIn profile.
 
 Usage:
+  linkedin experience update <profile> --position-id ID --description-file FILE [--title TEXT] [--apply]
   linkedin experience update <profile> --position-id ID --har FILE --description-file FILE [--apply]
+
+Without --har, load the fresh native form and preserve its other fields/media.
+An optional --title changes the position title with the description. Verify
+the fresh form and all profile intro fields, including the unchanged location.
 
 Preview is read-only. --apply requires the human's explicit instruction for this
 profile/content; never use it for a live test. A successful native Save HAR is

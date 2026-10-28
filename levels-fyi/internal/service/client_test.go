@@ -40,7 +40,7 @@ func TestLocationsAcceptsNativeJSONArray(t *testing.T) {
 	}
 }
 
-func TestGlobalRemoteNativeReport(t *testing.T) {
+func TestAllCountryRemoteNativeReport(t *testing.T) {
 	fixture, err := os.ReadFile("testdata/search.encrypted.json")
 	if err != nil {
 		t.Fatal(err)
@@ -54,7 +54,7 @@ func TestGlobalRemoteNativeReport(t *testing.T) {
 		}
 		for key := range values {
 			if strings.Contains(strings.ToLower(key), "country") {
-				t.Fatalf("global query restricted to a country: %s", r.URL)
+				t.Fatalf("all-country query restricted to a country: %s", r.URL)
 			}
 		}
 		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(string(fixture)))}, nil
@@ -79,6 +79,32 @@ func TestGlobalRemoteNativeReport(t *testing.T) {
 	b, _ := json.Marshal(r)
 	if strings.Contains(string(b), "DO_NOT_EXPORT") {
 		t.Fatal("unallowlisted account data leaked")
+	}
+}
+
+func TestEmployerCohortFiltersNativeRequestsAndExactFocus(t *testing.T) {
+	calls := 0
+	c, err := NewClient(&http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		q := r.URL.Query()
+		if q.Get("companySlug") != "example" || q.Get("workArrangement") != "remote" || q.Get("minYearsOfExp") != "7" || q.Get("minYearsAtCompany") != "0" || q.Get("maxYearsAtCompany") != "0" || q.Get("currency") != "USD" || q.Get("searchText") != "" {
+			t.Fatalf("cohort did not reach native filters: %s", r.URL)
+		}
+		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"total":3,"hidden":0,"rows":[
+		{"uuid":"ai","company":"Example","companySlug":"example","jobFamilySlug":"software-engineer","yearsOfExperience":10,"workArrangement":"remote","focusTag":"ML / AI","salaryFormat":"gross","employmentType":"full_time","countryId":250,"baseSalary":100000,"totalCompensation":120000},
+		{"uuid":"frontend","company":"Example","companySlug":"example","jobFamilySlug":"software-engineer","yearsOfExperience":10,"workArrangement":"remote","focusTag":"Web Development (Front-End)","salaryFormat":"gross","employmentType":"full_time","countryId":254,"baseSalary":300000},
+		{"uuid":"backend","company":"Example","companySlug":"example","jobFamilySlug":"software-engineer","yearsOfExperience":14,"workArrangement":"remote","focusTag":"API Development (Back-End)","salaryFormat":"gross","employmentType":"full_time","countryId":254,"baseSalary":140000,"totalCompensation":200000}
+		]}`))}, nil
+	})}, http.Header{"Authorization": {"Bearer synthetic"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := c.Cohort(context.Background(), domain.Query{Role: "software-engineer", JobFamily: "software-engineer", Level: domain.Senior(), Remote: true, NewOffersOnly: true, Limit: 50, MaxPages: 1}, []string{"example"}, []string{"ML / AI", "API Development (Back-End)"}, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 || r.RetrievedCount != 3 || r.SelectedCount != 2 || r.ExcludedCount != 1 || len(r.Countries) != 2 || len(r.Employers) != 1 || r.Employers[0].SourceReportedTotal != 3 || r.Groups[0].Base.P50.Amount != 120000 || r.Groups[0].Total.P50.Amount != 160000 {
+		t.Fatalf("cohort selection/coverage/components changed: %+v", r)
 	}
 }
 func TestAccessAndScopeChangesStop(t *testing.T) {

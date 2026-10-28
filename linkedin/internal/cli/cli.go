@@ -89,6 +89,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return runAnalytics(ctx, args[1:], store, stdout, stderr)
 	case "experience":
 		return runExperience(ctx, args[1:], store, stdout, stderr)
+	case "profile":
+		return runProfile(ctx, args[1:], store, stdout, stderr)
 	case "auth":
 		return runAuth(ctx, args[1:], store, stdout, stderr)
 	default:
