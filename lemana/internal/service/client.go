@@ -167,7 +167,7 @@ func (o Options) Validate() error {
 	return nil
 }
 func (c *Client) result(target string) *domain.Result {
-	return &domain.Result{URL: target, City: "Казань", Products: []domain.Product{}, Warnings: []string{}, HTTPRequests: c.requests}
+	return &domain.Result{URL: target, Products: []domain.Product{}, HTTPRequests: c.requests}
 }
 func trimResult(r *domain.Result, limit int) {
 	r.PageSize = len(r.Products)

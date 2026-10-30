@@ -102,7 +102,7 @@ func runComments(ctx context.Context, args []string, store authStore, stdout, st
 		if err != nil {
 			return err
 		}
-		return writeJSON(stdout, map[string]any{"parent_url": ref.URL(), "comments": comments, "coverage": "rendered first page; history not exhausted", "fetched_at": time.Now().UTC()})
+		return writeJSON(stdout, map[string]any{"parent_url": ref.URL(), "comments": comments, "fetched_at": time.Now().UTC()})
 	}
 	result, err := c.createComment(ctx, ref, draft, opts)
 	if err != nil {

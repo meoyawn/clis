@@ -17,7 +17,6 @@ type packageInfo struct {
 type packageUnitPrice struct {
 	Amount   float64 `json:"amount"`
 	Currency string  `json:"currency"`
-	Quantity float64 `json:"quantity"`
 	Unit     string  `json:"unit"`
 }
 
@@ -56,5 +55,5 @@ func (r *detailResult) addPackageFacts() {
 	// Prices are in currency units. Round the per-unit price to minor units;
 	// multiply before dividing to avoid the 2163/120 -> 18.02 tie error.
 	amount := math.Round(*r.PriceFrom*100/quantity) / 100
-	r.PackageUnitPrice = &packageUnitPrice{Amount: amount, Currency: r.Currency, Quantity: 1, Unit: match[2]}
+	r.PackageUnitPrice = &packageUnitPrice{Amount: amount, Currency: r.Currency, Unit: match[2]}
 }

@@ -121,26 +121,20 @@ type Percentiles struct {
 	P90 *Money `json:"p90"`
 }
 type Report struct {
-	FetchedAt               time.Time      `json:"fetched_at"`
-	SourceURL               string         `json:"source_url"`
-	Endpoint                string         `json:"endpoint"`
-	SourceKind              string         `json:"source_kind"`
-	Available               bool           `json:"available"`
-	Title                   Title          `json:"job_title"`
-	Location                Location       `json:"location"`
-	Experience              string         `json:"experience"`
-	Industry                Industry       `json:"industry"`
-	NativeRequest           map[string]any `json:"native_request"`
-	Currency                string         `json:"currency"`
-	Period                  string         `json:"period"`
-	NativePayPeriod         string         `json:"native_pay_period"`
-	Basis                   *string        `json:"basis"`
-	SalaryCount             int            `json:"salary_count"`
-	ProviderConfidence      string         `json:"provider_confidence"`
-	SourceUpdatedAt         string         `json:"source_updated_at"`
-	BasePay                 Percentiles    `json:"base_pay"`
-	AdditionalPay           Percentiles    `json:"additional_pay"`
-	TotalPay                Percentiles    `json:"total_pay"`
-	EmployerConfirmedBudget any            `json:"employer_confirmed_budget"`
-	Limitations             []string       `json:"limitations"`
+	FetchedAt          time.Time   `json:"fetched_at"`
+	SourceURL          string      `json:"source_url"`
+	Available          bool        `json:"available"`
+	Title              Title       `json:"job_title"`
+	Location           Location    `json:"location"`
+	Experience         string      `json:"experience"`
+	Industry           Industry    `json:"industry"`
+	Currency           string      `json:"currency"`
+	Period             string      `json:"period"`
+	NativePayPeriod    string      `json:"native_pay_period"`
+	SalaryCount        int         `json:"salary_count"`
+	ProviderConfidence string      `json:"provider_confidence"`
+	SourceUpdatedAt    string      `json:"source_updated_at"`
+	BasePay            Percentiles `json:"base_pay"`
+	AdditionalPay      Percentiles `json:"additional_pay"`
+	TotalPay           Percentiles `json:"total_pay"`
 }

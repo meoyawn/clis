@@ -135,8 +135,8 @@ blocks and links with a `source_url` for each section. It resolves the profile
 with one API call, then reads the profile overview and full experience document
 concurrently with `errgroup`: three GET requests total, not one call per role.
 The experience page retains position groups, dates, locations, descriptions,
-skills attached to positions, and linked work. `fetched_at` and `coverage` make
-the observation's scope explicit. Lazy overview sections and further pagination
+skills attached to positions, and linked work, with a `fetched_at` timestamp.
+Lazy overview sections and further pagination
 are not inferred to be empty. No browser scripts or analytics run.
 
 `--summary` preserves the original one-request identity/summary response. Internal

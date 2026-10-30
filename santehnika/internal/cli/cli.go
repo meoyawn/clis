@@ -38,6 +38,7 @@ Options:
   --json                Accepted; JSON is always the output format
 
 Search/list normally make one HTTP request, including filters when requested.
+Search/list prices are in RUB; detail currency is retained when supplied by the page.
 For property filters use properties.code=values.id, such as BRAND=499.
 Section lists and search without --include-filters use compact JSON API calls.
 The category HTML includes filter definitions without an extra request.

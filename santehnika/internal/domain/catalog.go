@@ -15,7 +15,7 @@ type Product struct {
 	URL                string           `json:"url"`
 	Brand              string           `json:"brand,omitempty"`
 	Price              *float64         `json:"price"`
-	Currency           string           `json:"currency"`
+	Currency           string           `json:"currency,omitempty"`
 	Rating             *float64         `json:"rating"`
 	ReviewCount        *int             `json:"review_count"`
 	ProductRating      *float64         `json:"product_rating"`
@@ -38,7 +38,6 @@ type Characteristic struct {
 }
 type Result struct {
 	URL          string          `json:"url"`
-	City         string          `json:"city"`
 	Total        *int            `json:"total"`
 	Page         int             `json:"page"`
 	PageSize     int             `json:"page_size"`
@@ -47,13 +46,11 @@ type Result struct {
 	Filters      json.RawMessage `json:"filters,omitempty"`
 	Sorts        json.RawMessage `json:"sorts,omitempty"`
 	HTTPRequests int             `json:"http_requests"`
-	Warnings     []string        `json:"warnings"`
 }
 
 type AvailabilityResult struct {
 	URL          string          `json:"url"`
 	ProductAPIID string          `json:"product_api_id"`
-	City         string          `json:"city"`
 	Availability json.RawMessage `json:"availability"`
 	HTTPRequests int             `json:"http_requests"`
 }

@@ -130,7 +130,7 @@ func ParseSearch(body []byte, options SearchOptions) (*SearchResult, error) {
 		}
 		result.Results = append(result.Results, Listing{
 			ID: id, URL: canonical, Title: row.Title, Description: row.Description,
-			Price:      Price{Amount: amount, Text: stdhtml.UnescapeString(row.Price.FullString), Currency: "RUB"},
+			Price:      Price{Amount: amount, Text: stdhtml.UnescapeString(row.Price.FullString)},
 			CategoryID: row.CategoryID, LocationID: row.LocationID, City: city,
 			Images: imageURLs(row.Images), Seller: row.seller(),
 		})

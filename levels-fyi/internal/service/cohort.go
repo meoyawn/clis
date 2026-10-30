@@ -28,11 +28,7 @@ func (c *Client) Cohort(ctx context.Context, q domain.Query, companies, focusTag
 			return nil, fmt.Errorf("exact focus tag must not be empty: %q", focus)
 		}
 	}
-	r := &domain.CohortReport{FetchedAt: time.Now().UTC(), Companies: companies, FocusTags: focusTags, Query: q, LevelFilter: q.Level.String(), Employers: []domain.EmployerSample{}, Submissions: []domain.Submission{}, Evidence: []string{}, Limitations: []string{
-		"This is an explicitly selected employer sample. Verify each employer's role-specific hiring and pay policy separately; employer membership does not prove that every salary came from a worldwide-eligible role.",
-		"Exact focus tags are a local inclusion filter after native company, experience, country, date and work-arrangement filters. Missing or unmatched tags are excluded when tags are requested. No country is silently removed.",
-		"Pooled percentiles are weighted by retrieved reports, not equally by employer; inspect by_employer and by_country. Sparse or self-selected samples are not representative market percentiles.",
-	}}
+	r := &domain.CohortReport{FetchedAt: time.Now().UTC(), Companies: companies, FocusTags: focusTags, Query: q, LevelFilter: q.Level.String(), Employers: []domain.EmployerSample{}, Submissions: []domain.Submission{}, Evidence: []string{}}
 	ids := map[string]bool{}
 	for i, company := range companies {
 		if i > 0 {
@@ -60,11 +56,6 @@ func (c *Client) Cohort(ctx context.Context, q domain.Query, companies, focusTag
 		}
 		r.Employers = append(r.Employers, domain.EmployerSample{Company: company, SourceReportedTotal: sample.SourceReportedTotal, RetrievedCount: sample.RetrievedCount, SelectedCount: len(selected), Groups: groups(selected, false)})
 		r.Evidence = append(r.Evidence, sample.Evidence...)
-		for _, limitation := range sample.Limitations {
-			if !slices.Contains(r.Limitations, limitation) {
-				r.Limitations = append(r.Limitations, limitation)
-			}
-		}
 	}
 	r.SelectedCount = len(r.Submissions)
 	r.ExcludedCount = r.RetrievedCount - r.SelectedCount

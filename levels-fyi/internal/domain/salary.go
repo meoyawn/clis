@@ -78,12 +78,9 @@ type CohortReport struct {
 	Groups         []Group          `json:"sample_distributions"`
 	Countries      []Group          `json:"by_country"`
 	Evidence       []string         `json:"evidence"`
-	Limitations    []string         `json:"limitations"`
 }
 type Money struct {
-	Amount   float64 `json:"amount"`
-	Currency string  `json:"currency"`
-	Interval string  `json:"interval"`
+	Amount float64 `json:"amount"`
 }
 type Submission struct {
 	YearsRange           string   `json:"source_years_range,omitempty"`
@@ -125,11 +122,9 @@ type Group struct {
 }
 type Report struct {
 	SourceURL           string       `json:"source_url"`
-	SourceKind          string       `json:"source_kind"`
 	FetchedAt           time.Time    `json:"fetched_at"`
 	Query               Query        `json:"query"`
 	LevelFilter         string       `json:"level_filter"`
-	Geography           string       `json:"geography"`
 	SourceReportedTotal int          `json:"source_reported_total"`
 	RetrievedCount      int          `json:"retrieved_count"`
 	Requests            int          `json:"network_requests"`
@@ -138,6 +133,4 @@ type Report struct {
 	Countries           []Group      `json:"by_country"`
 	Submissions         []Submission `json:"submissions"`
 	Evidence            []string     `json:"evidence"`
-	EmployerBudget      any          `json:"employer_confirmed_budget"`
-	Limitations         []string     `json:"limitations"`
 }

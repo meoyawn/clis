@@ -60,7 +60,6 @@ type authResult struct {
 	CookieCount        int        `json:"cookie_count"`
 	ClearanceExpiresAt *time.Time `json:"clearance_expires_at,omitempty"`
 	Store              string     `json:"store"`
-	HTTPRequests       int        `json:"http_requests"`
 	Warnings           []string   `json:"warnings,omitempty"`
 }
 

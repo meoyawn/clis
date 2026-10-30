@@ -63,6 +63,7 @@ Omit --value-query to list options, and use next_offset only while has_more is
 true. --field and --only are different modes and cannot be combined.
 
 Search returns applied_filters, search_args, prices, descriptions and pagination.
+Search prices are in RUB; show retains the currency reported by the page.
 An ignored filter/category/sort produces an error. Similar recommendations and
 prices outside explicit bounds are excluded with excluded_count and a warning.
 City-first ordering can include other cities; inspect each listing's city when

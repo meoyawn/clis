@@ -214,8 +214,6 @@ type searchPage struct {
 	Rows   []nativeRow `json:"rows"`
 }
 
-const RemoteScopeLimitation = "Remote means reported work arrangement, not worldwide hiring eligibility or location-independent pay; pooled country percentiles are sample statistics, not a verified worldwide-remote market benchmark."
-
 func (c *Client) Estimate(ctx context.Context, q domain.Query, since time.Time) (*domain.Report, error) {
 	if _, err := domain.NewLevelFromValue(q.Level.String()); err != nil {
 		return nil, err
@@ -255,19 +253,7 @@ func (c *Client) Estimate(ctx context.Context, q domain.Query, since time.Time) 
 	if !since.IsZero() {
 		values.Set("sinceDate", since.UTC().Format(time.RFC3339Nano))
 	}
-	r := &domain.Report{SourceURL: Website + "/t/" + url.PathEscape(q.JobFamily), SourceKind: "recent_self_reported_submissions_sample", FetchedAt: time.Now().UTC(), Query: q, LevelFilter: q.Level.String(), Geography: "all countries available to this account; no country restriction", Submissions: []domain.Submission{}, Evidence: []string{}, Limitations: []string{
-		"Retrieved submissions are a recent, self-selected sample, not representative world-market percentiles or an employer hiring budget.",
-		"Source search totals may be capped (the website exposes at most 250 recent matches in the inspected account); source_reported_total is not the size of the full salary database.",
-		"Native search amounts are normalized to annual USD; original currency metadata and source exchange rate are retained separately. The source does not date its FX rate.",
-		"Level filters mean native experience bands (senior = 7+ years), not a standardized job title or a company's level.",
-		"searchText is the website's broad text search over cities/tags/etc, not a verified programming-language classification.",
-	}}
-	if len(q.CountryIDs) > 0 {
-		r.Geography = "explicit country IDs only"
-	}
-	if q.Remote {
-		r.Limitations = append(r.Limitations, RemoteScopeLimitation)
-	}
+	r := &domain.Report{SourceURL: Website + "/t/" + url.PathEscape(q.JobFamily), FetchedAt: time.Now().UTC(), Query: q, LevelFilter: q.Level.String(), Submissions: []domain.Submission{}, Evidence: []string{}}
 	ids := map[string]bool{}
 	for page := 0; page < q.MaxPages; page++ {
 		if page > 0 {
@@ -358,12 +344,6 @@ func (c *Client) Estimate(ctx context.Context, q domain.Query, since time.Time) 
 	sort.Ints(r.CountryCoverage)
 	r.Groups = groups(r.Submissions, false)
 	r.Countries = groups(r.Submissions, true)
-	if r.RetrievedCount < r.SourceReportedTotal {
-		r.Limitations = append(r.Limitations, "Returned fewer rows than the source-reported total; pagination limits, unavailable rows or concurrent changes may limit coverage.")
-	}
-	if r.RetrievedCount < 20 {
-		r.Limitations = append(r.Limitations, "Fewer than 20 retrieved submissions: evidence is too sparse for a confident market estimate.")
-	}
 	return r, nil
 }
 func money(v *float64) (*domain.Money, error) {
@@ -373,7 +353,7 @@ func money(v *float64) (*domain.Money, error) {
 	if *v < 0 || math.IsNaN(*v) || math.IsInf(*v, 0) {
 		return nil, fmt.Errorf("source returned invalid pay amount")
 	}
-	return &domain.Money{Amount: *v, Currency: "USD", Interval: "year"}, nil
+	return &domain.Money{Amount: *v}, nil
 }
 func groups(rows []domain.Submission, byCountry bool) []domain.Group {
 	buckets := map[string][]domain.Submission{}
@@ -433,7 +413,7 @@ func distribution(values []float64) *domain.Distribution {
 		lo := int(math.Floor(index))
 		hi := int(math.Ceil(index))
 		amount := values[lo] + (values[hi]-values[lo])*(index-float64(lo))
-		return domain.Money{Amount: amount, Currency: "USD", Interval: "year"}
+		return domain.Money{Amount: amount}
 	}
 	return &domain.Distribution{Count: len(values), P25: quantile(.25), P50: quantile(.5), P75: quantile(.75), P90: quantile(.9)}
 }

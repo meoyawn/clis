@@ -177,7 +177,6 @@ type product struct {
 	PriceFrom          *float64          `json:"price_from"`
 	OldPrice           *float64          `json:"old_price,omitempty"`
 	LoyaltyBonus       *float64          `json:"loyalty_bonus"`
-	Currency           string            `json:"currency"`
 	AdditionalServices []service         `json:"additional_services"`
 	Deadline           *int              `json:"deadline_days"`
 	WeekdaysOnly       *bool             `json:"is_weekdays_only"`
@@ -239,7 +238,7 @@ func productFacts(p apiProduct, kind ProductKind) product {
 	}
 	return product{
 		ID: p.ID, CatalogID: p.ID, Type: kind.value,
-		Name: p.Title, Code: code, Description: plainText(description), PriceFrom: p.Price, OldPrice: p.OldPrice, Currency: "RUB",
+		Name: p.Title, Code: code, Description: plainText(description), PriceFrom: p.Price, OldPrice: p.OldPrice,
 		LoyaltyBonus:       p.LoyaltyBonus,
 		AdditionalServices: p.Services, Deadline: p.Deadline, WeekdaysOnly: p.WeekdaysOnly,
 		DeadlineNote: deadlineNote, AtHome: p.AtHome, Promo: p.Promo,

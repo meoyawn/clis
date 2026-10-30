@@ -15,9 +15,8 @@ type Account struct {
 	Name string `json:"name"`
 }
 type Money struct {
-	Amount   float64 `json:"amount"`
-	Currency string  `json:"currency"`
-	Text     string  `json:"text"`
+	Amount float64 `json:"amount"`
+	Text   string  `json:"text"`
 }
 type Prices struct {
 	WithOzonCard    *Money `json:"with_ozon_card"`

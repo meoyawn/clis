@@ -45,7 +45,7 @@ func (c *Client) ProfileCV(ctx context.Context) ([]byte, string, error) {
 var summaryFields = []string{"first_name", "last_name", "email", "telegram", "phone", "locations", "birthdate", "photo", "salary_expectations_currency", "salary_expectations_from", "links", "location_id", "citizenships", "work_permits", "summary", "skills"}
 
 func summaryPayload(profile Object) Object {
-	result := Object{"source": "frontend_summary"}
+	result := Object{}
 	for _, key := range summaryFields {
 		result[key] = profile[key]
 	}

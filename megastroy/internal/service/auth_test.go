@@ -48,7 +48,7 @@ func TestBrowserImportAndPrivateStorage(t *testing.T) {
 		t.Fatal(err)
 	}
 	statusJSON, err := json.Marshal(status)
-	if err != nil || strings.Contains(string(statusJSON), "private-clearance") || strings.Contains(string(statusJSON), "account-session") || !status.Imported || status.UsableCookieCount != 1 || status.HTTPRequests != 0 {
+	if err != nil || strings.Contains(string(statusJSON), "private-clearance") || strings.Contains(string(statusJSON), "account-session") || !status.Imported || status.UsableCookieCount != 1 {
 		t.Fatalf("status disclosed secrets or misreported availability: %s %v", statusJSON, err)
 	}
 	// Failed replacements must leave the usable previous store intact.

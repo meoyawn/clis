@@ -38,7 +38,6 @@ type CartMutationResult struct {
 	Metadata
 	SKU      string `json:"sku"`
 	Quantity int64  `json:"quantity"`
-	Success  bool   `json:"success"`
 }
 
 func cartPageURL(raw string) (*url.URL, error) {
@@ -215,7 +214,7 @@ func (c *Client) CartAdd(ctx context.Context, ref ItemReference, opt RequestOpti
 	if json.Unmarshal(result.body, &response) == nil && response.Data.Success {
 		for _, item := range response.Data.Cart.Items {
 			if item.ID.String() == ref.SKU && item.Quantity > 0 {
-				return &CartMutationResult{Metadata: result.meta, SKU: ref.SKU, Quantity: item.Quantity, Success: true}, nil
+				return &CartMutationResult{Metadata: result.meta, SKU: ref.SKU, Quantity: item.Quantity}, nil
 			}
 		}
 	}
@@ -258,7 +257,7 @@ func (c *Client) CartRemove(ctx context.Context, ref ItemReference, opt RequestO
 			return nil, fmt.Errorf("Ozon still reports SKU %s in the cart; removal was not confirmed", ref.SKU)
 		}
 	}
-	return &CartMutationResult{Metadata: cart.Metadata, SKU: ref.SKU, Quantity: 0, Success: true}, nil
+	return &CartMutationResult{Metadata: cart.Metadata, SKU: ref.SKU, Quantity: 0}, nil
 }
 
 func parseCart(p *page) (*CartResult, error) {

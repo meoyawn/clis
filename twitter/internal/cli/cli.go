@@ -40,7 +40,11 @@ URLs and compound emoji. A saved attempt blocks duplicate/uncertain sends.
 
 auth import/status are local-only. Other commands read the current X bootstrap
 and public app bundle, then verify the selected account. Reads export no private
-contact fields. posts list is one page of up to 20 own original posts, with
+contact fields. Post output includes direct public photo URLs in image_urls.
+posts read includes parents oldest first and visible direct replies from one
+conversation request. parents_complete and missing_parent_id report gaps;
+reply history is not exhausted.
+posts list is one page of up to 20 own original posts, with
 available views and engagement counters; no pagination or attribution claims.
 HTTP 429, auth errors, redirects and API restrictions stop without retries.
 TWITTER_CONFIG_DIR overrides the OS user configuration directory/twitter.
@@ -106,13 +110,13 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		return err
 	}
 	if args[0] == "me" {
-		return writeJSON(out, map[string]any{"profile": owner, "verified": true, "fetched_at": time.Now().UTC()})
+		return writeJSON(out, map[string]any{"profile": owner, "fetched_at": time.Now().UTC()})
 	}
 	if apiStatus {
 		if err := c.PrepareWriteMetadata(ctx); err != nil {
 			return err
 		}
-		return writeJSON(out, map[string]any{"owner": owner, "operations": c.Operations(), "write_metadata_ready": true, "fetched_at": time.Now().UTC()})
+		return writeJSON(out, map[string]any{"owner": owner, "operations": c.Operations(), "fetched_at": time.Now().UTC()})
 	}
 	if capturePath != "" {
 		f, err := os.OpenFile(capturePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
@@ -123,24 +127,30 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		c.CapturePostResponses(f)
 	}
 	if args[1] == "read" {
-		post, err := c.ReadPost(ctx, ref)
+		conversation, err := c.ReadConversation(ctx, ref)
 		if err != nil {
 			return err
 		}
-		return writeJSON(out, map[string]any{"post": post, "fetched_at": time.Now().UTC()})
+		return writeJSON(out, struct {
+			domain.Conversation
+			FetchedAt time.Time `json:"fetched_at"`
+		}{
+			Conversation: conversation,
+			FetchedAt:    time.Now().UTC(),
+		})
 	}
 	if args[1] == "replies" {
 		posts, err := c.OwnReplies(ctx, ref)
 		if err != nil {
 			return err
 		}
-		return writeJSON(out, map[string]any{"owner": owner, "parent_id": ref.ID(), "replies": posts, "coverage": "direct own replies checked in the conversation and first own-replies page; history not exhausted", "fetched_at": time.Now().UTC()})
+		return writeJSON(out, map[string]any{"owner": owner, "parent_id": ref.ID(), "replies": posts, "fetched_at": time.Now().UTC()})
 	}
 	posts, err := c.OwnPosts(ctx)
 	if err != nil {
 		return err
 	}
-	return writeJSON(out, map[string]any{"owner": owner, "posts": posts, "coverage": "first page, up to 20 original posts; replies/history not exhausted", "fetched_at": time.Now().UTC()})
+	return writeJSON(out, map[string]any{"owner": owner, "posts": posts, "fetched_at": time.Now().UTC()})
 }
 
 func loadClient(dir string) (*service.Client, error) {
@@ -172,13 +182,13 @@ func auth(ctx context.Context, args []string, dir string, out, errOut io.Writer)
 		if err := service.SaveSession(dir, s); err != nil {
 			return err
 		}
-		return writeJSON(out, map[string]any{"imported": true, "source": "chrome", "profile": s.Profile, "imported_at": s.ImportedAt, "expires_at": s.ExpiresAt, "network_verified": false})
+		return writeJSON(out, map[string]any{"profile": s.Profile, "imported_at": s.ImportedAt, "expires_at": s.ExpiresAt})
 	}
 	if args[0] != "status" || len(args) != 1 {
 		return fmt.Errorf("unsupported auth command %q; use import or status", args[0])
 	}
 	s, err := service.LoadSession(dir)
-	return writeJSON(out, map[string]any{"usable": err == nil, "profile": s.Profile, "imported_at": s.ImportedAt, "expires_at": s.ExpiresAt, "network_verified": false, "reason": errorText(err)})
+	return writeJSON(out, map[string]any{"usable": err == nil, "profile": s.Profile, "imported_at": s.ImportedAt, "expires_at": s.ExpiresAt, "reason": errorText(err)})
 }
 
 func errorText(err error) string {

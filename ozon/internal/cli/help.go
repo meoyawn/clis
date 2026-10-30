@@ -15,6 +15,8 @@ Commands:
   show     Show product details and seller offers
   reviews  Read buyer reviews
   cart     Manage the shopping cart
+
+All prices are in RUB.
 `
 
 const authUsage = `Usage: ozon auth <command>

@@ -49,7 +49,7 @@ func TestBrowserImportScopeFilteringAndSecretFreeJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.CookieCount != 2 || result.HTTPRequests != 0 {
+	if result.CookieCount != 2 {
 		t.Fatalf("bad metadata: %+v", result)
 	}
 	data := marshalTestJSON(t, result)

@@ -102,7 +102,7 @@ func TestActiveApplicationListCompletenessAndIndependentIdentity(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || result["complete"] != true {
+			if err != nil {
 				t.Fatalf("complete active list failed: %v %v", result, err)
 			}
 			rows := result["applications"].([]*hh.ApplicationStatus)
@@ -193,7 +193,7 @@ func TestExistingApplicationAndRecordedLetterEvidence(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || status.RecordedLetter.Text != text || !status.RecordedLetter.Accepted || !status.RecordedLetter.LivePresence || status.RecordedLetter.TextReadback != (scenario == "current-text-match") || status.CoverLetter["ui_add_available"] != false {
+			if err != nil || status.RecordedLetter.Text != text || status.RecordedLetter.TextReadback != (scenario == "current-text-match") || status.CoverLetter["ui_add_available"] != false {
 				t.Fatalf("letter receipt/presence was lost or overstated: %+v %v", status, err)
 			}
 			encoded, _ := json.Marshal(status)

@@ -34,7 +34,6 @@ type fullProfileResult struct {
 	profileResult
 	FetchedAt string           `json:"fetched_at"`
 	Sections  []profileSection `json:"sections"`
-	Coverage  []string         `json:"coverage"`
 }
 
 type profileDocument struct {
@@ -82,10 +81,7 @@ func (c *linkedinClient) fullProfile(ctx context.Context, ref profileRef) (fullP
 	if err := group.Wait(); err != nil {
 		return fullProfileResult{}, capture, err
 	}
-	result := fullProfileResult{profileResult: p, FetchedAt: time.Now().UTC().Format(time.RFC3339), Sections: []profileSection{}, Coverage: []string{
-		"Profile overview and the full experience document; no contact-info overlay or messaging actions.",
-		"Only sections present in the returned documents are included. Lazy sections and further pagination are not inferred to be empty.",
-	}}
+	result := fullProfileResult{profileResult: p, FetchedAt: time.Now().UTC().Format(time.RFC3339), Sections: []profileSection{}}
 	for i, doc := range capture.Documents {
 		sections, err := parseProfileDocument(doc, p.Name)
 		if err != nil {

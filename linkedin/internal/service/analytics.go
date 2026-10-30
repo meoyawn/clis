@@ -11,8 +11,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-const AnalyticsDashboardURL = "https://www.linkedin.com/dashboard/"
-
 var analyticsCardValue = regexp.MustCompile(`^([0-9][0-9,.]*(?:[KMBkmb])?)\s+(Post impressions|Profile viewers|Search appearances|Total followers)(?:\s+(.*))?$`)
 var analyticsChange = regexp.MustCompile(`^(.*?)\s*([+−-]?[0-9,.]+%\s+vs\..*)$`)
 
@@ -42,11 +40,7 @@ func ParseAnalyticsDashboard(document, profileURL, name string) (domain.Analytic
 	if primary == nil || !owner {
 		return domain.AnalyticsSnapshot{}, fmt.Errorf("analytics dashboard does not confirm signed-in owner %q and primary content", profileURL)
 	}
-	result := domain.AnalyticsSnapshot{SchemaVersion: 1, ProfileURL: profileURL, SourceURL: AnalyticsDashboardURL, Notes: []string{
-		"Metrics retain LinkedIn's own reporting windows; profile views, post impressions and search appearances can cover different periods.",
-		"Aggregate profile metrics do not attribute a visit, search appearance or interview to an individual post.",
-		"Snapshot differences compare reported totals, not new events; rolling windows overlap and search reporting can lag.",
-	}}
+	result := domain.AnalyticsSnapshot{ProfileURL: profileURL}
 	for n := range primary.Descendants() {
 		if n.Type != html.ElementNode || n.Data != "a" || postHidden(n) {
 			continue
@@ -77,7 +71,7 @@ func ParseAnalyticsDashboard(document, profileURL, name string) (domain.Analytic
 		if *slot != nil {
 			return domain.AnalyticsSnapshot{}, fmt.Errorf("duplicate %s analytics cards", expectedLabel)
 		}
-		metric := &domain.AnalyticsMetric{DisplayCount: match[1], Label: expectedLabel, Window: match[3], Evidence: text, SourceURL: "https://www.linkedin.com" + u.Path}
+		metric := &domain.AnalyticsMetric{DisplayCount: match[1], Window: match[3], Evidence: text}
 		if count, err := strconv.ParseInt(strings.ReplaceAll(match[1], ",", ""), 10, 64); err == nil {
 			metric.Count = &count
 		}

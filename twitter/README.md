@@ -32,11 +32,23 @@ the observed `upload.x.com` endpoint; they never accompany public bundle request
 Scripts, telemetry and browser actions are not executed.
 
 `posts read` returns the exact focal post's author, expanded URLs, creation time,
-reply target, native media IDs and available views/engagement counters. Quoted
+reply target, native media IDs, direct image URLs (`image_urls`, from photo
+`media_url_https` fields) and available views/engagement counters. These public
+CDN URLs can be fetched without session credentials. Video/GIF thumbnails are
+excluded; the CLI does not download images. Quoted
 posts do not substitute for the focal post. `posts list` reads one page of up to
 20 own original posts, retaining counters and a fetch timestamp. It does not
 exhaust historical posts or replies, infer unseen views as zero, or attribute
 job-search outcomes to a post. Profile output excludes private contact fields.
+
+`posts read` also returns `parents` in order from the oldest available ancestor
+to the immediate parent, and `replies` containing visible direct replies by any
+author. It makes one conversation request and follows parent links within that
+response; it never fetches missing ancestors or paginates replies. A chain that
+reaches the root has `parents_complete: true`. Otherwise, `parents_complete` is
+false and `missing_parent_id` identifies the first unavailable ancestor. Empty
+parent/reply lists are arrays. The focal post's numeric `replies` counter remains
+separate from the top-level reply list; reply history is not exhausted.
 
 `posts replies POST_URL` checks direct own replies in the conversation and the
 first own-replies timeline page. This is a bounded read, not an exhaustive history.
@@ -80,8 +92,8 @@ resend. Read the exact post and own replies before reconciling a saved attempt.
 Writes derive fresh `x-client-transaction-id` metadata from the current bootstrap
 verification key, animation frames and public `ondemand.s` bundle. Values are
 bound to the HTTP method, pathname and time; they are never replayed or printed.
-`api status` verifies that these materials can be read and shows only public query
-IDs and readiness. Missing/changed materials stop before uploading or publishing.
+`api status` verifies that these materials can be read and shows public query
+IDs. Missing/changed materials stop before uploading or publishing.
 The pure Go animation/signing implementation derives from
 [George Santiago's MIT implementation](https://github.com/ichioda/x-client-transaction-id),
 with attribution in `internal/service/transaction/LICENSE`. It performs no HTTP,

@@ -95,11 +95,7 @@ func (c *Client) CompanySalaries(ctx context.Context, q domain.CompanyQuery) (*d
 	}
 	slug := regexp.MustCompile(`[^A-Za-z0-9]+`).ReplaceAllString(q.Employer.Name, "-")
 	values := url.Values{"locationName": {q.Location.Name}, "locationId": {fmt.Sprint(q.Location.LocationID)}, "locationType": {q.Location.Type}, "payPeriod": {period}, "baseOrTotal": {"BASE_PAY"}, "jobTitle": {q.Title}, "page": {fmt.Sprint(q.Page)}}
-	r := &domain.CompanyReport{FetchedAt: time.Now().UTC(), SourceURL: fmt.Sprintf("%s/Salary/%s-Salaries-E%d.htm?%s", Origin, strings.Trim(slug, "-"), q.Employer.ID, values.Encode()), Query: q, NativeRequest: input, QueryLocation: d.Location.Name, JobTitleCount: *d.JobTitleCount, NumPages: *d.NumPages, Results: []domain.CompanySalary{}, Limitations: []string{
-		"Employer and location are native filters. This employer table has no remote-work, worldwide-hiring or years-of-experience filter; verify hiring/pay scope from the exact employer vacancy or policy and retain country data as supporting evidence.",
-		"Base and total pay are provider estimates, not an advertised employer budget. Keep each title's report count and last-report date; do not pool title medians into a market percentile.",
-		"Pay period is explicitly requested through the native selector. Gross/net basis, contracted hours and employment type are not returned. No FX or hours conversion is applied.",
-	}}
+	r := &domain.CompanyReport{FetchedAt: time.Now().UTC(), SourceURL: fmt.Sprintf("%s/Salary/%s-Salaries-E%d.htm?%s", Origin, strings.Trim(slug, "-"), q.Employer.ID, values.Encode()), Query: q, QueryLocation: d.Location.Name, JobTitleCount: *d.JobTitleCount, NumPages: *d.NumPages, Results: []domain.CompanySalary{}}
 	for _, row := range d.Results {
 		if row.Title.ID <= 0 || row.Title.Text == "" || row.Count == nil || *row.Count < 0 || row.Currency.Code == "" {
 			return nil, fmt.Errorf("company salary row lacks title, report count or currency")

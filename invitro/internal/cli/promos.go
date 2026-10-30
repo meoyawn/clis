@@ -83,7 +83,6 @@ type promotionDetail struct {
 	Sections     []promotionSection `json:"sections"`
 	Links        []string           `json:"links"`
 	Offers       []promotionOffer   `json:"offers"`
-	PricingNote  string             `json:"pricing_note"`
 	SourceURL    string             `json:"source_url"`
 	FetchedAt    time.Time          `json:"fetched_at"`
 	HTTPRequests int                `json:"http_requests"`
@@ -236,8 +235,7 @@ func (c *client) Promotion(ctx context.Context, city cityInfo, p promotion, full
 	if raw.Slug != p.Slug || raw.Sections == nil {
 		return nil, fmt.Errorf("invalid promotion page for slug %q", p.Slug)
 	}
-	result := &promotionDetail{promotion: p, City: city.Slug, CityID: city.ID, Sections: []promotionSection{}, Links: []string{}, Offers: []promotionOffer{}, SourceURL: p.URL,
-		PricingNote: "Live prices for the promotion's own articles, not an automatic discount on regular catalog products. Check linked rules for eligibility, collection fees and compatibility with bonuses; an empty additional_services list does not establish that collection is free."}
+	result := &promotionDetail{promotion: p, City: city.Slug, CityID: city.ID, Sections: []promotionSection{}, Links: []string{}, Offers: []promotionOffer{}, SourceURL: p.URL}
 	seen := map[string]bool{}
 	for _, s := range raw.Sections {
 		title, _ := s["sectionTitle"].(string)

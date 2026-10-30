@@ -20,7 +20,7 @@ func TestSearchFields(t *testing.T) {
 	if p.SKU != "100" || p.Title != "Sample earplugs" || p.URL != "https://www.ozon.ru/product/sample-100/" || len(p.Images) != 1 {
 		t.Fatalf("product=%+v", p)
 	}
-	if p.Price == nil || p.Price.Amount != 1234.5 || p.Price.Currency != "RUB" || p.Rating == nil || *p.Rating != 4.8 || p.NumRatings == nil || *p.NumRatings != 3676 {
+	if p.Price == nil || p.Price.Amount != 1234.5 || p.Rating == nil || *p.Rating != 4.8 || p.NumRatings == nil || *p.NumRatings != 3676 {
 		t.Fatalf("price/rating=%+v", p)
 	}
 	if p.Quantity == nil || *p.Quantity != 961 || p.MaxOrderQuantity == nil || *p.MaxOrderQuantity != 700 || p.DeliveryDay != "Завтра" {

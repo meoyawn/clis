@@ -58,7 +58,7 @@ func TestEstimateAggregateContract(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if calls != 2 || !report.Available || report.Percentiles.P50 != 350000 || report.Percentiles.P90 != 470000 {
+			if calls != 2 || report.Percentiles.P50 != 350000 || report.Percentiles.P90 != 470000 {
 				t.Fatalf("wrong normalization/report: %+v", report)
 			}
 			if report.SourceCategoryCount == nil || *report.SourceCategoryCount != tc.count || report.HistogramCount != 3 || report.SampleSize == nil || *report.SampleSize != 3 {
@@ -67,7 +67,7 @@ func TestEstimateAggregateContract(t *testing.T) {
 			if report.Bonus.AverageMonthlySalaries == nil || *report.Bonus.AverageMonthlySalaries != 1.2 || report.HourlyEquivalent.Percentiles.P50 != 2187.5 {
 				t.Fatalf("bonus/hourly units changed: %+v", report)
 			}
-			if len(report.Company.Matches) != 0 || report.Company.EmployerConfirmedBudget != nil {
+			if len(report.Company.Matches) != 0 {
 				t.Fatal("unrelated employer became confirmed budget")
 			}
 			b, _ := json.Marshal(report)

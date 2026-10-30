@@ -94,7 +94,7 @@ func TestCartCommands(t *testing.T) {
 				if tc.name == "add" {
 					wantQuantity = 1
 				}
-				if got.SKU != "100" || !got.Success || got.Quantity != wantQuantity || got.HTTPRequests != 1 {
+				if got.SKU != "100" || got.Quantity != wantQuantity || got.HTTPRequests != 1 {
 					t.Fatalf("incorrect mutation acknowledgement: %+v", got)
 				}
 			}

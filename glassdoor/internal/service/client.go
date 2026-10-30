@@ -179,8 +179,7 @@ func (c *Client) Estimate(ctx context.Context, q domain.Query) (*domain.Report, 
 	if err != nil {
 		return nil, err
 	}
-	r := &domain.Report{FetchedAt: time.Now().UTC(), SourceURL: salaryURL(q.Title.JobTitle, q.Location), Endpoint: endpoint, SourceKind: "glassdoor_salary_estimate", Title: q.Title, Location: q.Location, Experience: q.Experience.String(), Industry: q.Industry, NativeRequest: input, Currency: d.Currency.Code, Period: period, NativePayPeriod: d.PayPeriod, SalaryCount: *d.Count, ProviderConfidence: d.Confidence, SourceUpdatedAt: d.UpdatedAt, Limitations: []string{"Glassdoor estimate and reported salaries are not an employer-confirmed hiring budget.", "Gross/net basis and contracted hours are not supplied by this endpoint.", "Native payPeriod is authoritative here; generic FAQ copy and globally scoped recent-salary feeds are not used for unit or location inference."}}
-	r.Limitations = append(r.Limitations, "This API has no verified worldwide-hiring cohort; selected-location pay does not establish worldwide hiring or location-independent pay. Provider confidence does not establish cohort fit or representativeness.")
+	r := &domain.Report{FetchedAt: time.Now().UTC(), SourceURL: salaryURL(q.Title.JobTitle, q.Location), Title: q.Title, Location: q.Location, Experience: q.Experience.String(), Industry: q.Industry, Currency: d.Currency.Code, Period: period, NativePayPeriod: d.PayPeriod, SalaryCount: *d.Count, ProviderConfidence: d.Confidence, SourceUpdatedAt: d.UpdatedAt}
 	if r.BasePay, err = parsePay(d.Base, d.Currency.Code, interval); err != nil {
 		return nil, err
 	}
@@ -193,18 +192,6 @@ func (c *Client) Estimate(ctx context.Context, q domain.Query) (*domain.Report, 
 	r.Available = r.TotalPay.P50 != nil && r.BasePay.P50 != nil
 	if r.SalaryCount > 0 && !r.Available {
 		return nil, fmt.Errorf("nonempty salary cohort has no base/total median")
-	}
-	if r.SalaryCount == 0 {
-		r.Limitations = append(r.Limitations, "Source reports zero submitted salaries for this cohort; any returned pay figures are provider estimates, not observed cohort salaries.")
-	}
-	if q.Location.Type == "S" && q.Location.CountryID == 1 && q.Location.Name == "Remote" {
-		r.Limitations = append(r.Limitations, "Native Remote is a United States market, not a worldwide remote-work filter.")
-	}
-	if updated, err := time.Parse("2006-01-02T15:04:05", d.UpdatedAt); err == nil && time.Since(updated) > 365*24*time.Hour {
-		r.Limitations = append(r.Limitations, "Source estimate update is over one year old; retrieval time does not make it a current market observation. Source timestamp has no timezone.")
-	}
-	if r.SalaryCount < 20 {
-		r.Limitations = append(r.Limitations, "Fewer than 20 submitted salaries; retain the exact sample count and provider confidence without generalizing it to a broad market.")
 	}
 	return r, nil
 }

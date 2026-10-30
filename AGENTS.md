@@ -1,6 +1,10 @@
 # CLI monorepo
 
 - Shell: `fish`.
+- Goal: minimally bloated LLM context. JSON output must contain only data that
+  varies with the request, response, or runtime state. Never emit constant
+  metadata, fixed explanatory prose, or static capability/filter inventories.
+  Put invariant semantics, units, limitations, and usage in `--help` or docs.
 - Never undo unrelated worktree changes; they belong to concurrent work.
 - When multiple commands need the same new approval prefix, finish the first
   approval before launching the remaining commands.

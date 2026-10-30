@@ -129,7 +129,7 @@ func TestConnectPreviewSendAndUncertainOutcomes(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || result.Sent != tc.wantSent || result.CanConnect != tc.wantCan || result.Pending != tc.wantPending || result.Note != "" || result.Evidence == "" ||
+			if err != nil || result.Sent != tc.wantSent || result.CanConnect != tc.wantCan || result.Pending != tc.wantPending || result.Evidence == "" ||
 				result.Sender.Name != "Example Sender" || result.Sender.ProfileURN != testMailbox || result.Recipient.ProfileURN != "urn:li:fsd_profile:ACoExamplePerson" {
 				t.Fatalf("wrong connection result: %+v; %v", result, err)
 			}

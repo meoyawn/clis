@@ -20,8 +20,10 @@ func TestAnalyticsComparisonUsesOwnerTimeAndPeriods(t *testing.T) {
 		name, owner, afterAt, window, wantError string
 		rounded                                 bool
 		wantDelta                               bool
+		legacy                                  bool
 	}{
 		{name: "matching rolling labels", wantDelta: true},
+		{name: "legacy versioned snapshots", wantDelta: true, legacy: true},
 		{name: "different dated periods", window: "Oct 20–26"},
 		{name: "rounded after", rounded: true},
 		{name: "different owner", owner: "https://www.linkedin.com/in/other/", wantError: "different owners"},
@@ -29,8 +31,8 @@ func TestAnalyticsComparisonUsesOwnerTimeAndPeriods(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			beforeCount, afterCount := int64(2), int64(5)
-			before := domain.AnalyticsSnapshot{SchemaVersion: 1, ProfileURL: postAuthorURL, FetchedAt: "2026-10-27T10:00:00Z", SearchAppearances: &domain.AnalyticsMetric{Count: &beforeCount, Window: "Oct 13–19"}}
-			after := domain.AnalyticsSnapshot{SchemaVersion: 1, ProfileURL: postAuthorURL, FetchedAt: "2026-10-28T10:00:00Z", SearchAppearances: &domain.AnalyticsMetric{Count: &afterCount, Window: "Oct 13–19"}}
+			before := domain.AnalyticsSnapshot{ProfileURL: postAuthorURL, FetchedAt: "2026-10-27T10:00:00Z", SearchAppearances: &domain.AnalyticsMetric{Count: &beforeCount, Window: "Oct 13–19"}}
+			after := domain.AnalyticsSnapshot{ProfileURL: postAuthorURL, FetchedAt: "2026-10-28T10:00:00Z", SearchAppearances: &domain.AnalyticsMetric{Count: &afterCount, Window: "Oct 13–19"}}
 			if tc.owner != "" {
 				after.ProfileURL = tc.owner
 			}
@@ -46,7 +48,14 @@ func TestAnalyticsComparisonUsesOwnerTimeAndPeriods(t *testing.T) {
 			dir := t.TempDir()
 			paths := []string{filepath.Join(dir, "before.json"), filepath.Join(dir, "after.json")}
 			for i, value := range []domain.AnalyticsSnapshot{before, after} {
-				data, err := json.Marshal(value)
+				var snapshot any = value
+				if tc.legacy {
+					snapshot = struct {
+						domain.AnalyticsSnapshot
+						SchemaVersion int `json:"schema_version"`
+					}{value, 1}
+				}
+				data, err := json.Marshal(snapshot)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -69,7 +78,7 @@ func TestAnalyticsComparisonUsesOwnerTimeAndPeriods(t *testing.T) {
 			if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 				t.Fatal(err)
 			}
-			if (got.SearchAppearances.CountChange != nil) != tc.wantDelta || (tc.wantDelta && *got.SearchAppearances.CountChange != 3) || got.SearchAppearances.Note == "" || got.ProfileViews.CountChange != nil {
+			if (got.SearchAppearances.CountChange != nil) != tc.wantDelta || (tc.wantDelta && *got.SearchAppearances.CountChange != 3) || (!tc.wantDelta && got.SearchAppearances.Note == "") || got.ProfileViews.CountChange != nil {
 				t.Fatalf("misleading comparison: %+v", got)
 			}
 		})

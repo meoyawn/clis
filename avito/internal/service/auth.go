@@ -190,7 +190,6 @@ func (record authRecord) summary(path string, now time.Time) *AuthStatus {
 	}
 	slices.Sort(result.CookieNames)
 	result.CookieNames = slices.Compact(result.CookieNames)
-	result.Warnings = []string{"Local cookie availability does not verify Avito login or challenge acceptance."}
 	if result.UsableCookieCount == 0 {
 		result.Warnings = append(result.Warnings, "All saved cookies have expired; run avito auth import again.")
 	}

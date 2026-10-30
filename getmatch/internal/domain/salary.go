@@ -56,17 +56,10 @@ type Percentiles struct {
 type Report struct {
 	SourceURL            string            `json:"source_url"`
 	FetchedAt            time.Time         `json:"fetched_at"`
-	SourceKind           string            `json:"source_kind"`
 	Query                map[string]string `json:"query"`
-	Currency             string            `json:"currency"`
-	Period               string            `json:"period"`
-	Basis                *string           `json:"basis"`
-	Component            string            `json:"component"`
 	SampleSize           *int              `json:"sample_size"`
 	SourceCategoryCount  *int              `json:"source_category_count"`
 	SourceCategoryMedian *float64          `json:"source_category_median"`
-	SummaryScope         string            `json:"summary_scope"`
-	Available            bool              `json:"available"`
 	Percentiles          *Percentiles      `json:"percentiles"`
 	Histogram            []Band            `json:"histogram"`
 	HistogramCount       int               `json:"histogram_count"`
@@ -75,18 +68,14 @@ type Report struct {
 		AverageMonthlySalaries *float64 `json:"average_monthly_salaries"`
 	} `json:"annual_bonus"`
 	Company struct {
-		Requested               string          `json:"requested"`
-		LookupScope             string          `json:"lookup_scope"`
-		ReturnedRankingSize     int             `json:"returned_ranking_size"`
-		Matches                 []CompanySalary `json:"matches"`
-		EmployerConfirmedBudget any             `json:"employer_confirmed_budget"`
+		Requested           string          `json:"requested"`
+		ReturnedRankingSize int             `json:"returned_ranking_size"`
+		Matches             []CompanySalary `json:"matches"`
 	} `json:"company"`
 	TopCompanies     []CompanySalary `json:"top_companies"`
 	HourlyEquivalent *struct {
-		HoursPerMonth  float64     `json:"hours_per_month"`
-		Percentiles    Percentiles `json:"percentiles"`
-		Interpretation string      `json:"interpretation"`
+		HoursPerMonth float64     `json:"hours_per_month"`
+		Percentiles   Percentiles `json:"percentiles"`
 	} `json:"hourly_equivalent,omitempty"`
-	Evidence    []string `json:"evidence"`
-	Limitations []string `json:"limitations"`
+	Evidence []string `json:"evidence"`
 }

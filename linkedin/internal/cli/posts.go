@@ -31,8 +31,6 @@ type postCreateOptions struct {
 
 type postCreateResult struct {
 	Author         person             `json:"author"`
-	Audience       string             `json:"audience"`
-	Comments       string             `json:"comments"`
 	Text           string             `json:"text"`
 	SHA256         string             `json:"sha256"`
 	Image          *service.PostImage `json:"image,omitempty"`
@@ -210,7 +208,7 @@ func (c *linkedinClient) createPost(ctx context.Context, draft domain.PostDraft,
 	if author.ProfileURN != self {
 		return postCreateResult{}, fmt.Errorf("post author does not match the signed-in profile")
 	}
-	result := postCreateResult{Author: author.person, Audience: "Anyone", Comments: "Anyone", Text: draft.Text(), SHA256: contentHash, Image: opts.image}
+	result := postCreateResult{Author: author.person, Text: draft.Text(), SHA256: contentHash, Image: opts.image}
 	if !opts.publish {
 		return result, nil
 	}

@@ -29,7 +29,6 @@ type connectionAvailability struct {
 type connectResult struct {
 	Sender    person `json:"sender"`
 	Recipient person `json:"recipient"`
-	Note      string `json:"note"`
 	Sent      bool   `json:"sent"`
 	connectionAvailability
 	CheckedAt string `json:"checked_at"`

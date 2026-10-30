@@ -20,10 +20,8 @@ type CompanyReport struct {
 	FetchedAt     time.Time       `json:"fetched_at"`
 	SourceURL     string          `json:"source_url"`
 	Query         CompanyQuery    `json:"query"`
-	NativeRequest map[string]any  `json:"native_request"`
 	QueryLocation string          `json:"source_location"`
 	JobTitleCount int             `json:"job_title_count"`
 	NumPages      int             `json:"num_pages"`
 	Results       []CompanySalary `json:"results"`
-	Limitations   []string        `json:"limitations"`
 }

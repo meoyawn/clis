@@ -25,7 +25,7 @@ const help = `Getmatch salary research, profiles and native job applications, as
 Usage: getmatch [--anonymous] COMMAND [OPTIONS]
 
   salaries filters [--refresh]
-      Fetch live specialization catalog; list observed level/city/work filters.
+      Fetch the live specialization catalog. Static filters are listed below.
       Cache the public catalog for 24h. --refresh replaces that cache.
   salaries estimate --role SLUG --level LEVEL [--remote] [--city CITY]
                     [--work-format FORMAT] [--company NAME]
@@ -38,6 +38,9 @@ Usage: getmatch [--anonymous] COMMAND [OPTIONS]
       --work-format: all (default), remote, office_hybrid.
       Company is a local match in a TOP ranking, never an employer budget.
       Explicit hours produce an arithmetic equivalent, not a contractor quote.
+      Salary amounts are monthly RUB; annual bonus is separate. Tax basis and
+      hours are unknown. Stats/bonus/top-company scope may exceed chart filters;
+      chart percentiles and sample_size use only the selected histogram.
   auth login [--browser chrome] [--profile Default] [--headers-file FILE]
       Import one real Chrome profile with SweetCookie. Save session mode 0600.
       Optional file: safe User-Agent/Accept-Language/Sec-CH-UA headers captured
@@ -82,6 +85,7 @@ Usage: getmatch [--anonymous] COMMAND [OPTIONS]
       uploads reimport and overwrite the shared profile, confusing projects and
       employment (observed 28 Oct 2026; user prohibited future PDF uploads).
       Candidate list readback masks external letter URLs; report this explicitly.
+      Candidate-side readback does not establish employer-visible letter text.
       On an uncertain result, use status/list before any retry.
 
 Use --anonymous before COMMAND to avoid loading a saved session. With no saved
@@ -229,11 +233,11 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 			if err = service.SaveSession(path, s); err != nil {
 				return err
 			}
-			return json.NewEncoder(out).Encode(map[string]any{"imported": true, "profile": s.Profile, "cookie_count": len(s.Cookies), "path": path, "network_requests": 0})
+			return json.NewEncoder(out).Encode(map[string]any{"profile": s.Profile, "cookie_count": len(s.Cookies), "path": path})
 		}
 		s, err := service.LoadSession(path)
 		if errors.Is(err, os.ErrNotExist) {
-			return json.NewEncoder(out).Encode(map[string]any{"session_present": false, "validated_online": false})
+			return json.NewEncoder(out).Encode(map[string]any{"session_present": false})
 		}
 		if err != nil {
 			return err
@@ -244,7 +248,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 				expired++
 			}
 		}
-		return json.NewEncoder(out).Encode(map[string]any{"session_present": true, "profile": s.Profile, "imported_at": s.ImportedAt, "cookies": len(s.Cookies), "expired_cookies": expired, "validated_online": false})
+		return json.NewEncoder(out).Encode(map[string]any{"session_present": true, "profile": s.Profile, "imported_at": s.ImportedAt, "cookies": len(s.Cookies), "expired_cookies": expired})
 	}
 	var session *service.Session
 	if !*anon {
@@ -270,7 +274,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if args[1] == "filters" {
-		return json.NewEncoder(out).Encode(map[string]any{"specializations": catalog.Values, "specializations_fetched_at": catalog.FetchedAt, "source_url": service.Origin + "/api/specializations", "levels": []string{"all", "junior", "middle", "senior", "lead", "c_level"}, "cities": []string{"all", "moscow", "spb", "other_russia"}, "work_formats": []string{"all", "remote", "office_hybrid"}, "static_filter_source": "observed native salary UI and request parameters, 2026-10-25"})
+		return json.NewEncoder(out).Encode(map[string]any{"specializations": catalog.Values, "specializations_fetched_at": catalog.FetchedAt})
 	}
 	var selected *domain.Specialization
 	for _, s := range catalog.Values {

@@ -53,7 +53,7 @@ func TestNativeSalaryReport(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if calls != 1 || !r.Available || r.BasePay.P50.Amount != 210000 || r.TotalPay.P50.Amount != 230000 || r.SalaryCount != tc.count || r.Basis != nil {
+			if calls != 1 || !r.Available || r.BasePay.P50.Amount != 210000 || r.TotalPay.P50.Amount != 230000 || r.SalaryCount != tc.count {
 				t.Fatalf("wrong report: %+v", r)
 			}
 			data, _ := json.Marshal(r)
@@ -69,8 +69,8 @@ func TestNativeSalaryReport(t *testing.T) {
 			if money["amount"] != float64(210000) || money["currency"] != tc.currency || money["interval"] != interval {
 				t.Fatalf("money lost interval: %+v", money)
 			}
-			if r.SourceUpdatedAt != "2022-11-01T01:49:55" || len(r.Limitations) < 4 {
-				t.Fatal("source age/sample caveats lost")
+			if r.SourceUpdatedAt != "2022-11-01T01:49:55" {
+				t.Fatal("source observation date lost")
 			}
 		})
 	}

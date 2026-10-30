@@ -46,8 +46,10 @@ type tweetRecord struct {
 		} `json:"entities"`
 		Extended struct {
 			Media []struct {
-				ID  string `json:"id_str"`
-				URL string `json:"url"`
+				ID       string `json:"id_str"`
+				URL      string `json:"url"`
+				Type     string `json:"type"`
+				ImageURL string `json:"media_url_https"`
 			} `json:"media"`
 		} `json:"extended_entities"`
 	} `json:"legacy"`
@@ -79,8 +81,12 @@ func (t tweetRecord) post() (domain.Post, error) {
 		}
 	}
 	media := make([]string, 0, len(t.Legacy.Extended.Media))
+	images := make([]string, 0, len(t.Legacy.Extended.Media))
 	for _, m := range t.Legacy.Extended.Media {
 		media = append(media, m.ID)
+		if m.Type == "photo" && m.ImageURL != "" {
+			images = append(images, m.ImageURL)
+		}
 		// The server appends a media t.co token outside the author's text.
 		if m.URL != "" {
 			text = strings.TrimSuffix(strings.TrimRight(text, " \n"), " "+m.URL)
@@ -90,7 +96,7 @@ func (t tweetRecord) post() (domain.Post, error) {
 	if n, err := strconv.ParseInt(t.Views.Count, 10, 64); err == nil && n >= 0 {
 		views = &n
 	}
-	return domain.Post{ID: t.ID, URL: Origin + "/" + owner.Handle + "/status/" + t.ID, Author: owner, Text: html.UnescapeString(text), CreatedAt: t.Legacy.CreatedAt, ReplyTo: t.Legacy.ReplyTo, MediaIDs: media, Views: views, Likes: t.Legacy.Likes, Replies: t.Legacy.Replies, Reposts: t.Legacy.Reposts, Quotes: t.Legacy.Quotes, Bookmarks: t.Legacy.Bookmarks}, nil
+	return domain.Post{ID: t.ID, URL: Origin + "/" + owner.Handle + "/status/" + t.ID, Author: owner, Text: html.UnescapeString(text), CreatedAt: t.Legacy.CreatedAt, ReplyTo: t.Legacy.ReplyTo, MediaIDs: media, ImageURLs: images, Views: views, Likes: t.Legacy.Likes, Replies: t.Legacy.Replies, Reposts: t.Legacy.Reposts, Quotes: t.Legacy.Quotes, Bookmarks: t.Legacy.Bookmarks}, nil
 }
 
 // Stop at each top-level Tweet. A quoted tweet is evidence inside a post, not
@@ -153,6 +159,10 @@ func (c *Client) ReadPost(ctx context.Context, ref domain.PostRef) (domain.Post,
 	if err != nil {
 		return domain.Post{}, err
 	}
+	return postFromRecords(records, ref)
+}
+
+func postFromRecords(records []tweetRecord, ref domain.PostRef) (domain.Post, error) {
 	var found *domain.Post
 	for _, t := range records {
 		if t.ID == ref.ID() {

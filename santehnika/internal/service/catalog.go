@@ -64,7 +64,7 @@ func (c *Client) parseList(b []byte, target string, o Options) (*domain.Result, 
 	for _, p := range d.Data {
 		u, _ := url.Parse(c.origin)
 		link, _ := url.Parse(p.Link)
-		out := domain.Product{ID: p.Code, Code: p.Code, APIID: strconv.Itoa(p.ID), Countries: p.Countries, Title: p.Title, URL: u.ResolveReference(link).String(), Brand: p.Brand, Price: p.Price, Currency: "RUB", Images: p.Images, InStock: p.InStock, Purchasable: p.Purchasable, Characteristics: []domain.Characteristic{}}
+		out := domain.Product{ID: p.Code, Code: p.Code, APIID: strconv.Itoa(p.ID), Countries: p.Countries, Title: p.Title, URL: u.ResolveReference(link).String(), Brand: p.Brand, Price: p.Price, Images: p.Images, InStock: p.InStock, Purchasable: p.Purchasable, Characteristics: []domain.Characteristic{}}
 		if out.Images == nil {
 			out.Images = []string{}
 		}
@@ -329,7 +329,6 @@ func (c *Client) parseDetails(b []byte, target string) (*domain.Result, error) {
 	total := 1
 	r.Total = &total
 	r.Products = append(r.Products, out)
-	r.Warnings = append(r.Warnings, "Details contain server-rendered characteristics; check the dimension drawing for mounting dimensions. Exact-product rating/review_count are unknown in this HTML; group_* retain the displayed aggregate. Use search/list for exact-product review counts.")
 	return r, nil
 }
 

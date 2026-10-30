@@ -11,7 +11,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -29,7 +28,7 @@ const help = `Levels.fyi salary research. JSON output, read-only native API.
   auth status
       Local session metadata only; never print cookies or JWTs.
   salaries filters
-      Observed native filter semantics, with source and discovery commands.
+      Show this help; static filter semantics are documented here.
   search locations --query CITY
       Native city autocomplete, with country IDs; no coordinates exported.
   salaries estimate --role ROLE --level all|junior|middle|senior [--remote]
@@ -47,7 +46,7 @@ const help = `Levels.fyi salary research. JSON output, read-only native API.
       requests at least one second apart. Stop immediately on a block.
       Default max-pages 5 covers the inspected website's 250-result cap.
       Cache sanitized reports for 6h. --refresh bypasses it explicitly.
-      Return annual USD {amount,currency,interval}; base, stock, bonus and total
+      All pay amounts are annual USD; base, stock, bonus and total
       stay separate. Group gross/net and employment type separately; include
       per-country distributions and exact retrieved coverage/source URLs.
       --new-offers-only is the native 0 years-at-company filter, not a promise
@@ -74,6 +73,10 @@ No daemon or cross-process connections. Salary/review/profile writes and
 telemetry are not implemented. Authentication/access challenges, redaction,
 changed response shapes and rate limits stop without retries or fallback.
 Retrieved recent submissions are NOT representative global-market percentiles.
+Source totals may be capped; compare source_reported_total with retrieved_count.
+Original currency and exchange rates are source metadata, not another conversion.
+FX dates and contracted hours are unknown. Fewer than 20 reports are sparse.
+Pooled percentiles weight retrieved reports, not employers equally.
 `
 
 func Main() {
@@ -178,7 +181,8 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return fmt.Errorf("--query is required")
 	}
 	if command == "salaries filters" {
-		return json.NewEncoder(out).Encode(map[string]any{"levels": map[string]string{"all": "any experience", "junior": "0..1 years", "middle": "2..6 years", "senior": "7+ years"}, "remote": "native workArrangement=remote across all countries unless country IDs restrict it; does not establish worldwide hiring eligibility or location-independent pay", "country_discovery": "search locations --query CITY; use returned countryId (Kazan -> 203, US -> 254); omit country IDs to sample all available countries", "role_semantics": "native searchText over cities/tags/etc; not a verified language classifier", "salary_units": "annual USD normalized by source; components and gross/net separate", "filter_source": "https://www.levels.fyi/t/software-engineer, native table filters observed 2026-10-25"})
+		_, err := fmt.Fprint(out, help)
+		return err
 	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
@@ -208,7 +212,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		if err = service.SaveSession(sessionPath, s); err != nil {
 			return err
 		}
-		return json.NewEncoder(out).Encode(map[string]any{"imported": true, "profile": s.Profile, "cookie_count": len(s.Cookies), "path": sessionPath, "network_requests": 0})
+		return json.NewEncoder(out).Encode(map[string]any{"profile": s.Profile, "cookie_count": len(s.Cookies), "path": sessionPath})
 	}
 	if command == "auth status" {
 		s, err := service.LoadSession(sessionPath)
@@ -218,7 +222,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-		return json.NewEncoder(out).Encode(map[string]any{"session_present": true, "profile": s.Profile, "imported_at": s.ImportedAt, "cookie_count": len(s.Cookies), "local_token_usable": service.Authorize(s) == nil, "validated_online": false})
+		return json.NewEncoder(out).Encode(map[string]any{"session_present": true, "profile": s.Profile, "imported_at": s.ImportedAt, "cookie_count": len(s.Cookies), "local_token_usable": service.Authorize(s) == nil})
 	}
 	var cachePath string
 	if command == "salaries estimate" {
@@ -237,10 +241,6 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 				var saved domain.Report
 				if json.Unmarshal(b, &saved) == nil && time.Since(saved.FetchedAt) >= 0 && time.Since(saved.FetchedAt) < 6*time.Hour {
 					saved.Requests = 0
-					if q.Remote && !slices.Contains(saved.Limitations, service.RemoteScopeLimitation) {
-						saved.Limitations = append(saved.Limitations, service.RemoteScopeLimitation)
-					}
-					saved.Limitations = append(saved.Limitations, "Read from local cache; fetched_at retains the source retrieval time.")
 					return json.NewEncoder(out).Encode(saved)
 				}
 			}

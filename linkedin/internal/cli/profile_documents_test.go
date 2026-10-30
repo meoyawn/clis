@@ -62,7 +62,7 @@ func TestFullProfilePreservesCareerEvidenceWithinThreeRequests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if calls.Load() != 3 || readers.Load() != 2 || result.Name != "Example Person" || result.FetchedAt == "" || len(result.Coverage) == 0 {
+	if calls.Load() != 3 || readers.Load() != 2 || result.Name != "Example Person" || result.FetchedAt == "" {
 		t.Fatalf("wrong profile identity, provenance, or request budget: calls=%d result=%+v", calls.Load(), result)
 	}
 	for _, want := range []string{"Angel Investor", "SyntheticBase", "Jan 2025 - Present", "Backed the developer", "2017 - 2021", "first production service", "https://example.org/project", "https://example.org/api", "https://example.org/site", "source_url"} {

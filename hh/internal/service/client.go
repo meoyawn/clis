@@ -204,14 +204,12 @@ func (c *Client) Get(ctx context.Context, id ResumeID) (*Resume, error) {
 }
 
 type View struct {
-	ID                string        `json:"id"`
-	URL               string        `json:"url"`
-	Verified          bool          `json:"verified"`
-	VerificationScope string        `json:"verification_scope"`
-	Text              string        `json:"text"`
-	Contacts          PrintContacts `json:"contacts"`
-	HTML              []byte        `json:"-"`
-	Fields            Object        `json:"-"`
+	ID       string        `json:"id"`
+	URL      string        `json:"url"`
+	Text     string        `json:"text"`
+	Contacts PrintContacts `json:"contacts"`
+	HTML     []byte        `json:"-"`
+	Fields   Object        `json:"-"`
 }
 
 func (c *Client) View(ctx context.Context, id ResumeID) (*View, error) {
@@ -283,5 +281,5 @@ func (c *Client) View(ctx context.Context, id ResumeID) (*View, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &View{ID: id.String(), URL: u, Verified: true, VerificationScope: "page identity and rendered content; inspect contacts for semantic correctness", Text: text, Contacts: contacts, HTML: body, Fields: fields}, nil
+	return &View{ID: id.String(), URL: u, Text: text, Contacts: contacts, HTML: body, Fields: fields}, nil
 }

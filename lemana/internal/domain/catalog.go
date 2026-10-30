@@ -38,7 +38,6 @@ type Characteristic struct {
 }
 type Result struct {
 	URL          string          `json:"url"`
-	City         string          `json:"city"`
 	Total        *int            `json:"total"`
 	Page         int             `json:"page"`
 	PageSize     int             `json:"page_size"`
@@ -47,7 +46,6 @@ type Result struct {
 	Filters      json.RawMessage `json:"filters,omitempty"`
 	Sorts        json.RawMessage `json:"sorts,omitempty"`
 	HTTPRequests int             `json:"http_requests"`
-	Warnings     []string        `json:"warnings"`
 }
 type Sort struct{ value string }
 

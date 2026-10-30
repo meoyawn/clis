@@ -124,7 +124,7 @@ type analyticsChangeResult struct {
 	Before      *domain.AnalyticsMetric `json:"before"`
 	After       *domain.AnalyticsMetric `json:"after"`
 	CountChange *int64                  `json:"count_change"`
-	Note        string                  `json:"note"`
+	Note        string                  `json:"note,omitempty"`
 }
 
 type analyticsComparison struct {
@@ -144,14 +144,17 @@ func compareAnalyticsFiles(beforePath, afterPath string) (analyticsComparison, e
 			return domain.AnalyticsSnapshot{}, fmt.Errorf("open snapshot %q: %w", path, err)
 		}
 		defer f.Close()
-		var snapshot domain.AnalyticsSnapshot
+		var snapshot struct {
+			domain.AnalyticsSnapshot
+			SchemaVersion int `json:"schema_version"`
+		}
 		if err := json.NewDecoder(io.LimitReader(f, 1<<20)).Decode(&snapshot); err != nil {
-			return snapshot, fmt.Errorf("decode snapshot %q: %w", path, err)
+			return snapshot.AnalyticsSnapshot, fmt.Errorf("decode snapshot %q: %w", path, err)
 		}
-		if snapshot.SchemaVersion != 1 || snapshot.ProfileURL == "" {
-			return snapshot, fmt.Errorf("unsupported or incomplete analytics snapshot %q", path)
+		if (snapshot.SchemaVersion != 0 && snapshot.SchemaVersion != 1) || snapshot.ProfileURL == "" {
+			return snapshot.AnalyticsSnapshot, fmt.Errorf("unsupported or incomplete analytics snapshot %q", path)
 		}
-		return snapshot, nil
+		return snapshot.AnalyticsSnapshot, nil
 	}
 	before, err := read(beforePath)
 	if err != nil {
@@ -184,7 +187,6 @@ func compareAnalyticsFiles(beforePath, afterPath string) (analyticsComparison, e
 		default:
 			delta := *b.Count - *a.Count
 			r.CountChange = &delta
-			r.Note = "Difference in reported totals; overlapping rolling windows are not new events or proof of post attribution."
 		}
 		return r
 	}
@@ -200,7 +202,7 @@ Usage:
 
 Summary reads the signed-in account's dashboard with three sequential GETs.
 It returns profile viewers, post impressions, search appearances, and followers
-when present, with the displayed windows, comparison text, source URLs and UTC
+when present, with the displayed windows, comparison text, card evidence and UTC
 fetch time. Missing or rounded counts are never replaced with exact zeroes.
 --save writes a new 0600 JSON snapshot; --save-response captures raw private HTML
 for debugging. Files are never overwritten. Default output is JSON, with no files.

@@ -88,10 +88,19 @@ type Post struct {
 	CreatedAt string   `json:"created_at"`
 	ReplyTo   string   `json:"reply_to,omitempty"`
 	MediaIDs  []string `json:"media_ids"`
+	ImageURLs []string `json:"image_urls"`
 	Views     *int64   `json:"views"`
 	Likes     int64    `json:"likes"`
 	Replies   int64    `json:"replies"`
 	Reposts   int64    `json:"reposts"`
 	Quotes    int64    `json:"quotes"`
 	Bookmarks int64    `json:"bookmarks"`
+}
+
+type Conversation struct {
+	Post            Post   `json:"post"`
+	Parents         []Post `json:"parents"`
+	Replies         []Post `json:"replies"`
+	ParentsComplete bool   `json:"parents_complete"`
+	MissingParentID string `json:"missing_parent_id,omitempty"`
 }

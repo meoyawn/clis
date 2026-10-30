@@ -54,7 +54,7 @@ type Metadata struct {
 	SourceURL    string    `json:"source_url"`
 	FetchedAt    time.Time `json:"fetched_at"`
 	HTTPRequests int       `json:"http_requests"`
-	Location     string    `json:"location"`
+	Location     string    `json:"location,omitempty"`
 	Warnings     []string  `json:"warnings,omitempty"`
 }
 

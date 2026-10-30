@@ -91,7 +91,6 @@ type Listing struct {
 }
 
 type Metadata struct {
-	Source          string            `json:"source"`
 	SourceURL       string            `json:"source_url"`
 	FetchedAt       time.Time         `json:"fetched_at"`
 	HTTPRequests    int               `json:"http_requests"`

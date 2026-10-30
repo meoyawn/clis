@@ -264,8 +264,5 @@ func (c *Client) Details(ctx context.Context, rawID string) (*DetailResult, erro
 
 func metadata(doc *goquery.Document, u *url.URL, requests int) Metadata {
 	location := textOf(doc.Find(".selected-city").First())
-	if location == "" {
-		location = "Казань"
-	}
 	return Metadata{SourceURL: u.String(), FetchedAt: time.Now().UTC(), HTTPRequests: requests, Location: location}
 }

@@ -169,7 +169,7 @@ Examples:
   linkedin people profile example-person --summary
 
 Default output adds sourced profile sections, full experience-page text,
-descriptions, dates, links, fetched_at, and explicit coverage limits. Three GETs:
+descriptions, dates, links and fetched_at. Three GETs:
 one identity API call, then two independent document reads using errgroup.
 The two document reads run concurrently; other CLI commands remain sequential.
 No browser scripts, contact-info overlay, messages, or analytics are executed.
@@ -200,8 +200,8 @@ Examples:
 Resolve the target and require its profile to expose an exact mutual-search link
 labelled as mutual connections before reading the first page (three sequential
 requests on success). Missing confirmation fails without returning generic
-contacts. Successful output includes verified:true and profile_evidence with
-the source label; older cached results are unverified. has_more reports additional
+contacts. Successful output includes profile_evidence with the source label.
+has_more reports additional
 results without fetching them. No --all or automatic pagination. No scripts,
 analytics, messages, or connection requests are executed. Names are potential
 introduction paths; a result does not establish willingness to refer you.

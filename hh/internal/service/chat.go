@@ -106,14 +106,11 @@ func (c *Client) ReadApplicationLetter(ctx context.Context, status *ApplicationS
 	canEdit, editKnown := selected["canEdit"].(bool)
 	status.CoverLetter["text_available"] = true
 	status.CoverLetter["text"] = text
-	status.CoverLetter["text_source"] = "live chat page Chatik-InitialState; message linked as RESPONSE_LETTER"
 	status.CoverLetter["source_url"] = c.base.String() + path + "?" + query.Encode()
 	status.CoverLetter["message_id"] = nativeID(selected["id"])
 	status.CoverLetter["current_text_readback_verified"] = true
 	if editKnown {
 		status.CoverLetter["can_edit_reported_by_chat"] = canEdit
 	}
-	status.CoverLetter["server_editability"] = "chat canEdit metadata reported separately; no edit attempted"
-	status.Scope = "live vacancy/employer/topic/resume plus matching authored RESPONSE_LETTER text from live chat"
 	return nil
 }

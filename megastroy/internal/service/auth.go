@@ -302,12 +302,11 @@ type AuthStatus struct {
 	UsableCookieCount int        `json:"usable_cookie_count"`
 	CookieNames       []string   `json:"cookie_names"`
 	NextExpiry        *time.Time `json:"next_expiry"`
-	HTTPRequests      int        `json:"http_requests"`
-	Warnings          []string   `json:"warnings"`
+	Warnings          []string   `json:"warnings,omitempty"`
 }
 
 func (s Session) status(path string, now time.Time) *AuthStatus {
-	status := &AuthStatus{Store: path, Browser: s.Browser, Profile: s.Profile, Imported: s.Version == 1, CookieCount: len(s.Cookies), CookieNames: []string{}, Warnings: []string{"Local cookie availability does not verify DDoS-Guard acceptance; no account login is used"}}
+	status := &AuthStatus{Store: path, Browser: s.Browser, Profile: s.Profile, Imported: s.Version == 1, CookieCount: len(s.Cookies), CookieNames: []string{}}
 	for _, c := range s.Cookies {
 		status.CookieNames = appendUnique(status.CookieNames, c.Name)
 		if !c.valid() || c.expired(now) {

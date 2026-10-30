@@ -46,7 +46,7 @@ func TestMutualsReadsCapturedDocumentRequestAndOnlyPrimaryResults(t *testing.T) 
 			if err != nil {
 				t.Fatal(err)
 			}
-			if calls != 3 || result.Returned != 3 || !result.HasMore || len(result.People) != 3 || !result.Verified || result.Profile.ID != "ACoExamplePerson" || result.Profile.URL != "https://www.linkedin.com/in/example-person/" || result.ProfileEvidence != "First Mutual and other mutual connections" {
+			if calls != 3 || result.Returned != 3 || !result.HasMore || len(result.People) != 3 || result.Profile.ID != "ACoExamplePerson" || result.Profile.URL != "https://www.linkedin.com/in/example-person/" || result.ProfileEvidence != "First Mutual and other mutual connections" {
 				t.Fatalf("unexpected budget or results: calls=%d result=%+v", calls, result)
 			}
 			for i, p := range result.People {
@@ -104,7 +104,7 @@ func TestMutualsFailsClosedWithoutRetryingOrEmittingPartialPeople(t *testing.T) 
 				t.Fatal(err)
 			}
 			result, err := client.mutuals(context.Background(), ref, 10)
-			if err == nil || !strings.Contains(err.Error(), tc.want) || calls != 3 || len(result.People) != 0 || result.Verified {
+			if err == nil || !strings.Contains(err.Error(), tc.want) || calls != 3 || len(result.People) != 0 {
 				t.Fatalf("calls=%d result=%+v err=%v", calls, result, err)
 			}
 		})

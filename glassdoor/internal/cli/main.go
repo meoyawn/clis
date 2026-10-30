@@ -36,7 +36,7 @@ Usage: glassdoor [--anonymous] COMMAND [OPTIONS]
       Native autocomplete suggestions. IDs distinguish similarly named places
       and employers; a suggestion is not proof of employer identity or pay.
   salaries filters [--refresh]
-      Native experience values and industry catalog from the salary page.
+      Fetch the native industry catalog. Experience aliases are listed below.
   salaries estimate --role ROLE --level LEVEL --location LOCATION
       Example: salaries estimate --role golang --level senior --location Russia
       Alternative: --title EXACT_NATIVE_TITLE (without --role/--level)
@@ -55,6 +55,8 @@ Usage: glassdoor [--anonymous] COMMAND [OPTIONS]
       Percentiles are provider estimates for
       the selected location, not an automatic market benchmark or recommended ask.
       Provider confidence does not establish comparability or gross/net basis.
+      Tax basis and contracted hours are unknown. Zero-count pay is a provider
+      estimate. Keep sparse samples and old source dates distinct from fresh data.
       --location is required; no city/country is inferred. Unsupported or ambiguous locations stop.
       Industry 0 means all; nonzero IDs are checked against the live catalog.
   salaries company --company NAME --location LOCATION [--company-id ID]
@@ -254,11 +256,11 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 			if err = service.SaveSession(sessionPath, s); err != nil {
 				return err
 			}
-			return json.NewEncoder(out).Encode(map[string]any{"imported": true, "profile": s.Profile, "cookie_count": len(s.Cookies), "path": sessionPath, "network_requests": 0})
+			return json.NewEncoder(out).Encode(map[string]any{"profile": s.Profile, "cookie_count": len(s.Cookies), "path": sessionPath})
 		}
 		s, err := service.LoadSession(sessionPath)
 		if errors.Is(err, os.ErrNotExist) {
-			return json.NewEncoder(out).Encode(map[string]any{"session_present": false, "validated_online": false})
+			return json.NewEncoder(out).Encode(map[string]any{"session_present": false})
 		}
 		if err != nil {
 			return err
@@ -269,7 +271,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 				expired++
 			}
 		}
-		return json.NewEncoder(out).Encode(map[string]any{"session_present": true, "profile": s.Profile, "imported_at": s.ImportedAt, "cookies": len(s.Cookies), "expired_cookies": expired, "validated_online": false})
+		return json.NewEncoder(out).Encode(map[string]any{"session_present": true, "profile": s.Profile, "imported_at": s.ImportedAt, "cookies": len(s.Cookies), "expired_cookies": expired})
 	}
 	var session *service.Session
 	if !*anonymous {
@@ -324,7 +326,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-		return json.NewEncoder(out).Encode(map[string]any{"experience_aliases": []string{"all", "0-1", "1-3", "4-6", "7-9", "10-14", "15+"}, "industries": industries, "all_industries_id": 0, "industry_source_url": service.FilterSourceURL, "location_discovery": "search locations --query TEXT", "title_discovery": "search titles --query TEXT"})
+		return json.NewEncoder(out).Encode(map[string]any{"industries": industries})
 	}
 	chosenLocation, err := resolveLocation(ctx, client, cacheDir, location, locationID, refresh)
 	if err != nil {

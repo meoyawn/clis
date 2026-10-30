@@ -135,7 +135,7 @@ use hiddenFields:["phones","other_contacts"] on the selected resume. This
 also hides its website-contact block. Preserve wanted website URLs elsewhere
 in visible prose if the human wants them retained, and verify the print view.
 The phone remains stored by HH. Other resumes and account login stay unchanged.
-view verified:true confirms page identity/rendered content, not that every
+view verifies page identity/rendered content, not that every
 contact or sentence matches the human's wishes. Inspect the returned evidence.
 
 Patch fields supported by the recorded native resume endpoint:

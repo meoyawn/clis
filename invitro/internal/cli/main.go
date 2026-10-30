@@ -23,6 +23,9 @@ const usage = `Usage:
 Search filters: --available-at-home[=false], --is-promo[=false], --deadline DAYS
 --include-filters adds current filter definitions and CLI flag names to search JSON.
 Promos lists active website offers; a slug fetches terms and live promotional article prices.
+All prices are in RUB. Promotional articles do not automatically discount regular
+catalog products; check linked eligibility, collection fees and bonus rules.
+An empty additional_services list does not establish free collection.
 Search returns one page of 20 results. Show accepts a website ID, UUID, or URL.
 City comes from --city, a product URL, or config; there is no default city.
 --full includes all published instructions and the source JSON.

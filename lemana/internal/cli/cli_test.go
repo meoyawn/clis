@@ -26,7 +26,7 @@ func TestHelpAndValidationDoNotRequireBrowserSession(t *testing.T) {
 	}
 	var out bytes.Buffer
 	err := Run(context.Background(), []string{"auth", "status", "--session-file", filepath.Join(t.TempDir(), "missing")}, &out, &out)
-	if err != nil || !strings.Contains(out.String(), `"http_requests": 0`) || !strings.Contains(out.String(), `"imported": false`) {
+	if err != nil || !strings.Contains(out.String(), `"imported": false`) {
 		t.Fatalf("status err=%v output=%s", err, out.String())
 	}
 }

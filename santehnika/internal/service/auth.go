@@ -34,11 +34,10 @@ type SavedCookie struct {
 	HTTPOnly bool       `json:"http_only"`
 }
 type AuthStatus struct {
-	Path         string   `json:"path"`
-	Imported     bool     `json:"imported"`
-	Profile      string   `json:"profile,omitempty"`
-	CookieNames  []string `json:"cookie_names"`
-	HTTPRequests int      `json:"http_requests"`
+	Path        string   `json:"path"`
+	Imported    bool     `json:"imported"`
+	Profile     string   `json:"profile,omitempty"`
+	CookieNames []string `json:"cookie_names"`
 }
 
 func SessionPath() (string, error) {

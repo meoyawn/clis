@@ -21,7 +21,6 @@ type mutualsResult struct {
 	People          []person   `json:"people"`
 	Returned        int        `json:"returned"`
 	HasMore         bool       `json:"has_more"`
-	Verified        bool       `json:"verified"`
 }
 
 func (c *linkedinClient) mutuals(ctx context.Context, ref profileRef, limit int) (mutualsResult, error) {
@@ -67,7 +66,7 @@ func (c *linkedinClient) mutuals(ctx context.Context, ref profileRef, limit int)
 	if len(people) > limit {
 		people, hasMore = people[:limit], true
 	}
-	return mutualsResult{Profile: ref, SearchURL: "https://www.linkedin.com" + path, ProfileEvidence: evidence, People: people, Returned: len(people), HasMore: hasMore, Verified: true}, nil
+	return mutualsResult{Profile: ref, SearchURL: "https://www.linkedin.com" + path, ProfileEvidence: evidence, People: people, Returned: len(people), HasMore: hasMore}, nil
 }
 
 // LinkedIn can return generic contacts for a connectionOf request. Only follow

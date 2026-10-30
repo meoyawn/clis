@@ -28,7 +28,6 @@ type PrintContacts struct {
 }
 
 type ProfileContacts struct {
-	Scope      string        `json:"scope"`
 	Websites   []ContactLink `json:"otherCommunicationMethods"`
 	Messengers []any         `json:"communicationMethods"`
 }
@@ -108,7 +107,7 @@ func contactsFromProfile(profile Object) (*ProfileContacts, error) {
 	if !ok {
 		return nil, fmt.Errorf("shared profile has no communicationMethods array; stopped")
 	}
-	return &ProfileContacts{Scope: "account; inherited by all resumes", Websites: links, Messengers: messengers}, nil
+	return &ProfileContacts{Websites: links, Messengers: messengers}, nil
 }
 
 func (c *Client) Contacts(ctx context.Context) (*ProfileContacts, error) {
@@ -171,7 +170,6 @@ type ContactResumeEvidence struct {
 }
 
 type ContactPlan struct {
-	Scope                  string                  `json:"scope"`
 	Applied                bool                    `json:"applied"`
 	Verified               bool                    `json:"verified"`
 	Changes                map[string]Change       `json:"changes"`
@@ -194,7 +192,7 @@ func (c *Client) UpdateContacts(ctx context.Context, patch Object, apply bool, b
 		return nil, err
 	}
 	want, _ := linksFromValue(patch["otherCommunicationMethods"])
-	plan := &ContactPlan{Scope: "account; changes shared contacts in ALL resumes", Changes: map[string]Change{}, AffectedResumes: []ContactResumeEvidence{}}
+	plan := &ContactPlan{Changes: map[string]Change{}, AffectedResumes: []ContactResumeEvidence{}}
 	if !reflect.DeepEqual(oldContacts.Websites, want) {
 		plan.Changes["otherCommunicationMethods"] = Change{Before: oldContacts.Websites, After: want}
 	}

@@ -58,7 +58,7 @@ func TestAnalyticsDashboardEvidence(t *testing.T) {
 			} else if got.ProfileViews.Count == nil || *got.ProfileViews.Count != 32 {
 				t.Fatalf("wrong profile views: %+v", got.ProfileViews)
 			}
-			if got.ProfileViews.Window != "in 90 days" || got.ProfileViews.ChangeText != "75% vs. prior 7 days" || got.ProfileViews.Evidence == "" || got.ProfileViews.SourceURL != "https://www.linkedin.com/analytics/profile-views/" {
+			if got.ProfileViews.Window != "in 90 days" || got.ProfileViews.ChangeText != "75% vs. prior 7 days" || got.ProfileViews.Evidence == "" {
 				t.Fatalf("lost source evidence: %+v", got.ProfileViews)
 			}
 		})

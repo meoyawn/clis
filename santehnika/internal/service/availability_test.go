@@ -53,7 +53,7 @@ func TestAvailabilityUsesKazanProductIDAndOneJSONRequest(t *testing.T) {
 			if err := json.Unmarshal(result.Availability, &data); err != nil {
 				t.Fatal(err)
 			}
-			if result.ProductAPIID != "123456" || result.City != "Казань" || result.HTTPRequests != 1 || data.PickupDate != "2026-11-02" {
+			if result.ProductAPIID != "123456" || result.HTTPRequests != 1 || data.PickupDate != "2026-11-02" {
 				t.Fatalf("incorrect availability result %+v data=%+v", result, data)
 			}
 		})

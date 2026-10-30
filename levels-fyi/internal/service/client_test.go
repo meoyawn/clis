@@ -69,7 +69,7 @@ func TestAllCountryRemoteNativeReport(t *testing.T) {
 	if calls != 1 || r.RetrievedCount != 3 || len(r.CountryCoverage) != 2 || len(r.Groups) != 2 || len(r.Countries) != 3 {
 		t.Fatalf("wrong coverage or mixed tax groups: %+v", r)
 	}
-	if r.Submissions[1].Base.Currency != "USD" || r.Submissions[1].Base.Interval != "year" || r.Submissions[1].Base.Amount != 40000 || r.Submissions[1].OriginalBaseCurrency != "INR" {
+	if r.Submissions[1].Base.Amount != 40000 || r.Submissions[1].OriginalBaseCurrency != "INR" {
 		t.Fatal("original-currency label corrupted normalized USD amount")
 	}
 	gross := r.Groups[0]

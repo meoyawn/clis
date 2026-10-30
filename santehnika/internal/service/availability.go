@@ -39,5 +39,5 @@ func (c *Client) Availability(ctx context.Context, apiID string) (*domain.Availa
 	if !json.Valid(body) {
 		return nil, fmt.Errorf("delivery calculation returned invalid JSON")
 	}
-	return &domain.AvailabilityResult{URL: target, ProductAPIID: apiID, City: "Казань", Availability: body, HTTPRequests: c.requests}, nil
+	return &domain.AvailabilityResult{URL: target, ProductAPIID: apiID, Availability: body, HTTPRequests: c.requests}, nil
 }

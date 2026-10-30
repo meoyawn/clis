@@ -337,7 +337,7 @@ func (c *Client) VerifyApplication(ctx context.Context, draft ApplicationDraft, 
 	if err != nil {
 		return nil, err
 	}
-	result := Object{"submitted": true, "verified": false, "receipt": receipt, "vacancy_id": id.String(), "cv_sha256": draft.CVSHA256, "review_sha256": draft.ReviewSHA256}
+	result := Object{"verified": false, "receipt": receipt, "vacancy_id": id.String(), "cv_sha256": draft.CVSHA256, "review_sha256": draft.ReviewSHA256}
 	state, err := c.ApplicationState(ctx, id)
 	if err != nil {
 		return nil, err
@@ -365,7 +365,6 @@ func (c *Client) VerifyApplication(ctx context.Context, draft ApplicationDraft, 
 		maskedLetter := !exactLetter && actualLetter == letterURL.ReplaceAllString(draft.CoverLetter, "•••••")
 		result["cover_letter_exact"] = exactLetter
 		result["cover_letter_matches_with_url_masking"] = maskedLetter
-		result["cover_letter_employer_visibility"] = "not established by candidate-side readback"
 		if vacancy["url"] != strings.TrimPrefix(draft.VacancyURL, Origin) || vacancy["position"] != draft.Position || company["name"] != draft.Company || status == "" || state["already_applied"] != true || (!exactLetter && !maskedLetter) || row["salary_min"] != float64(draft.Answers.SalaryFrom) {
 			result["verification_error"] = "listed application destination, letter, compensation or state differs; do not resend"
 			return result, nil

@@ -32,8 +32,7 @@ type ApplicationStatus struct {
 	Submitted      bool            `json:"submitted_by_applicant"`
 	Archived       bool            `json:"archived"`
 	Viewed         bool            `json:"viewed_by_employer"`
-	Verified       bool            `json:"verified"`
-	Scope          string          `json:"verification_scope"`
+	Verified       bool            `json:"-"`
 	CoverLetter    Object          `json:"cover_letter"`
 	RecordedLetter *RecordedLetter `json:"recorded_letter,omitempty"`
 }
@@ -45,10 +44,7 @@ type RecordedLetter struct {
 	TopicID      string `json:"topic_id"`
 	Text         string `json:"text"`
 	Status       int    `json:"http_status"`
-	Accepted     bool   `json:"server_accepted"`
-	LivePresence bool   `json:"live_presence_verified"`
 	TextReadback bool   `json:"current_text_readback_verified"`
-	Scope        string `json:"verification_scope"`
 }
 
 func negotiationTopics(v *Vacancy) ([]any, error) {
@@ -98,11 +94,8 @@ func (c *Client) applicationStatus(v *Vacancy, row Object) (*ApplicationStatus, 
 		TopicID: topic, ChatID: nativeID(row["chatId"]), ApplicantID: nativeID(row["applicantUserId"]), ResumeID: hash, ResumeURL: viewURL,
 		CreatedAt: created, State: state, InitialType: initialType, Submitted: initialType == "RESPONSE_BY_APPLICANT",
 		Archived: archived, Viewed: viewed, Verified: true,
-		Scope: "live vacancy, employer, topic and selected resume identity; current letter text is not read back",
 		CoverLetter: Object{"present": letter, "text_available": false,
-			"text_source":        "not exposed by the recorded vacancy/negotiation read endpoints",
-			"ui_add_available":   state == "RESPONSE" && !viewed && !archived && !letter,
-			"server_editability": "unknown; no edit attempted"}}, nil
+			"ui_add_available": state == "RESPONSE" && !viewed && !archived && !letter}}, nil
 }
 
 // Application reads the exact selected resume's negotiation. It never infers
@@ -233,8 +226,7 @@ func (c *Client) Applications(ctx context.Context) (Object, error) {
 		}
 		applications = append(applications, status)
 	}
-	return Object{"filter": "active", "total": total, "pages": pageCount, "complete": true,
-		"source_url": c.base.String() + "/applicant/negotiations", "applications": applications}, nil
+	return Object{"total": total, "pages": pageCount, "applications": applications}, nil
 }
 
 // VerifyRecordedLetter reads a local HAR; it never replays its requests or imports
@@ -308,8 +300,7 @@ func VerifyRecordedLetter(status *ApplicationStatus, path string) error {
 		}
 		sum := sha256.Sum256(data)
 		evidence = &RecordedLetter{HAR: path, HARSHA256: hex.EncodeToString(sum[:]), RecordedAt: entry.Started,
-			TopicID: status.TopicID, Text: fields["text"], Status: entry.Response.Status, Accepted: true,
-			Scope: "matching topic in recorded POST and success receipt; live letter presence only; current text is not exposed"}
+			TopicID: status.TopicID, Text: fields["text"], Status: entry.Response.Status}
 	}
 	if evidence == nil {
 		return fmt.Errorf("HAR has no matching letter POST for live topic %s", status.TopicID)
@@ -317,14 +308,12 @@ func VerifyRecordedLetter(status *ApplicationStatus, path string) error {
 	if status.CoverLetter["present"] != true {
 		return fmt.Errorf("HAR recorded success but live topic %s does not confirm letter presence", status.TopicID)
 	}
-	evidence.LivePresence = true
 	if status.CoverLetter["current_text_readback_verified"] == true {
 		current, ok := status.CoverLetter["text"].(string)
 		if !ok || strings.ReplaceAll(evidence.Text, "\r\n", "\n") != current {
 			return fmt.Errorf("HAR letter text differs from the current verified chat text; read without --har to inspect the live letter")
 		}
 		evidence.TextReadback = true
-		evidence.Scope = "recorded topic/POST/success plus current linked chat-letter text; CRLF is normalized to LF for comparison"
 	}
 	status.RecordedLetter = evidence
 	return nil

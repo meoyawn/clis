@@ -158,7 +158,7 @@ func money(x any) *Money {
 	if n == nil || *n < 0 {
 		return nil
 	}
-	return &Money{Amount: *n, Currency: "RUB", Text: s}
+	return &Money{Amount: *n, Text: s}
 }
 
 // text reads presentation text only, never actions, telemetry or personal page state.

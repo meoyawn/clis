@@ -67,7 +67,6 @@ func (c *Client) Show(ctx context.Context, item ItemReference, auth RequestOptio
 }
 
 func stamp(meta *Metadata, request *PreparedRequest, response *Exchange) {
-	meta.Source = "web"
 	meta.SourceURL = request.sourceURL()
 	meta.FetchedAt = time.Now().UTC()
 	meta.HTTPRequests = 1
