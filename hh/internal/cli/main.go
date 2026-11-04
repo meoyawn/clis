@@ -86,6 +86,17 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       Patch: {"otherCommunicationMethods":[{"value":"https://example.com",
       "description":"Website"}]}. Maximum 10 links. [] clears the list.
       This command does not change phone, email, or messenger accounts.
+  profile languages get [--output FILE]
+      Read the shared spoken-language selections (not the resume document language).
+  profile languages update --patch FILE [--apply] [--backup-dir DIR]
+      Preview or replace spoken languages account-wide in ALL resumes. --apply
+      saves a private backup, writes once and verifies profile/resume data and
+      every employer print view, preserving other content and technical levels.
+      Patch: {"language":[{"id":34,"degree":"l1"},{"id":57,"degree":"c1"}]}.
+      IDs come from profile get; l1 means native. The nonempty array replaces
+      the whole list. Requires the user's authorization; never applies for jobs.
+  profile languages verify --patch FILE [--output FILE]
+      Read-only profile and all-resume print verification after an uncertain save.
   resume get ID [--output FILE]
       Export the selected resume's current fields as JSON.
   resume view ID [--html FILE]
@@ -230,18 +241,25 @@ func run(ctx context.Context, args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("invalid command %q: run hh --help", strings.Join(args, " "))
 	}
-	if args[0] != "resume" && !(args[0] == "application" && (args[1] == "get" || args[1] == "letter" || args[1] == "questions" || args[1] == "prepare" || args[1] == "submit")) && !(args[0] == "applications" && args[1] == "list") && !(args[0] == "vacancy" && (args[1] == "get" || args[1] == "response-options")) && !(args[0] == "resumes" && args[1] == "list") && !(args[0] == "profile" && (args[1] == "get" || args[1] == "contacts")) {
+	if args[0] != "resume" && !(args[0] == "application" && (args[1] == "get" || args[1] == "letter" || args[1] == "questions" || args[1] == "prepare" || args[1] == "submit")) && !(args[0] == "applications" && args[1] == "list") && !(args[0] == "vacancy" && (args[1] == "get" || args[1] == "response-options")) && !(args[0] == "resumes" && args[1] == "list") && !(args[0] == "profile" && (args[1] == "get" || args[1] == "contacts" || args[1] == "languages")) {
 		return fmt.Errorf("unknown command %q: run hh --help", strings.Join(args[:2], " "))
 	}
 	if args[0] == "resume" && args[1] != "get" && args[1] != "view" && args[1] != "update" && args[1] != "verify" && args[1] != "duplicate" && args[1] != "complete" {
 		return fmt.Errorf("unknown resume command %q: run hh --help", args[1])
 	}
 	contactsAction := ""
+	languagesAction := ""
 	if args[0] == "profile" && args[1] == "contacts" {
 		if len(args) < 3 || (args[2] != "get" && args[2] != "update") {
 			return fmt.Errorf("profile contacts requires get or update; run hh --help")
 		}
 		contactsAction = args[2]
+	}
+	if args[0] == "profile" && args[1] == "languages" {
+		if len(args) < 3 || (args[2] != "get" && args[2] != "update" && args[2] != "verify") {
+			return fmt.Errorf("profile languages requires get, update or verify; run hh --help")
+		}
+		languagesAction = args[2]
 	}
 	var id hh.ResumeID
 	var vacancyID hh.VacancyID
@@ -281,7 +299,7 @@ func run(ctx context.Context, args []string) error {
 	approved := options.String("approved", "", "approved unchanged package SHA-256")
 	harPath := options.String("har", "", "recorded letter success receipt; read only, never replay")
 	start := 2
-	if args[0] == "resume" || args[0] == "vacancy" || contactsAction != "" || args[0] == "application" && (args[1] == "prepare" || args[1] == "get" || args[1] == "letter" || args[1] == "questions") {
+	if args[0] == "resume" || args[0] == "vacancy" || contactsAction != "" || languagesAction != "" || args[0] == "application" && (args[1] == "prepare" || args[1] == "get" || args[1] == "letter" || args[1] == "questions") {
 		start = 3
 	}
 	if err := options.Parse(args[start:]); err != nil {
@@ -350,7 +368,7 @@ func run(ctx context.Context, args []string) error {
 		}
 	}
 	var patch hh.Object
-	if args[1] == "update" || args[1] == "verify" || contactsAction == "update" {
+	if args[1] == "update" || args[1] == "verify" || contactsAction == "update" || languagesAction == "update" || languagesAction == "verify" {
 		if *patchPath == "" {
 			return fmt.Errorf("%s requires --patch FILE", strings.Join(args[:start], " "))
 		}
@@ -363,6 +381,8 @@ func run(ctx context.Context, args []string) error {
 		}
 		if contactsAction == "update" {
 			patch, err = hh.NormalizeContactsPatch(patch)
+		} else if languagesAction != "" {
+			patch, err = hh.NormalizeLanguagesPatch(patch)
 		} else {
 			patch, err = hh.NormalizePatch(patch)
 		}
@@ -453,6 +473,24 @@ func run(ctx context.Context, args []string) error {
 		return outputJSON(*output, hh.Redact(data))
 	}
 	if args[0] == "profile" {
+		if languagesAction != "" {
+			var data hh.Object
+			switch languagesAction {
+			case "get":
+				data, err = client.Languages(ctx)
+			case "verify":
+				data, err = client.VerifyLanguages(ctx, patch)
+			case "update":
+				if *backupDir == "" {
+					*backupDir = filepath.Join(stateDir(), "backups")
+				}
+				data, err = client.UpdateLanguages(ctx, patch, *apply, *backupDir)
+			}
+			if err != nil {
+				return err
+			}
+			return outputJSON(*output, data)
+		}
 		if contactsAction == "get" {
 			data, err := client.Contacts(ctx)
 			if err != nil {

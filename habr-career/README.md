@@ -1,12 +1,13 @@
 # habr-career
 
-Habr Career's native profile and applications, with an HH-shaped command tree.
+Habr Career's single native profile and applications.
 
 ```sh
 go run . --help
 go run . auth import
 go run . auth status
-go run . resumes list
+go run . profile get
+go run . profile specialization get
 go run . resume view YOUR_ALIAS
 go run . vacancy get https://career.habr.com/vacancies/1000000000
 go run . applications list
@@ -30,7 +31,14 @@ final newline. Normalization is reported together with the exact submitted text;
 all other content differences fail verification.
 
 Unlike HH, Habr has a single shared native profile, selected by stable account
-alias. `resume experiences` lists native row IDs; `resume experience` exports one
+alias. There is no plural resume-list or clone command: `profile get` returns
+the account alias used for ownership checks, not a choice of resume variants.
+`profile specialization update --patch FILE` previews a headline/language edit;
+`--apply` backs up and preserves the other specialization form fields, reconstructs
+the native widgets, posts paired language/grade rows in Rails form order, and
+verifies the form, public profile and employer print view. Omitted patch keys
+stay unchanged. `profile specialization verify --patch FILE` is read-only recovery.
+`resume experiences` lists native row IDs; `resume experience` exports one
 exact edit form. `resume update --experience ID --description-file FILE` previews
 an HTML description replacement; `--apply` backs up and writes the fresh native
 form, preserving repeated fields and checking the saved form, employer print

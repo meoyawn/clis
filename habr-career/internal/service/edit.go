@@ -167,15 +167,15 @@ func rawText(n *html.Node) string {
 	return b.String()
 }
 
-func readExperienceFields(form *html.Node) (url.Values, error) {
+func readFormFields(form *html.Node, allowed map[string]bool) (url.Values, error) {
 	fields := url.Values{}
 	for _, n := range findAll(form, func(n *html.Node) bool { return n.Data == "input" || n.Data == "select" || n.Data == "textarea" }) {
 		name, kind := attr(n, "name"), attr(n, "type")
 		if name == "" || hasAttr(n, "disabled") || kind == "submit" || kind == "button" || (kind == "radio" || kind == "checkbox") && !hasAttr(n, "checked") {
 			continue
 		}
-		if !experienceFields[name] {
-			return nil, fmt.Errorf("unsupported native experience field %q; stopped", name)
+		if !allowed[name] {
+			return nil, fmt.Errorf("unsupported native form field %q; stopped", name)
 		}
 		value := attr(n, "value")
 		switch n.Data {
@@ -271,7 +271,7 @@ func (c *Client) Experience(ctx context.Context, resumeID domain.ResumeID, id do
 	if form == nil || attr(form, "method") != "post" || attr(form, "data-remote") != "true" || (attr(form, "action") != path && attr(form, "action") != Origin+path) {
 		return nil, fmt.Errorf("experience %s edit form identity/action is unsupported; stopped", id.String())
 	}
-	fields, err := readExperienceFields(form)
+	fields, err := readFormFields(form, experienceFields)
 	if err != nil {
 		return nil, err
 	}

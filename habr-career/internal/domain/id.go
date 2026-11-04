@@ -42,7 +42,7 @@ func NewResumeIDFromValue(value string) (ResumeID, error) {
 		return ResumeID{}, err
 	}
 	if !aliasPattern.MatchString(id) {
-		return ResumeID{}, fmt.Errorf("invalid resume alias %q; use the stable account alias from resumes list", value)
+		return ResumeID{}, fmt.Errorf("invalid resume alias %q; use the stable account alias from profile get", value)
 	}
 	return ResumeID{value: id}, nil
 }

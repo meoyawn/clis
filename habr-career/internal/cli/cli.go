@@ -29,8 +29,16 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 		return fmt.Errorf("invalid command %q; run --help", strings.Join(args, " "))
 	}
 	command := strings.Join(args[:2], " ")
+	optionStart := 2
+	if command == "profile specialization" {
+		if len(args) < 3 {
+			return fmt.Errorf("profile specialization requires get, update or verify")
+		}
+		command += " " + args[2]
+		optionStart = 3
+	}
 	switch command {
-	case "auth import", "auth status", "resumes list", "profile get", "resume get", "resume view", "resume experiences", "resume experience", "resume update", "resume verify", "vacancy get", "vacancy response-options", "applications list", "application get", "application letter", "application prepare", "application submit", "application verify", "application update", "har inspect":
+	case "auth import", "auth status", "profile get", "profile specialization get", "profile specialization update", "profile specialization verify", "resume get", "resume view", "resume experiences", "resume experience", "resume update", "resume verify", "vacancy get", "vacancy response-options", "applications list", "application get", "application letter", "application prepare", "application submit", "application verify", "application update", "har inspect":
 	default:
 		return fmt.Errorf("unknown command %q; run --help", command)
 	}
@@ -39,7 +47,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	sessionFile := fs.String("session-file", "", "saved cookie jar")
 	output := fs.String("output", "", "private JSON output")
 	timeout := fs.Duration("timeout", 90*time.Second, "whole-command deadline")
-	var profile, cookies, resume, textFile, draftFile, approved, experience, descriptionFile, backupDir string
+	var profile, cookies, resume, textFile, draftFile, approved, experience, descriptionFile, backupDir, patchFile string
 	var send, apply bool
 	if command == "auth import" {
 		fs.StringVar(&profile, "browser-profile", "Default", "Chrome profile")
@@ -57,9 +65,12 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	if command == "resume update" || command == "resume verify" {
 		fs.StringVar(&descriptionFile, "description-file", "", "exact native HTML experience description")
 	}
-	if command == "resume update" || command == "application update" {
+	if command == "resume update" || command == "application update" || command == "profile specialization update" {
 		fs.BoolVar(&apply, "apply", false, "apply an authorized update to an existing record")
 		fs.StringVar(&backupDir, "backup-dir", "", "private before-state backup directory")
+	}
+	if command == "profile specialization update" || command == "profile specialization verify" {
+		fs.StringVar(&patchFile, "patch", "", "JSON headline/languages patch for the single shared profile")
 	}
 	if command == "application submit" || command == "application verify" {
 		fs.StringVar(&draftFile, "draft", "", "exact review package")
@@ -68,7 +79,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 		fs.BoolVar(&send, "send", false, "send an authorized application")
 		fs.StringVar(&approved, "approved", "", "unchanged review SHA-256")
 	}
-	if err := parseOptions(fs, args[2:]); err != nil {
+	if err := parseOptions(fs, args[optionStart:]); err != nil {
 		return err
 	}
 	want := 0
@@ -110,6 +121,23 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	var letter string
 	var description string
 	var draft service.ApplicationDraft
+	var patch service.Object
+	if command == "profile specialization update" || command == "profile specialization verify" {
+		if patchFile == "" {
+			return fmt.Errorf("%s requires --patch FILE", command)
+		}
+		data, err := os.ReadFile(patchFile)
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(data, &patch); err != nil {
+			return fmt.Errorf("decode specialization patch: %w", err)
+		}
+		patch, err = service.NormalizeSpecializationPatch(patch)
+		if err != nil {
+			return err
+		}
+	}
 	if command == "resume experience" || command == "resume update" || command == "resume verify" {
 		experienceID, err = domain.NewExperienceIDFromValue(experience)
 		if err != nil {
@@ -197,10 +225,14 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	client := service.NewClient(httpClient)
 	var result any
 	switch command {
-	case "resumes list":
-		result, err = client.Resumes(ctx)
 	case "profile get":
 		result, err = client.Profile(ctx)
+	case "profile specialization get":
+		result, err = client.Specialization(ctx)
+	case "profile specialization update":
+		result, err = client.UpdateSpecialization(ctx, patch, apply, backupDir)
+	case "profile specialization verify":
+		result, err = client.VerifySpecialization(ctx, patch)
 	case "applications list":
 		result, err = client.Applications(ctx)
 	case "resume get", "resume view":

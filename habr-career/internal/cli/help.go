@@ -10,11 +10,22 @@ Usage: habr-career COMMAND [OPTIONS]
   auth status
       Inspect the saved jar locally. session_available means an unexpired local
       session cookie exists, not that the website has validated authentication.
-  resumes list
-      List the account's native resume with its stable alias and profile URL.
-      Habr has one shared native profile, not HH's separate resume variants.
   profile get
       Read the signed-in account identity, email and profile settings. GET only.
+      Habr has one shared profile, identified by its account alias; no resume list,
+      variants, cloning or per-application resume selection exists in this CLI.
+  profile specialization get
+      Read the single profile's headline and language selections. GET only.
+  profile specialization update --patch FILE [--apply] [--backup-dir DIR]
+      Preview or change only headline/languages, preserving all other form fields.
+      --apply saves a private backup, writes once, then verifies the native form,
+      public profile and employer print view. Requires the user's authorization.
+      Patch: {"headline":"Exact title","languages":[{"language_id":71,"grade_id":7}]}.
+      Omitted keys are preserved; languages replaces the whole nonempty list.
+      IDs/grades come from the existing profile; grade 7 is native, 5 C1, 6 C2.
+      No unrelated specialization, salary, location, skills or contacts change.
+  profile specialization verify --patch FILE
+      GET-only form/profile/print verification after an uncertain update.
   resume get ALIAS
   resume view ALIAS
       Read the exact native profile, verify ownership/identity and include its
@@ -98,8 +109,8 @@ All account network commands take one exclusive lock; run one at a time.
 No automatic retries. Stop on redirects, login/protection/CAPTCHA/checkpoints,
 429 (honor Retry-After), restrictions or unsupported contracts. No CAPTCHA solving.
 Only application submit with both sending flags and update commands with --apply
-write. Profile edits are limited to one employment description; no uploads,
-salary/contact changes, paid services or separate messages are performed.
+write. Profile edits support headline/languages or one employment description;
+no uploads, salary/contact changes, paid services or separate messages are performed.
 Backups default to $XDG_STATE_HOME/habr-career/backups or ~/.local/state/habr-career/backups.
 stdout contains successful JSON only; bounded, redacted HTTP errors go to stderr.
 

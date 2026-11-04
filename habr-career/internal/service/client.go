@@ -105,6 +105,9 @@ func (c *Client) requestBody(ctx context.Context, method, path, csrf string, bod
 		req.Header.Set("Accept", "*/*;q=0.5, text/javascript, application/javascript, application/ecmascript, application/x-ecmascript")
 		req.Header.Set("X-Requested-With", "XMLHttpRequest")
 		req.Header.Set("Referer", Origin+path+"/edit")
+		if path == "/profile/specialization" {
+			req.Header.Set("Referer", Origin+path)
+		}
 	}
 	started := time.Now()
 	res, err := c.http.Do(req)
@@ -163,15 +166,6 @@ func (c *Client) Profile(ctx context.Context) (Object, error) {
 		return nil, fmt.Errorf("account endpoint has no confirmed signed-in alias; run auth import after signing in")
 	}
 	return redact(user).(map[string]any), nil
-}
-
-func (c *Client) Resumes(ctx context.Context) (Object, error) {
-	profile, err := c.Profile(ctx)
-	if err != nil {
-		return nil, err
-	}
-	id := profile["alias"].(string)
-	return Object{"resumes": []any{Object{"id": id, "name": profile["fullName"], "email": profile["email"], "url": Origin + "/" + id}}}, nil
 }
 
 type Resume struct {
