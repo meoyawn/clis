@@ -1,6 +1,7 @@
 go 1.27.2
 
 use (
+	./ahrefs
 	./avito
 	./bris
 	./getmatch

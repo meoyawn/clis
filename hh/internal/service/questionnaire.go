@@ -13,9 +13,15 @@ import (
 )
 
 type ApplicationQuestion struct {
-	ID     string `json:"id"`
-	Prompt string `json:"prompt"`
-	Answer string `json:"answer"`
+	ID      string              `json:"id"`
+	Prompt  string              `json:"prompt"`
+	Answer  string              `json:"answer"`
+	Choices []ApplicationChoice `json:"choices,omitempty"`
+}
+
+type ApplicationChoice struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
 }
 
 // Only the reviewed questions are serialized. Fresh form nonces and CSRF fields
@@ -68,8 +74,8 @@ func (c *Client) ApplicationQuestions(ctx context.Context, id VacancyID) (*Appli
 		questionID := nativeID(task["id"])
 		number, numberErr := strconv.ParseUint(questionID, 10, 64)
 		choices, ok := task["candidateSolutions"].([]any)
-		if numberErr != nil || number == 0 || seen[questionID] || task["open"] != "true" || !ok || len(choices) != 0 {
-			return nil, fmt.Errorf("questionnaire supports only uniquely identified open-text questions; choices or unknown task format require CLI support, never skip the test")
+		if numberErr != nil || number == 0 || seen[questionID] || !ok {
+			return nil, fmt.Errorf("questionnaire has an invalid or duplicate question ID %q or missing choices; stopped", questionID)
 		}
 		promptHTML, _ := task["description"].(string)
 		prompt, err := PrintText([]byte(`<div id="HH-React-Root">` + promptHTML + `</div>`))
@@ -77,7 +83,36 @@ func (c *Client) ApplicationQuestions(ctx context.Context, id VacancyID) (*Appli
 			return nil, fmt.Errorf("question %s has no readable prompt; stopped", questionID)
 		}
 		seen[questionID] = true
-		q.Questions = append(q.Questions, ApplicationQuestion{ID: questionID, Prompt: prompt})
+		question := ApplicationQuestion{ID: questionID, Prompt: prompt}
+		switch task["open"] {
+		case "true":
+			if len(choices) != 0 {
+				return nil, fmt.Errorf("open-text question %s unexpectedly contains choices; stopped", questionID)
+			}
+		case "false":
+			if task["multiple"] != "false" || len(choices) == 0 {
+				return nil, fmt.Errorf("question %s is not a supported single-choice question; stopped", questionID)
+			}
+			seenChoices := map[string]bool{}
+			for _, item := range choices {
+				choice, _ := item.(map[string]any)
+				choiceID := nativeID(choice["id"])
+				number, numberErr := strconv.ParseUint(choiceID, 10, 64)
+				if numberErr != nil || number == 0 || seenChoices[choiceID] {
+					return nil, fmt.Errorf("question %s has an invalid or duplicate choice ID %q; stopped", questionID, choiceID)
+				}
+				textHTML, _ := choice["text"].(string)
+				text, err := PrintText([]byte(`<div id="HH-React-Root">` + textHTML + `</div>`))
+				if err != nil || strings.TrimSpace(text) == "" {
+					return nil, fmt.Errorf("question %s choice %s has no readable text; stopped", questionID, choiceID)
+				}
+				seenChoices[choiceID] = true
+				question.Choices = append(question.Choices, ApplicationChoice{ID: choiceID, Text: text})
+			}
+		default:
+			return nil, fmt.Errorf("question %s has an unknown response format; stopped", questionID)
+		}
+		q.Questions = append(q.Questions, question)
 	}
 	if len(q.Questions) == 0 {
 		return nil, fmt.Errorf("questionnaire has no supported questions; stopped")

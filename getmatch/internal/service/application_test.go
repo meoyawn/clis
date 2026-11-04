@@ -15,19 +15,24 @@ import (
 // Owns the native application protocol: exact letter/answers, no PDF upload,
 // a single mutation and independent application-list confirmation.
 func TestNativeApplicationContract(t *testing.T) {
-	for _, scenario := range []string{"submitted", "PDF draft rejected", "changed letter", "already applied", "write forbidden", "receipt missing", "readback unconfirmed", "list missing", "listed vacancy differs", "listed letter differs", "listed on next page", "masked URL", "wrong compensation"} {
+	for _, scenario := range []string{"submitted", "PDF draft rejected", "changed letter", "already applied", "write forbidden", "receipt missing", "readback unconfirmed", "list missing", "listed vacancy differs", "listed company differs", "listed letter differs", "listed on next page", "masked URL", "masked URL with trimmed whitespace", "wrong compensation"} {
 		t.Run(scenario, func(t *testing.T) {
 			posts, stateReads := 0, 0
 			letter := "Reviewed letter"
-			if scenario == "masked URL" {
+			company := "Synthetic Co"
+			if scenario == "masked URL" || scenario == "masked URL with trimmed whitespace" {
 				letter = "Reviewed letter https://example.com/proof/"
+			}
+			if scenario == "masked URL with trimmed whitespace" {
+				letter += "\n"
+				company += " "
 			}
 			c := NewClient(&http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 				status := 200
 				var value any
 				switch r.URL.Path {
 				case "/api/offers/123":
-					value = Object{"id": 123, "url": "/vacancies/123-go-developer", "position": "Go developer", "is_active": true, "offer_type": "vacancy", "company": Object{"name": "Synthetic Co"}}
+					value = Object{"id": 123, "url": "/vacancies/123-go-developer", "position": "Go developer", "is_active": true, "offer_type": "vacancy", "company": Object{"name": company}}
 				case "/api/auth/me":
 					stateReads++
 					if r.URL.Query().Get("vacancy_id") != "123" {
@@ -39,7 +44,7 @@ func TestNativeApplicationContract(t *testing.T) {
 				case "/api/applications/candidate":
 					rows := []any{}
 					listed := Object{"id": 789, "status": "new", "applied_at": "2026-10-28T12:00:00Z", "salary_min": 470000, "cover_letter": letter, "vacancy": Object{"url": "/vacancies/123-go-developer", "position": "Go developer", "company": Object{"name": "Synthetic Co"}}}
-					if scenario == "masked URL" {
+					if scenario == "masked URL" || scenario == "masked URL with trimmed whitespace" {
 						listed["cover_letter"] = "Reviewed letter •••••"
 					}
 					if scenario == "wrong compensation" {
@@ -47,6 +52,9 @@ func TestNativeApplicationContract(t *testing.T) {
 					}
 					if scenario == "listed vacancy differs" {
 						listed["vacancy"].(Object)["url"] = "/vacancies/999-different"
+					}
+					if scenario == "listed company differs" {
+						listed["vacancy"].(Object)["company"] = Object{"name": "Different Co"}
 					}
 					if scenario == "listed letter differs" {
 						listed["cover_letter"] = "Different letter"
@@ -130,8 +138,11 @@ func TestNativeApplicationContract(t *testing.T) {
 					t.Fatalf("uncertain write retried or leaked: posts=%d err=%v", posts, err)
 				}
 			default:
-				if err != nil || posts != 1 || stateReads != 3 || receipt["verified"] != (scenario == "submitted" || scenario == "listed on next page" || scenario == "masked URL") {
+				if err != nil || posts != 1 || stateReads != 3 || receipt["verified"] != (scenario == "submitted" || scenario == "listed on next page" || scenario == "masked URL" || scenario == "masked URL with trimmed whitespace") {
 					t.Fatalf("receipt/readback mismatch: posts=%d states=%d result=%v err=%v", posts, stateReads, receipt, err)
+				}
+				if scenario == "masked URL with trimmed whitespace" && (receipt["cover_letter_exact"] != false || receipt["cover_letter_matches_with_url_masking"] != false || receipt["cover_letter_matches_with_url_masking_and_outer_whitespace"] != true || receipt["company_name_exact"] != false) {
+					t.Fatalf("normalized readback reported as exact: %v", receipt)
 				}
 			}
 		})

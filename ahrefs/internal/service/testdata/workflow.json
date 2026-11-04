@@ -1,0 +1,94 @@
+{
+  "projects": {
+    "projects": [
+      {
+        "id": "123",
+        "name": "Synthetic site",
+        "target": "example.test/",
+        "lastCrawl": {
+          "crawlId": 3,
+          "status": ["Completed"],
+          "start": "2026-01-21T11:00:00Z",
+          "finished": "2026-01-21T12:00:00Z"
+        }
+      }
+    ]
+  },
+  "crawls": ["Ok", {
+    "crawls": [
+      {"crawlId": 2, "status": ["Completed"], "start": "2026-01-14T11:00:00Z", "finished": "2026-01-14T12:00:00Z"},
+      {"crawlId": 4, "status": ["Running"], "start": "2026-01-22T11:00:00Z", "finished": null},
+      {"crawlId": 1, "status": ["Completed"], "start": "2026-01-07T11:00:00Z", "finished": "2026-01-07T12:00:00Z"},
+      {"crawlId": 3, "status": ["Completed"], "start": "2026-01-21T11:00:00Z", "finished": "2026-01-21T12:00:00Z"}
+    ]
+  }],
+  "issues": [
+    {
+      "issue": {
+        "issue_id": "synthetic-og",
+        "is_active": true,
+        "props": {
+          "name": "Open Graph tags incomplete",
+          "level": "warning",
+          "typ": "social-tags",
+          "pages_descr": {
+            "fields": [["Simple", "pageRating"], ["Simple", "url"], ["Simple", "traffic"], ["Simple", "ogTagsValid"], ["Simple", "ogTagsAttributes"], ["Simple", "ogTagsValue"], ["Simple", "depth"], ["Simple", "compliant"], ["Simple", "incomingAllLinks"]],
+            "filter_id": "synthetic-filter"
+          },
+          "description": ["Markdown", "Some required OG tags are missing."],
+          "how_to_fix": ["Markdown", "Add the missing tags to each affected page."]
+        }
+      },
+      "count": 2
+    },
+    {"issue": {"issue_id": "synthetic-zero", "is_active": true, "props": {"name": "Empty issue", "level": "notice", "typ": "html-tags"}}, "count": 0},
+    {"issue": {"issue_id": "synthetic-off", "is_active": false, "props": {"name": "Disabled issue", "level": "warning", "typ": "html-tags"}}, "count": 4},
+    {"issue": {"issue_id": "synthetic-error", "is_active": true, "props": {"name": "Broken page", "level": "error", "typ": "internal"}}, "count": 1}
+  ],
+  "diffs": [
+    {"id": "synthetic-og", "delta": 1, "added": 0, "new_": 2, "removed": 0, "missing": 1},
+    {"id": "synthetic-error", "delta": 0, "added": null, "new_": null, "removed": null, "missing": null}
+  ],
+  "pages": [
+    ["Ok", {
+      "total": 2,
+      "table": {
+        "headers": [["Simple", "pageRating"], ["Simple", "url"], ["Simple", "traffic"], ["Simple", "ogTagsValid"], ["Simple", "ogTagsAttributes"], ["Simple", "ogTagsValue"], ["Simple", "depth"], ["Simple", "compliant"], ["Simple", "incomingAllLinks"]],
+        "rows": [{
+          "id": "18446744073709551615",
+          "values": [
+            ["Option", ["Long", 68]],
+            ["Url", "https://example.test/"],
+            ["Option", ["Double", 0]],
+            ["Option", ["Boolean", false]],
+            ["List", [["Keyword", "og:image"], ["Keyword", "og:type"], ["Keyword", "og:description"], ["Keyword", "og:title"], ["Keyword", "og:site_name"], ["Keyword", "og:locale"]]],
+            ["List", [["Keyword", "https://example.test/og.png"], ["Keyword", "website"], ["Keyword", "Synthetic description"], ["Keyword", "Synthetic title"], ["Keyword", "Synthetic site"], ["Keyword", "tt_RU"]]],
+            ["Option", ["Long", 0]],
+            ["Option", ["Boolean", true]],
+            ["Option", ["Long", 9007199254740993]]
+          ]
+        }]
+      }
+    }],
+    ["Ok", {
+      "total": 2,
+      "table": {
+        "headers": [["Simple", "pageRating"], ["Simple", "url"], ["Simple", "traffic"], ["Simple", "ogTagsValid"], ["Simple", "ogTagsAttributes"], ["Simple", "ogTagsValue"], ["Simple", "depth"], ["Simple", "compliant"], ["Simple", "incomingAllLinks"]],
+        "rows": [{
+          "id": "42",
+          "values": [
+            ["Option", null],
+            ["Url", "https://example.test/second/"],
+            ["Option", null],
+            ["Option", ["Boolean", false]],
+            ["List", []],
+            ["List", []],
+            ["Option", ["Long", 1]],
+            ["Option", ["Boolean", false]],
+            ["Option", ["Long", 0]]
+          ]
+        }]
+      }
+    }]
+  ]
+}

@@ -67,7 +67,8 @@ Usage: getmatch [--anonymous] COMMAND [OPTIONS]
       applications list, including their reported status. GET only.
   application verify --draft FILE --receipt FILE [--output FILE]
       Recheck the saved submission through GET only; never resubmit. Report
-      exact destination/status, letter equality or observed URL masking, and
+      destination/status, exact letter equality, URL masking/outer-whitespace
+      equivalence reported separately, and
       the actual downloadable PDF hash versus the reviewed attachment.
   application prepare --id ID --letter-file FILE --answers-file FILE
                       --output FILE
@@ -79,7 +80,8 @@ Usage: getmatch [--anonymous] COMMAND [OPTIONS]
   application submit --draft FILE [--send --reviewed SHA256] [--output FILE]
       Without --send, inspect the package locally. --send posts it ONCE after
       fresh preflight and verifies already_applied plus the listed application
-      ID, company, vacancy and exact cover letter. Requires user authorization
+      ID, company, vacancy and letter (reporting masking/whitespace separately).
+      Requires user authorization
       and completion of application review; the hash binds bytes, not consent.
       Uses the reviewed native profile plus cover_letter. PDF sending is disabled:
       uploads reimport and overwrite the shared profile, confusing projects and

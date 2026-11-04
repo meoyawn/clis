@@ -362,10 +362,17 @@ func (c *Client) VerifyApplication(ctx context.Context, draft ApplicationDraft, 
 		status, _ := row["status"].(string)
 		actualLetter, _ := row["cover_letter"].(string)
 		exactLetter := actualLetter == draft.CoverLetter
-		maskedLetter := !exactLetter && actualLetter == letterURL.ReplaceAllString(draft.CoverLetter, "•••••")
+		maskedExpected := letterURL.ReplaceAllString(draft.CoverLetter, "•••••")
+		maskedLetter := !exactLetter && actualLetter == maskedExpected
+		trimmedLetter := !exactLetter && strings.TrimSpace(actualLetter) == strings.TrimSpace(draft.CoverLetter)
+		trimmedMaskedLetter := !maskedLetter && maskedExpected != draft.CoverLetter && strings.TrimSpace(actualLetter) == strings.TrimSpace(maskedExpected)
+		companyName, _ := company["name"].(string)
 		result["cover_letter_exact"] = exactLetter
 		result["cover_letter_matches_with_url_masking"] = maskedLetter
-		if vacancy["url"] != strings.TrimPrefix(draft.VacancyURL, Origin) || vacancy["position"] != draft.Position || company["name"] != draft.Company || status == "" || state["already_applied"] != true || (!exactLetter && !maskedLetter) || row["salary_min"] != float64(draft.Answers.SalaryFrom) {
+		result["cover_letter_matches_with_outer_whitespace"] = trimmedLetter
+		result["cover_letter_matches_with_url_masking_and_outer_whitespace"] = trimmedMaskedLetter
+		result["company_name_exact"] = companyName == draft.Company
+		if vacancy["url"] != strings.TrimPrefix(draft.VacancyURL, Origin) || vacancy["position"] != draft.Position || strings.TrimSpace(companyName) != strings.TrimSpace(draft.Company) || status == "" || state["already_applied"] != true || (!exactLetter && !maskedLetter && !trimmedLetter && !trimmedMaskedLetter) || row["salary_min"] != float64(draft.Answers.SalaryFrom) {
 			result["verification_error"] = "listed application destination, letter, compensation or state differs; do not resend"
 			return result, nil
 		}

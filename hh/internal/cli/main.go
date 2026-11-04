@@ -54,13 +54,15 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       inspect live can_edit_reported_by_chat; no repeat-edit POST is attempted.
   application questions VACANCY [--output FILE]
       Read the full native questionnaire, without sending or choosing a resume.
-      Only open-text questions are supported; choices/access challenges stop.
+      Open-text and single-choice questions are supported. Multiple-choice
+      questions and access challenges stop.
   application prepare VACANCY --resume HASH --text-file FILE [--answers-file FILE] [--output FILE]
       Prepare an exact local application package using GET requests only.
       Check live eligibility, selected resume/print view and letter limit.
       Includes destination, salary, letter, wire fields and review_sha256.
       For a questionnaire, --answers-file is a JSON object mapping question
-      IDs to complete answers. Questions and answers are bound to approval;
+      IDs to complete text answers or exact single-choice IDs. Questions,
+      choices and answers are bound to approval;
       fresh hidden form nonces remain private and are never saved in the draft.
       Use --no-letter instead of --text-file only for an explicitly empty letter.
   application submit --draft FILE [--send --approved SHA256] [--output FILE]

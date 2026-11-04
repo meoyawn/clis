@@ -16,7 +16,7 @@ import (
 )
 
 func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
-	for _, scenario := range []string{"send", "changed-question", "tampered-answer", "choice-question", "extra-hidden", "unknown-answer"} {
+	for _, scenario := range []string{"send", "single-choice", "changed-choice", "invalid-choice", "changed-question", "tampered-answer", "choice-question", "extra-hidden", "unknown-answer"} {
 		t.Run(scenario, func(t *testing.T) {
 			posts, requests, nonce := 0, 0, 0
 			submitted, changed := false, false
@@ -58,7 +58,17 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 					if scenario == "choice-question" {
 						choices = []any{hh.Object{"id": "701", "text": "Choice"}}
 					}
+					tasks := []any{hh.Object{"id": 701, "description": prompt, "open": "true", "candidateSolutions": choices}}
 					form := fmt.Sprintf(`<form name="vacancy_response" method="POST"><input type="hidden" name="_xsrf" value="fixture-token"><input type="hidden" name="uidPk" value="700"><input type="hidden" name="guid" value="synthetic-guid-%d"><input type="hidden" name="startTime" value="%d"><input type="hidden" name="testRequired" value="true">`, nonce, nonce)
+					if strings.Contains(scenario, "choice") && scenario != "choice-question" {
+						label := "Yes"
+						if changed {
+							label = "A changed choice"
+						}
+						tasks = append(tasks, hh.Object{"id": 702, "description": "Confirm relevant experience", "open": "false", "multiple": "false",
+							"candidateSolutions": []any{hh.Object{"id": "703", "text": label}, hh.Object{"id": "704", "text": "No"}}})
+						form += `<input type="radio" name="task_702" value="703"><input type="radio" name="task_702" value="704">`
+					}
 					if scenario == "extra-hidden" {
 						form += `<input type="hidden" name="unexpected_challenge" value="unknown">`
 					}
@@ -66,7 +76,7 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 					page(w, hh.Object{"applicantVacancyResponseStatuses": hh.Object{"135582813": status()},
 						"vacancyTests": hh.Object{"135582813": hh.Object{"name": "Synthetic questionnaire", "required": "true", "uidPk": "700",
 							"guid": fmt.Sprintf("synthetic-guid-%d", nonce), "startTime": fmt.Sprint(nonce), "description": "<p>Answer the question</p>",
-							"tasks": []any{hh.Object{"id": 701, "description": prompt, "open": "true", "candidateSolutions": choices}}}}}, form)
+							"tasks": tasks}}}, form)
 				case "/applicant/vacancy_response/popup":
 					w.Header().Set("Content-Type", "application/json")
 					if r.Method == http.MethodGet {
@@ -84,6 +94,9 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 						if got := r.FormValue(key); got != want {
 							t.Errorf("native field %s: got %q, want %q", key, got, want)
 						}
+					}
+					if scenario == "single-choice" && (r.FormValue("task_702") != "703" || r.FormValue("task_702_text") != "") {
+						t.Error("single-choice answer did not use the native radio field and choice ID")
 					}
 					if nonce != 2 || r.Header.Get("X-Xsrftoken") != "fixture-token" {
 						t.Error("submission did not use a fresh form and CSRF protection")
@@ -112,8 +125,14 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 			if scenario == "unknown-answer" {
 				answers = map[string]string{"702": "Unreviewed question"}
 			}
+			if strings.Contains(scenario, "choice") && scenario != "choice-question" {
+				answers["702"] = "703"
+				if scenario == "invalid-choice" {
+					answers["702"] = "705"
+				}
+			}
 			draft, err := client.PrepareApplication(context.Background(), vacancy, resume, "Reviewed letter", answers)
-			if scenario == "choice-question" || scenario == "extra-hidden" || scenario == "unknown-answer" {
+			if scenario == "choice-question" || scenario == "invalid-choice" || scenario == "extra-hidden" || scenario == "unknown-answer" {
 				if err == nil || posts != 0 {
 					t.Fatalf("unsupported questionnaire accepted: %v posts=%d", err, posts)
 				}
@@ -131,7 +150,7 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 			if err := json.Unmarshal(data, &saved); err != nil {
 				t.Fatal(err)
 			}
-			changed = scenario == "changed-question"
+			changed = scenario == "changed-question" || scenario == "changed-choice"
 			if scenario == "tampered-answer" {
 				saved.Questionnaire.Questions[0].Answer = "Unapproved change"
 			}
@@ -143,7 +162,7 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 				}
 				return
 			}
-			if scenario == "changed-question" {
+			if scenario == "changed-question" || scenario == "changed-choice" {
 				if err == nil || !strings.Contains(err.Error(), "changed since approval") || posts != 0 {
 					t.Fatalf("changed prompt bypassed approval: err=%v posts=%d", err, posts)
 				}

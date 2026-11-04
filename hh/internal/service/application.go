@@ -92,6 +92,18 @@ func (c *Client) PrepareApplication(ctx context.Context, vacancyID VacancyID, re
 			if !exists || !utf8.ValidString(answer) || strings.TrimSpace(answer) == "" || utf8.RuneCountInString(answer) > 10000 {
 				return nil, fmt.Errorf("question %s needs a nonempty UTF-8 answer of at most 10000 characters; stopped", question.ID)
 			}
+			if len(question.Choices) != 0 {
+				matched := false
+				for _, choice := range question.Choices {
+					if answer == choice.ID {
+						matched = true
+						break
+					}
+				}
+				if !matched {
+					return nil, fmt.Errorf("question %s requires one of its listed choice IDs; stopped", question.ID)
+				}
+			}
 			questionnaire.Questions[i].Answer = answer
 		}
 	} else if len(answers) != 0 {
@@ -162,7 +174,11 @@ func (c *Client) PrepareApplication(ctx context.Context, vacancyID VacancyID, re
 		draft.Request["hhtmFromLabel"] = ""
 		draft.Request["hhtmSourceLabel"] = ""
 		for _, question := range questionnaire.Questions {
-			draft.Request["task_"+question.ID+"_text"] = question.Answer
+			key := "task_" + question.ID
+			if len(question.Choices) == 0 {
+				key += "_text"
+			}
+			draft.Request[key] = question.Answer
 		}
 	}
 	draft.ReviewSHA256 = applicationDigest(*draft)
