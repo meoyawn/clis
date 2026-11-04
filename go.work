@@ -6,6 +6,7 @@ use (
 	./bris
 	./getmatch
 	./glassdoor
+	./habr-career
 	./hh
 	./invitro
 	./lemana
