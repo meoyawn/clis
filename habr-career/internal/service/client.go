@@ -41,10 +41,6 @@ func (e *HTTPError) Error() string {
 }
 
 func (c *Client) request(ctx context.Context, method, path, csrf string, fields map[string]string) ([]byte, error) {
-	u, err := url.Parse(Origin + path)
-	if err != nil || u.Scheme != "https" || u.Host != "career.habr.com" || u.User != nil {
-		return nil, fmt.Errorf("invalid request path %q; expected a same-origin Habr Career path", path)
-	}
 	var body bytes.Buffer
 	contentType := ""
 	var keys []string
@@ -70,7 +66,26 @@ func (c *Client) request(ctx context.Context, method, path, csrf string, fields 
 		}
 		contentType = writer.FormDataContentType()
 	}
-	req, err := http.NewRequestWithContext(ctx, method, u.String(), &body)
+	return c.requestBody(ctx, method, path, csrf, &body, contentType, keys, false)
+}
+
+func (c *Client) requestForm(ctx context.Context, path, csrf string, fields url.Values) ([]byte, error) {
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
+	}
+	return c.requestBody(ctx, http.MethodPost, path, csrf, strings.NewReader(fields.Encode()), "application/x-www-form-urlencoded; charset=UTF-8", keys, true)
+}
+
+func (c *Client) requestBody(ctx context.Context, method, path, csrf string, body io.Reader, contentType string, keys []string, script bool) ([]byte, error) {
+	u, err := url.Parse(Origin + path)
+	if err != nil || u.Scheme != "https" || u.Host != "career.habr.com" || u.User != nil {
+		return nil, fmt.Errorf("invalid request path %q; expected a same-origin Habr Career path", path)
+	}
+	if method != http.MethodGet && csrf == "" {
+		return nil, fmt.Errorf("missing native CSRF token for %s %s; no write attempted", method, path)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +100,11 @@ func (c *Client) request(ctx context.Context, method, path, csrf string, fields 
 		req.Header.Set("X-CSRF-Token", csrf)
 		req.Header.Set("Origin", Origin)
 		req.Header.Set("Referer", Origin+"/vacancies/"+strings.Split(strings.TrimPrefix(path, "/api/frontend/vacancies/"), "/")[0])
+	}
+	if script {
+		req.Header.Set("Accept", "*/*;q=0.5, text/javascript, application/javascript, application/ecmascript, application/x-ecmascript")
+		req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		req.Header.Set("Referer", Origin+path+"/edit")
 	}
 	started := time.Now()
 	res, err := c.http.Do(req)
@@ -262,7 +282,7 @@ func (c *Client) Application(ctx context.Context, vacancyID domain.VacancyID, re
 	if v.UserAlias != resumeID.String() {
 		return nil, fmt.Errorf("selected resume %q differs from signed-in profile %q; stopped", resumeID.String(), v.UserAlias)
 	}
-	out := Object{"vacancy_id": v.ID, "vacancy_url": v.URL, "resume_id": resumeID.String(), "submitted": v.Response != nil}
+	out := Object{"vacancy_id": v.ID, "vacancy_url": v.URL, "company": v.Employer["title"], "title": v.Title, "resume_id": resumeID.String(), "submitted": v.Response != nil}
 	if v.Response == nil {
 		return out, nil
 	}
@@ -270,7 +290,15 @@ func (c *Client) Application(ctx context.Context, vacancyID domain.VacancyID, re
 		return nil, fmt.Errorf("vacancy %s response identity does not confirm resume %q; stopped", v.ID, resumeID.String())
 	}
 	out["response_id"] = number(v.Response["id"])
-	out["response"] = redact(v.Response)
+	summary := Object{}
+	for _, key := range []string{"id", "canUpdate", "canDelete", "createdAfterAuth", "isQuick", "message", "publishedAt", "result"} {
+		if value, ok := v.Response[key]; ok {
+			summary[key] = value
+		}
+	}
+	author := object(v.Response["author"])
+	summary["author"] = Object{"id": author["id"], "title": author["title"], "href": author["href"]}
+	out["response"] = summary
 	out["letter"] = v.Response["message"]
 	return out, nil
 }

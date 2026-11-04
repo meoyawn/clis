@@ -46,7 +46,7 @@ func TestNativeApplicationLifecycle(t *testing.T) {
 		"changed-employer", "changed-sender", "changed-form", "duplicate", "closed",
 		"external-route", "restricted", "unknown-field", "wrong-print", "wrong-role",
 		"wrong-account", "wrong-receipt", "wrong-created-readback", "creation-rate-limit",
-		"patch-uncertain", "wrong-letter-readback", "auth-redirect",
+		"patch-uncertain", "wrong-letter-readback", "leading-space-readback", "trim-final-newline", "auth-redirect",
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			var response service.Object
@@ -55,7 +55,7 @@ func TestNativeApplicationLifecycle(t *testing.T) {
 			storedLetter := ""
 			const id = "1000000000"
 			const alias = "synthetic-user"
-			const letter = "Здравствуйте! Рассмотрите, пожалуйста, профиль.\nhttps://example.test/work?a=1&b=2"
+			const letter = "Здравствуйте! Рассмотрите, пожалуйста, профиль.\nhttps://example.test/work?a=1&b=2\n"
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				requests++
 				switch r.URL.Path {
@@ -100,6 +100,9 @@ func TestNativeApplicationLifecycle(t *testing.T) {
 						}
 						if scenario == "wrong-letter-readback" && patches > 0 {
 							visibleResponse["message"] = "different saved text"
+						}
+						if scenario == "leading-space-readback" && patches > 0 {
+							visibleResponse["message"] = " " + storedLetter
 						}
 					}
 					writePage(w, service.Object{
@@ -162,6 +165,9 @@ func TestNativeApplicationLifecycle(t *testing.T) {
 							t.Errorf("letter update changed wrong fields, text or response: %v", r.MultipartForm.Value)
 						}
 						storedLetter = r.FormValue("body")
+						if scenario == "trim-final-newline" {
+							storedLetter = strings.TrimRight(storedLetter, "\r\n")
+						}
 						if scenario == "patch-uncertain" {
 							w.WriteHeader(http.StatusInternalServerError)
 							fmt.Fprint(w, `{"message":"response interrupted"}`)
@@ -211,9 +217,12 @@ func TestNativeApplicationLifecycle(t *testing.T) {
 			}
 			before := requests
 			result, err := client.SubmitApplication(t.Context(), *draft, approved)
-			if scenario == "send" {
-				if err != nil || posts != 1 || patches != 1 || result["verified"] != true || result["response_id"] != "8101" || result["letter"] != letter {
+			if scenario == "send" || scenario == "trim-final-newline" {
+				if err != nil || posts != 1 || patches != 1 || result["verified"] != true || result["response_id"] != "8101" || result["letter"] != storedLetter {
 					t.Fatalf("delivery not verified: result=%v err=%v posts=%d patches=%d", result, err, posts, patches)
+				}
+				if scenario == "trim-final-newline" && (result["terminal_newlines_normalized"] != true || result["submitted_letter"] != letter) {
+					t.Fatalf("normalization did not retain original sent bytes: %v", result)
 				}
 				if _, err := client.SubmitApplication(t.Context(), *draft, approved); err == nil || posts != 1 {
 					t.Fatal("an existing application was resubmitted")
@@ -227,7 +236,7 @@ func TestNativeApplicationLifecycle(t *testing.T) {
 			switch scenario {
 			case "wrong-receipt", "wrong-created-readback", "creation-rate-limit":
 				wantPosts = 1
-			case "patch-uncertain", "wrong-letter-readback":
+			case "patch-uncertain", "wrong-letter-readback", "leading-space-readback":
 				wantPosts, wantPatches = 1, 1
 			}
 			if posts != wantPosts || patches != wantPatches {
@@ -240,8 +249,8 @@ func TestNativeApplicationLifecycle(t *testing.T) {
 				t.Fatalf("rate-limit diagnostics lost Retry-After or leaked CSRF: %v", err)
 			}
 			if scenario == "patch-uncertain" {
-				readback, err := client.Application(t.Context(), vacancyID, resumeID)
-				if err != nil || readback["letter"] != letter || readback["response_id"] != "8101" {
+				readback, err := client.VerifyApplication(t.Context(), *draft)
+				if err != nil || readback["verified"] != true || readback["letter"] != letter || readback["response_id"] != "8101" || posts != 1 || patches != 1 {
 					t.Fatalf("partial outcome cannot be recovered through readback: %v %v", readback, err)
 				}
 			}

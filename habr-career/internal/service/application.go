@@ -155,14 +155,43 @@ func (c *Client) SubmitApplication(ctx context.Context, draft ApplicationDraft, 
 	if err != nil {
 		return nil, fmt.Errorf("response %s exists; saving its letter may be uncertain: %w; inspect application letter; do not resubmit", id, err)
 	}
+	return c.verifyApplication(ctx, *fresh, id)
+}
+
+// VerifyApplication recovers verification after an uncertain write without
+// replaying either mutation. Habr strips terminal newlines from saved letters.
+func (c *Client) VerifyApplication(ctx context.Context, draft ApplicationDraft) (Object, error) {
+	return c.verifyApplication(ctx, draft, "")
+}
+
+func (c *Client) verifyApplication(ctx context.Context, draft ApplicationDraft, expectedResponseID string) (Object, error) {
+	if err := VerifyDraft(draft, draft.ReviewSHA256); err != nil {
+		return nil, err
+	}
+	vacancyID, err := domain.NewVacancyIDFromValue(draft.Vacancy.ID)
+	if err != nil {
+		return nil, err
+	}
+	resumeID, err := domain.NewResumeIDFromValue(draft.Resume.ID)
+	if err != nil {
+		return nil, err
+	}
 	verified, err := c.Application(ctx, vacancyID, resumeID)
 	if err != nil {
-		return nil, fmt.Errorf("response %s exists but final letter readback failed: %w; do not resubmit", id, err)
+		return nil, fmt.Errorf("application readback failed: %w; inspect application get; do not resubmit", err)
 	}
-	if verified["response_id"] != id || verified["letter"] != fresh.Letter {
-		return nil, fmt.Errorf("response %s exists but final readback does not confirm its exact letter; inspect application letter; do not resubmit", id)
+	if verified["submitted"] != true || expectedResponseID != "" && verified["response_id"] != expectedResponseID {
+		return nil, fmt.Errorf("application readback does not confirm the expected response identity %q; do not resubmit", expectedResponseID)
+	}
+	letter, ok := verified["letter"].(string)
+	if !ok || strings.TrimRight(letter, "\r\n") != strings.TrimRight(draft.Letter, "\r\n") {
+		return nil, fmt.Errorf("response %v exists but readback does not confirm the reviewed letter; inspect application letter; do not resubmit", verified["response_id"])
+	}
+	if letter != draft.Letter {
+		verified["submitted_letter"] = draft.Letter
+		verified["terminal_newlines_normalized"] = true
 	}
 	verified["verified"] = true
-	verified["review_sha256"] = approved
+	verified["review_sha256"] = draft.ReviewSHA256
 	return verified, nil
 }

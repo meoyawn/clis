@@ -20,17 +20,47 @@ Usage: habr-career COMMAND [OPTIONS]
       Read the exact native profile, verify ownership/identity and include its
       actual rendered text, contacts, experience and resume fields. GET only.
       No default resume, numeric list index or title-based selection.
+  resume experiences ALIAS
+      List the account's native numeric experience IDs and exact edit URLs.
+  resume experience ALIAS --experience ID
+      Read one exact native employment form: company, position, HTML description
+      and current metadata. GET only; retains repeated skill/select form fields.
+  resume update ALIAS --experience ID --description-file FILE [--apply] [--backup-dir DIR]
+      Preview or replace only that existing employment description (native HTML).
+      --apply requires the user's instruction, saves a private backup, posts the
+      fresh native form once, preserves metadata, and verifies saved fields,
+      employer print text and unchanged profile/other employment passages.
+      Does not change contact details, salary, skills, dates, title or visibility.
+  resume verify ALIAS --experience ID --description-file FILE
+      GET-only description/form and employer print verification after an uncertain
+      update. Never replay a write. Use the exact description file from the update.
   vacancy get ID
   vacancy response-options ID
       Read the live role and native response preflight: employer pay, location,
       requirements, response, fields, restrictions and signed-in alias. GET only.
       predicted_salary is Habr's estimate, never an employer-confirmed budget.
       Never execute the website's quick-apply POST during inspection.
+  applications list
+      Read all native active-response pages (excluding deleted). Verify account,
+      role URLs and the total count; preserve native status and application date.
+      Follow only the site's own pagination links. GET only; no messages opened.
   application get VACANCY --resume ALIAS
   application letter VACANCY --resume ALIAS
       Read this exact vacancy's native response ID, author and current letter.
       An absent response is reported as submitted:false. GET only; never sends
       messages, marks them read or edits a response.
+  application verify --draft FILE
+      Read-only recovery/verification against the reviewed package. Bind the
+      native response to its exact vacancy/author and letter. Habr removes final
+      line breaks; only terminal CR/LF differences are accepted and reported with
+      terminal_newlines_normalized plus the exact submitted_letter. Other text
+      differences stop. Never recreate or edit an application during verification.
+  application update VACANCY --resume ALIAS --text-file FILE [--apply] [--backup-dir DIR]
+      Preview or replace the letter of an existing editable response. Bind its
+      vacancy, author and response ID, back up the old letter, PATCH body only,
+      then read back the same ID and exact text (terminal CR/LF may be removed).
+      Never create another response, change salary or send a separate message.
+      --apply requires user authorization. After uncertainty use application letter.
   application prepare VACANCY --resume ALIAS --text-file FILE [--output FILE]
       Build an exact local review package using GET only. Bind destination,
       sender, native profile content and complete letter to review_sha256.
@@ -43,7 +73,7 @@ Usage: habr-career COMMAND [OPTIONS]
       Fresh GET preflight rejects changed role/profile/form, duplicate responses,
       restrictions and account switches. Habr creates a response with one POST,
       then saves the cover letter with one PATCH. Verify the response/author/ID
-      after creation and independently read back the exact saved letter.
+      after creation and independently read back the letter (see verify above).
       A later failure can leave an application without its letter: inspect
       application get/letter; NEVER resubmit blindly. Never send live test traffic.
   har inspect FILE
@@ -67,8 +97,10 @@ CSRF tokens and raw private HTML are never printed or saved in review packages.
 All account network commands take one exclusive lock; run one at a time.
 No automatic retries. Stop on redirects, login/protection/CAPTCHA/checkpoints,
 429 (honor Retry-After), restrictions or unsupported contracts. No CAPTCHA solving.
-Only application submit with both sending flags writes. No profile edits, uploads,
-salary changes, paid services or messages are performed by the commands above.
+Only application submit with both sending flags and update commands with --apply
+write. Profile edits are limited to one employment description; no uploads,
+salary/contact changes, paid services or separate messages are performed.
+Backups default to $XDG_STATE_HOME/habr-career/backups or ~/.local/state/habr-career/backups.
 stdout contains successful JSON only; bounded, redacted HTTP errors go to stderr.
 
 Do tasks through go run . in /Users/meoyawn/Developer/clis/habr-career/.

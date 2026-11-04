@@ -9,6 +9,7 @@ import (
 
 type VacancyID struct{ value string }
 type ResumeID struct{ value string }
+type ExperienceID struct{ value string }
 
 var vacancyPattern = regexp.MustCompile(`^[1-9][0-9]{0,15}$`)
 var aliasPattern = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_-]{0,99}$`)
@@ -48,3 +49,12 @@ func NewResumeIDFromValue(value string) (ResumeID, error) {
 
 func (id VacancyID) String() string { return id.value }
 func (id ResumeID) String() string  { return id.value }
+
+func NewExperienceIDFromValue(value string) (ExperienceID, error) {
+	if !vacancyPattern.MatchString(value) {
+		return ExperienceID{}, fmt.Errorf("invalid experience ID %q; use the native numeric row ID from resume experiences", value)
+	}
+	return ExperienceID{value: value}, nil
+}
+
+func (id ExperienceID) String() string { return id.value }
