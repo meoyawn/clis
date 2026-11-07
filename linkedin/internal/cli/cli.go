@@ -49,6 +49,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		limit := fs.Int("limit", pageSize, "maximum people to return")
 		start := fs.Int("start", 0, "result offset")
 		all := fs.Bool("all", false, "fetch all available people")
+		firstDegree := fs.Bool("connections-only", false, "only your first-degree connections")
 		positionals, err := parseFlags(fs, args[2:])
 		if errors.Is(err, flag.ErrHelp) {
 			return writeHelp(stdout, []string{"companies", "people"})
@@ -70,7 +71,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		if err != nil {
 			return err
 		}
-		result, err := client.people(ctx, company, peopleOptions{limit: *limit, start: *start, all: *all})
+		result, err := client.people(ctx, company, peopleOptions{limit: *limit, start: *start, all: *all, firstDegree: *firstDegree})
 		if err != nil {
 			return err
 		}

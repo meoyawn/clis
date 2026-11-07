@@ -88,6 +88,7 @@ Options:
       --limit N              Maximum people to return (default: %d)
       --start N              Start at this result offset (default: 0)
       --all                  Fetch every available page; overrides --limit
+      --connections-only     Only your first-degree connections at this company
   -h, --help                 Show help
 
 Examples:
@@ -171,6 +172,9 @@ Examples:
 Default output adds sourced profile sections, full experience-page text,
 descriptions, dates, links and fetched_at. Three GETs:
 one identity API call, then two independent document reads using errgroup.
+When the exact profile exposes its deferred Highlights component, one additional
+read-only component POST adds shared-workplace/education evidence and labelled
+Message actions. Premium labels are retained; a button does not prove free access.
 The two document reads run concurrently; other CLI commands remain sequential.
 No browser scripts, contact-info overlay, messages, or analytics are executed.
 Absent lazy sections or further pagination are not treated as empty.

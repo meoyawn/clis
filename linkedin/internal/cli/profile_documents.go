@@ -42,8 +42,9 @@ type profileDocument struct {
 }
 
 type profileCapture struct {
-	API       json.RawMessage   `json:"profile_api"`
-	Documents []profileDocument `json:"documents"`
+	API        json.RawMessage           `json:"profile_api"`
+	Documents  []profileDocument         `json:"documents"`
+	Components []profileComponentCapture `json:"components,omitempty"`
 }
 
 // The full experience URL is the profile's observed "Show all experiences"
@@ -95,6 +96,16 @@ func (c *linkedinClient) fullProfile(ctx context.Context, ref profileRef) (fullP
 			}
 		}
 		result.Sections = append(result.Sections, sections...)
+	}
+	section, component, err := c.profileHighlights(ctx, capture.Documents[0], p)
+	if component != nil {
+		capture.Components = append(capture.Components, *component)
+	}
+	if err != nil {
+		return fullProfileResult{}, capture, err
+	}
+	if section != nil {
+		result.Sections = append(result.Sections, *section)
 	}
 	return result, capture, nil
 }

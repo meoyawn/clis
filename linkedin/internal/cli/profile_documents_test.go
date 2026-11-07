@@ -12,8 +12,12 @@ import (
 	"time"
 )
 
-func TestFullProfilePreservesCareerEvidenceWithinThreeRequests(t *testing.T) {
+func TestFullProfilePreservesCareerAndRelationshipEvidence(t *testing.T) {
 	overview, err := os.ReadFile("testdata/profile-overview.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	highlights, err := os.ReadFile("testdata/profile-highlights.rsc")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,6 +29,27 @@ func TestFullProfilePreservesCareerEvidenceWithinThreeRequests(t *testing.T) {
 	bothReading := make(chan struct{})
 	client := linkedinClient{http: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		calls.Add(1)
+		if r.URL.Path == "/flagship-web/rsc-action/actions/component" {
+			var request struct {
+				ComponentID     string `json:"componentId"`
+				ClientArguments struct {
+					Payload struct {
+						VanityName             string `json:"vanityName"`
+						ReplaceableSectionArgs struct {
+							VieweeProfileID string `json:"vieweeProfileId"`
+						} `json:"replaceableSectionArgs"`
+					} `json:"payload"`
+				} `json:"clientArguments"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+				return nil, err
+			}
+			const component = "com.linkedin.sdui.generated.profile.dsl.impl.profileCardsAboveActivity"
+			if r.Method != http.MethodPost || r.URL.Query().Get("componentId") != component || r.URL.Query().Get("sduiid") != component || request.ComponentID != component || request.ClientArguments.Payload.VanityName != "example-person" || request.ClientArguments.Payload.ReplaceableSectionArgs.VieweeProfileID != "ACoExamplePerson" {
+				return nil, fmt.Errorf("deferred read lost exact component or target: %s %+v", r.URL, request)
+			}
+			return jsonResponse(highlights), nil
+		}
 		if r.Method != http.MethodGet {
 			return nil, fmt.Errorf("profile read attempted mutation: %s", r.Method)
 		}
@@ -62,15 +87,15 @@ func TestFullProfilePreservesCareerEvidenceWithinThreeRequests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if calls.Load() != 3 || readers.Load() != 2 || result.Name != "Example Person" || result.FetchedAt == "" {
+	if calls.Load() != 4 || readers.Load() != 2 || result.Name != "Example Person" || result.FetchedAt == "" {
 		t.Fatalf("wrong profile identity, provenance, or request budget: calls=%d result=%+v", calls.Load(), result)
 	}
-	for _, want := range []string{"Angel Investor", "SyntheticBase", "Jan 2025 - Present", "Backed the developer", "2017 - 2021", "first production service", "https://example.org/project", "https://example.org/api", "https://example.org/site", "source_url"} {
+	for _, want := range []string{"Angel Investor", "SyntheticBase", "Jan 2025 - Present", "Backed the developer", "2017 - 2021", "first production service", "https://example.org/project", "https://example.org/api", "https://example.org/site", "source_url", "You both worked at Example Mobility", "Example worked at Example Mobility after you started", "Message with Premium", "https://www.linkedin.com/messaging/compose/"} {
 		if !strings.Contains(string(encoded), want) {
 			t.Errorf("profile JSON lost relevant career evidence %q", want)
 		}
 	}
-	for _, unwanted := range []string{"Navigation noise", "Unrelated recruiter", "Unrelated investor", "Private contact overlay", "Unsent private draft", "Tracking metadata", "Not profile content", "Hidden alternate role", "Duplicated inaccessible", "Pending invitation control", "· 1st", "· 2nd", "not-exported"} {
+	for _, unwanted := range []string{"Navigation noise", "Unrelated recruiter", "Unrelated investor", "Private contact overlay", "Unsent private draft", "Tracking metadata", "Not profile content", "Hidden alternate role", "Duplicated inaccessible", "Pending invitation control", "· 1st", "· 2nd", "not-exported", "Unrelated highlights", "Hidden alternate highlight", "Unsent+suggested+draft", "Suggested+subject"} {
 		if strings.Contains(string(encoded), unwanted) {
 			t.Errorf("profile JSON included unrelated or unverified content %q", unwanted)
 		}
@@ -130,5 +155,36 @@ func TestProfileDocumentsRejectWrongIdentityAndMissingContent(t *testing.T) {
 		if sections, err := parseProfileDocument(profileDocument{URL: "https://www.linkedin.com/in/example-person/", HTML: body}, "Example Person"); err == nil || len(sections) != 0 {
 			t.Fatalf("unconfirmed document returned profile data: %+v, %v", sections, err)
 		}
+	}
+}
+
+func TestProfileHighlightsRejectsForeignEvidenceAndMessageActions(t *testing.T) {
+	raw, err := os.ReadFile("testdata/profile-highlights.rsc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, old, replacement string
+		wantError              bool
+	}{
+		{"wrong target card", "refACoExamplePerson", "refACoSomeoneElse", true},
+		{"foreign message recipient", "recipient=ACoExamplePerson", "recipient=ACoSomeoneElse", false},
+		{"disabled message", `"buttonProps":{`, `"buttonProps":{"disabled":true,`, false},
+		{"unrecognized response", string(raw), "<html>Sign in</html>", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := strings.ReplaceAll(string(raw), tc.old, tc.replacement)
+			target := profileResult{person: person{ProfileURN: "urn:li:fsd_profile:ACoExamplePerson", URL: "https://www.linkedin.com/in/example-person/"}}
+			section, err := parseProfileHighlights(body, target)
+			if tc.wantError {
+				if err == nil || section != nil {
+					t.Fatalf("unconfirmed response returned shared-history claims: %+v, %v", section, err)
+				}
+				return
+			}
+			if err != nil || section == nil || len(section.Blocks) != 2 || section.Blocks[0].Text != "You both worked at Example Mobility" {
+				t.Fatalf("shared history lost or unsupported message action returned: %+v, %v", section, err)
+			}
+		})
 	}
 }

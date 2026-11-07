@@ -97,9 +97,10 @@ type searchResult struct {
 }
 
 type peopleOptions struct {
-	limit int
-	start int
-	all   bool
+	limit       int
+	start       int
+	all         bool
+	firstDegree bool
 }
 
 type linkedinClient struct {
@@ -280,9 +281,19 @@ func (c *linkedinClient) people(ctx context.Context, company companyRef, opts pe
 		return peopleResult{}, err
 	}
 	query := fmt.Sprintf("flagshipSearchIntent:ORGANIZATIONS_PEOPLE_ALUMNI,queryParameters:List((key:currentCompany,value:List(%s)),(key:resultType,value:List(ORGANIZATION_ALUMNI)))", company.ID)
+	if opts.firstDegree {
+		query = fmt.Sprintf("flagshipSearchIntent:ORGANIZATIONS_PEOPLE_ALUMNI,queryParameters:List((key:currentCompany,value:List(%s)),(key:network,value:List(F)),(key:resultType,value:List(ORGANIZATION_ALUMNI)))", company.ID)
+	}
 	result, err := c.searchPeople(ctx, query, opts)
 	if err != nil {
 		return peopleResult{}, err
+	}
+	if opts.firstDegree {
+		for _, p := range result.People {
+			if p.ConnectionDegree != "1st" {
+				return peopleResult{}, fmt.Errorf("LinkedIn connections-only search returned connection degree %q; stopped without partial results", p.ConnectionDegree)
+			}
+		}
 	}
 	return peopleResult{Company: company, searchResult: result}, nil
 }

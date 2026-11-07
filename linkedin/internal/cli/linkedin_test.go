@@ -137,6 +137,36 @@ func TestNumericCompanyUsesOneRequestAndReportsContinuation(t *testing.T) {
 	}
 }
 
+func TestConnectionsOnlyRequiresFirstDegreeResults(t *testing.T) {
+	for _, degree := range []string{"1st", "2nd", ""} {
+		t.Run(degree, func(t *testing.T) {
+			body := strings.ReplaceAll(string(fixture(t, "people")), `\u2022 2nd`, degree)
+			calls := 0
+			client := linkedinClient{http: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				calls++
+				variables := r.URL.Query().Get("variables")
+				if !strings.Contains(variables, "currentCompany,value:List(123456789)") || !strings.Contains(variables, "network,value:List(F)") {
+					t.Fatalf("missing company or first-degree search scope: %s", variables)
+				}
+				return jsonResponse([]byte(body)), nil
+			})}}
+			result, err := client.people(context.Background(), companyRef{ID: "123456789"}, peopleOptions{limit: 12, firstDegree: true})
+			if calls != 1 {
+				t.Fatalf("requests = %d; want one without retries", calls)
+			}
+			if degree != "1st" {
+				if err == nil || !strings.Contains(err.Error(), "connection degree") || len(result.People) != 0 {
+					t.Fatalf("unverified connections returned: result=%+v err=%v", result, err)
+				}
+				return
+			}
+			if err != nil || result.Returned != 12 || !result.HasMore {
+				t.Fatalf("first-degree results lost: result=%+v err=%v", result, err)
+			}
+		})
+	}
+}
+
 func TestPeopleFailsWithoutRetriesOrPartialSuccess(t *testing.T) {
 	for _, tc := range []struct {
 		name   string

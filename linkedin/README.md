@@ -74,6 +74,9 @@ linkedin companies people example-company --all
 The default returns up to 49 people. `--limit N` requests up to N;
 `--all` fetches all results LinkedIn makes available and overrides `--limit`.
 `--start N` resumes at a result offset. Flags can precede or follow the company.
+Use `--connections-only --all` to list your first-degree connections at the
+company. This applies LinkedIn's network filter and rejects results whose
+connection degree does not confirm that scope.
 
 Output includes `company`, `people`, `total`, `returned`, `start`, `has_more`,
 and `next_start`. Each person has `name`, `headline`, `location`, `url`, and
@@ -133,9 +136,17 @@ linkedin people mutuals urn:li:fsd_profile:ACoExample
 available location, profile/member URNs, and `sections` containing readable text
 blocks and links with a `source_url` for each section. It resolves the profile
 with one API call, then reads the profile overview and full experience document
-concurrently with `errgroup`: three GET requests total, not one call per role.
+concurrently with `errgroup`: three GET requests, not one call per role.
 The experience page retains position groups, dates, locations, descriptions,
 skills attached to positions, and linked work, with a `fetched_at` timestamp.
+When the profile exposes its exact-target deferred card request, one additional
+read-only component POST retrieves Highlights. Shared workplaces, education and
+other rendered relationship evidence appear in `sections`, with the profile as
+their source. The parser follows only selected card content for the resolved
+person. A Highlights Message action must identify that exact recipient; its
+label retains Premium requirements, and suggested draft text is omitted from
+the URL. A Message action does not establish free access or permission to send.
+Private response captures include this component's request and response.
 Lazy overview sections and further pagination
 are not inferred to be empty. No browser scripts or analytics run.
 
