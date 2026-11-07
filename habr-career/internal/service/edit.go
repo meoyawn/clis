@@ -82,6 +82,38 @@ func (c *Client) UpdateApplication(ctx context.Context, vacancyID domain.Vacancy
 	return result, nil
 }
 
+func (c *Client) DeleteApplication(ctx context.Context, vacancyID domain.VacancyID, resumeID domain.ResumeID, apply bool, backupDir string) (Object, error) {
+	v, err := c.Vacancy(ctx, vacancyID)
+	if err != nil {
+		return nil, err
+	}
+	responseID := number(v.Response["id"])
+	if v.UserAlias != resumeID.String() || responseID == "" || object(v.Response["author"])["id"] != resumeID.String() || v.Response["canDelete"] != true || v.csrf == "" {
+		return nil, fmt.Errorf("vacancy %s does not confirm a deletable existing response for resume %q; no write attempted", vacancyID.String(), resumeID.String())
+	}
+	result := Object{"vacancy_id": v.ID, "vacancy_url": v.URL, "company": v.Employer["title"], "title": v.Title, "resume_id": resumeID.String(), "response_id": responseID, "previous_letter": v.Response["message"], "applied": false}
+	if !apply {
+		return result, nil
+	}
+	backup, err := saveBackup(backupDir, "application-delete-"+v.ID+"-"+responseID, result)
+	if err != nil {
+		return nil, err
+	}
+	_, err = c.requestBody(ctx, http.MethodDelete, "/api/frontend/vacancies/"+v.ID+"/responses/"+responseID, v.csrf, nil, "", nil, false)
+	if err != nil {
+		return nil, fmt.Errorf("deleting response %s may be uncertain: %w; backup %q; inspect application get before any retry", responseID, err, backup)
+	}
+	readback, err := c.Application(ctx, vacancyID, resumeID)
+	if err != nil {
+		return nil, fmt.Errorf("response %s delete sent but readback failed: %w; backup %q; do not repeat the delete", responseID, err, backup)
+	}
+	if readback["submitted"] != false {
+		return nil, fmt.Errorf("response %s deletion is not confirmed by the native vacancy readback; backup %q; inspect before retrying", responseID, backup)
+	}
+	result["applied"], result["deleted"], result["verified"], result["backup_path"] = true, true, true, backup
+	return result, nil
+}
+
 var experienceLink = regexp.MustCompile(`^/profile/experiences/([1-9][0-9]*)/edit$`)
 
 func (c *Client) ownProfilePage(ctx context.Context, resumeID domain.ResumeID, path string) (*page, error) {

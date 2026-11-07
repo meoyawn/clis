@@ -38,7 +38,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 		optionStart = 3
 	}
 	switch command {
-	case "auth import", "auth status", "profile get", "profile specialization get", "profile specialization update", "profile specialization verify", "resume get", "resume view", "resume experiences", "resume experience", "resume update", "resume verify", "vacancy get", "vacancy response-options", "applications list", "application get", "application letter", "application prepare", "application submit", "application verify", "application update", "har inspect":
+	case "auth import", "auth status", "profile get", "profile specialization get", "profile specialization update", "profile specialization verify", "resume get", "resume view", "resume experiences", "resume experience", "resume update", "resume verify", "vacancy get", "vacancy response-options", "applications list", "application get", "application letter", "application prepare", "application submit", "application verify", "application update", "application delete", "har inspect":
 	default:
 		return fmt.Errorf("unknown command %q; run --help", command)
 	}
@@ -65,7 +65,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	if command == "resume update" || command == "resume verify" {
 		fs.StringVar(&descriptionFile, "description-file", "", "exact native HTML experience description")
 	}
-	if command == "resume update" || command == "application update" || command == "profile specialization update" {
+	if command == "resume update" || command == "application update" || command == "application delete" || command == "profile specialization update" {
 		fs.BoolVar(&apply, "apply", false, "apply an authorized update to an existing record")
 		fs.StringVar(&backupDir, "backup-dir", "", "private before-state backup directory")
 	}
@@ -257,6 +257,8 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 		result, err = client.VerifyApplication(ctx, draft)
 	case "application update":
 		result, err = client.UpdateApplication(ctx, vacancyID, resumeID, letter, apply, backupDir)
+	case "application delete":
+		result, err = client.DeleteApplication(ctx, vacancyID, resumeID, apply, backupDir)
 	}
 	if err != nil {
 		return err

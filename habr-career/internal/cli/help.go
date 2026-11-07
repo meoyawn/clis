@@ -77,6 +77,11 @@ Usage: habr-career COMMAND [OPTIONS]
       sender, native profile content and complete letter to review_sha256.
       The salary field is optional and also changes the shared profile; this
       CLI leaves it untouched. External application routes and unknown forms stop.
+  application delete VACANCY --resume ALIAS [--apply] [--backup-dir DIR]
+      Preview withdrawal of this exact account's existing deletable response.
+      --apply requires explicit user authorization, saves a private backup,
+      sends one bodyless DELETE, and verifies the response is absent on readback.
+      Never creates a response or retries. After uncertainty use application get.
   application submit --draft FILE [--send --approved SHA256] [--output FILE]
       Without --send, display the saved package locally without authentication.
       --send requires prior user authorization and the unchanged package checksum;
@@ -108,8 +113,8 @@ CSRF tokens and raw private HTML are never printed or saved in review packages.
 All account network commands take one exclusive lock; run one at a time.
 No automatic retries. Stop on redirects, login/protection/CAPTCHA/checkpoints,
 429 (honor Retry-After), restrictions or unsupported contracts. No CAPTCHA solving.
-Only application submit with both sending flags and update commands with --apply
-write. Profile edits support headline/languages or one employment description;
+Only application submit with both sending flags and update/delete commands with
+--apply write. Profile edits support headline/languages or one employment description;
 no uploads, salary/contact changes, paid services or separate messages are performed.
 Backups default to $XDG_STATE_HOME/habr-career/backups or ~/.local/state/habr-career/backups.
 stdout contains successful JSON only; bounded, redacted HTTP errors go to stderr.

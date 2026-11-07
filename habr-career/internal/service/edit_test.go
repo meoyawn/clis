@@ -238,3 +238,92 @@ func TestUpdateExistingApplicationNeverCreatesAnotherResponse(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteOwnApplicationWithBackupAndIndependentReadback(t *testing.T) {
+	for _, scenario := range []string{"preview", "delete", "not-deletable", "wrong-author", "wrong-account", "absent", "still-present", "uncertain"} {
+		t.Run(scenario, func(t *testing.T) {
+			const alias = "synthetic-user"
+			present, deletes := scenario != "absent", 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet && r.URL.Path == "/vacancies/1000000000" {
+					login, author := alias, alias
+					if scenario == "wrong-account" {
+						login = "another-user"
+					}
+					if scenario == "wrong-author" {
+						author = "another-user"
+					}
+					var response any
+					if present {
+						response = service.Object{"id": 8101, "author": service.Object{"id": author}, "message": "Existing letter", "canDelete": scenario != "not-deletable"}
+					}
+					writePage(w, service.Object{"userLogin": login, "visitor": service.Object{"login": login}, "vacancy": service.Object{"id": 1000000000, "href": "/vacancies/1000000000", "title": "Synthetic Role", "description": "<p>Build tools</p>", "archived": false, "hidden": false, "company": service.Object{"id": 77, "title": "Synthetic Employer"}}, "createResponse": service.Object{"vacancyId": 1000000000, "response": response}})
+					return
+				}
+				if r.Method != http.MethodDelete || r.URL.Path != "/api/frontend/vacancies/1000000000/responses/8101" {
+					t.Errorf("withdrawal changed another record or used the wrong method: %s %s", r.Method, r.URL)
+					http.NotFound(w, r)
+					return
+				}
+				deletes++
+				if r.ContentLength != 0 || r.Header.Get("Content-Type") != "" || r.Header.Get("X-CSRF-Token") != "SYNTHETIC_CSRF" || r.Header.Get("Origin") != service.Origin {
+					t.Error("withdrawal differs from the native bodyless DELETE with CSRF protection")
+				}
+				if scenario != "still-present" {
+					present = false
+				}
+				if scenario == "uncertain" {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				fmt.Fprint(w, `{}`)
+			}))
+			defer server.Close()
+			target, _ := url.Parse(server.URL)
+			httpClient := server.Client()
+			httpClient.Transport = routeTransport{target: target, transport: httpClient.Transport}
+			client := service.NewClient(httpClient)
+			vacancy, _ := domain.NewVacancyIDFromValue("1000000000")
+			resume, _ := domain.NewResumeIDFromValue(alias)
+			dir := t.TempDir()
+			result, err := client.DeleteApplication(t.Context(), vacancy, resume, scenario != "preview", dir)
+			if scenario == "preview" {
+				if err != nil || deletes != 0 || result["applied"] != false || result["response_id"] != "8101" {
+					t.Fatalf("withdrawal preview wrote or selected the wrong response: %v %v", result, err)
+				}
+				return
+			}
+			if scenario == "delete" || scenario == "still-present" || scenario == "uncertain" {
+				if deletes != 1 {
+					t.Fatalf("withdrawal was skipped or retried: deletes=%d err=%v", deletes, err)
+				}
+				backups, _ := filepath.Glob(filepath.Join(dir, "*.json"))
+				if len(backups) != 1 {
+					t.Fatal("withdrawal did not back up the existing application")
+				}
+				b, readErr := os.ReadFile(backups[0])
+				info, statErr := os.Stat(backups[0])
+				if readErr != nil || statErr != nil || info.Mode().Perm() != 0600 || !strings.Contains(string(b), "Existing letter") || strings.Contains(string(b), "SYNTHETIC_CSRF") {
+					t.Fatal("withdrawal backup lost the letter, leaked CSRF or has unsafe permissions")
+				}
+			}
+			if scenario == "delete" {
+				if err != nil || result["deleted"] != true || result["verified"] != true || result["response_id"] != "8101" {
+					t.Fatalf("withdrawal was not verified: %v %v", result, err)
+				}
+				return
+			}
+			if err == nil || result != nil {
+				t.Fatalf("unsafe or uncertain withdrawal reported success: %v %v", result, err)
+			}
+			if scenario == "uncertain" {
+				readback, readErr := client.Application(t.Context(), vacancy, resume)
+				if readErr != nil || readback["submitted"] != false || deletes != 1 {
+					t.Fatalf("uncertain deletion cannot be inspected without another write: %v %v", readback, readErr)
+				}
+			} else if scenario != "still-present" && deletes != 0 {
+				t.Fatal("withdrawal wrote without an owned deletable existing response")
+			}
+		})
+	}
+}

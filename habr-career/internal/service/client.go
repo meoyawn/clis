@@ -97,6 +97,8 @@ func (c *Client) requestBody(ctx context.Context, method, path, csrf string, bod
 	}
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
+	}
+	if csrf != "" {
 		req.Header.Set("X-CSRF-Token", csrf)
 		req.Header.Set("Origin", Origin)
 		req.Header.Set("Referer", Origin+"/vacancies/"+strings.Split(strings.TrimPrefix(path, "/api/frontend/vacancies/"), "/")[0])
