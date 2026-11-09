@@ -44,7 +44,7 @@ func (c *Client) chatOperationID(ctx context.Context, operation domain.Operation
 		}
 		c.chatModule = module
 	}
-	metadata := regexp.MustCompile("this\\.[A-Za-z0-9_$]+=`([A-Za-z0-9_-]+)`,this\\.[A-Za-z0-9_$]+=`" + regexp.QuoteMeta(operation.String()) + "`").FindAllSubmatch(module, -1)
+	metadata := regexp.MustCompile("this\\.[A-Za-z0-9_$]+=`([A-Za-z0-9_-]+)`,this\\.[A-Za-z0-9_$]+=`"+regexp.QuoteMeta(operation.String())+"`").FindAllSubmatch(module, -1)
 	if len(metadata) != 1 {
 		return "", fmt.Errorf("the X Chat module does not expose one %s operation", operation)
 	}

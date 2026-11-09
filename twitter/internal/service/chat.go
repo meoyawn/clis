@@ -25,7 +25,7 @@ func chatConversationID(owner, recipient string) (string, error) {
 	a, errA := strconv.ParseUint(owner, 10, 64)
 	b, errB := strconv.ParseUint(recipient, 10, 64)
 	if errA != nil || errB != nil || a == 0 || b == 0 || a == b {
-		return "", fmt.Errorf("Chat requires two different numeric user IDs")
+		return "", fmt.Errorf("chat requires two different numeric user IDs; got sender=%q recipient=%q", owner, recipient)
 	}
 	if a > b {
 		owner, recipient = recipient, owner
@@ -79,7 +79,7 @@ func (c *Client) ReadChat(ctx context.Context, recipient domain.Profile) (ChatPa
 		return ChatPage{}, err
 	}
 	if response.Data.Page == nil {
-		return ChatPage{}, fmt.Errorf("X did not return the exact conversation page")
+		return ChatPage{}, fmt.Errorf("the X response did not return the exact conversation page")
 	}
 	p := response.Data.Page
 	page := ChatPage{ConversationID: convID, Messages: []ChatMessage{}, HasMore: p.HasMore, HasKeys: len(p.Keys) != 0}
@@ -93,7 +93,7 @@ func (c *Client) ReadChat(ctx context.Context, recipient domain.Profile) (ChatPa
 			continue
 		}
 		if message.ConversationID != convID || (message.SenderID != c.owner.ID && message.SenderID != recipient.ID) {
-			return ChatPage{}, fmt.Errorf("X returned a message from a different conversation")
+			return ChatPage{}, fmt.Errorf("the X response returned a message from a different conversation")
 		}
 		page.HasKeys = page.HasKeys || message.Encrypted
 		if page.conversationToken == "" {
@@ -160,7 +160,7 @@ func (c *Client) SendChat(ctx context.Context, availability MessagingAvailabilit
 		return ChatMessage{}, err
 	}
 	if !isMessage || message.Encrypted || message.ID != messageID || message.SenderID != c.owner.ID || message.ConversationID != convID || message.Text != text {
-		return ChatMessage{}, fmt.Errorf("Chat receipt did not confirm the exact sender, recipient, message ID and text; do not resend")
+		return ChatMessage{}, fmt.Errorf("chat receipt did not confirm the exact sender, recipient, message ID and text; do not resend")
 	}
 	return message, nil
 }

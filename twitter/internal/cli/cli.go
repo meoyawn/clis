@@ -26,6 +26,7 @@ Usage:
   go run . api status
   go run . people follow [--send --expect-account HANDLE --expect-id ID] HANDLE
   go run . messages check HANDLE
+  go run . messages read HANDLE
   go run . messages send --text-file FILE HANDLE
   go run . messages send --text-file FILE --send --expect-account HANDLE --expect-sha256 HASH HANDLE
   go run . posts list
@@ -50,6 +51,7 @@ open conversations, fetch message history, or create encryption keys/tokens.
 The check reports server permission, not guaranteed future delivery or reading.
 messages send previews plain-text DMs by default, reading one conversation page
 without read receipts. --send requires the preview's account and package hash.
+messages read returns one page; encrypted messages have no decoded text.
 Encrypted recipients/conversations are unsupported; no keys are created.
 A private attempt blocks duplicates/uncertain retries. Sends are verified by
 their exact server receipt and a conversation readback; no automatic retries.
@@ -104,6 +106,9 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	}
 	if args[0] == "messages" && len(args) > 1 && args[1] == "send" {
 		return chatCommand(ctx, args[2:], dir, out, errOut)
+	}
+	if args[0] == "messages" && len(args) > 1 && args[1] == "read" {
+		return readChat(ctx, args[2:], dir, out)
 	}
 	if args[0] == "posts" && len(args) > 1 && args[1] == "create" {
 		return create(ctx, args[2:], dir, out, errOut)

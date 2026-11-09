@@ -33,6 +33,32 @@ type chatPreview struct {
 	CheckedAt      time.Time                     `json:"checked_at"`
 }
 
+func readChat(ctx context.Context, args []string, dir string, out io.Writer) error {
+	if len(args) != 1 {
+		return fmt.Errorf("messages read requires one handle; got %d arguments", len(args))
+	}
+	handle, err := domain.Handle(args[0])
+	if err != nil {
+		return err
+	}
+	c, err := loadClient(dir)
+	if err != nil {
+		return err
+	}
+	if _, err := c.Bootstrap(ctx); err != nil {
+		return err
+	}
+	recipient, err := c.Profile(ctx, handle)
+	if err != nil {
+		return err
+	}
+	page, err := c.ReadChat(ctx, recipient)
+	if err != nil {
+		return err
+	}
+	return writeJSON(out, page)
+}
+
 func chatPackageHash(owner, recipient, text string) string {
 	encoded, _ := json.Marshal([]string{"plain-dm", owner, recipient, text})
 	return fmt.Sprintf("%x", sha256.Sum256(encoded))

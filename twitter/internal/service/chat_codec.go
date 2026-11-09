@@ -37,7 +37,7 @@ func plainChatEvent(text string) (string, error) {
 
 func decodeChatStruct(data []byte) (chatStruct, error) {
 	if len(data) > 1<<20 {
-		return nil, fmt.Errorf("Chat event exceeds 1 MiB")
+		return nil, fmt.Errorf("chat event exceeds 1 MiB")
 	}
 	r := bytes.NewReader(data)
 	v, err := readChatValue(r, 12, 0)
@@ -58,7 +58,7 @@ func chatUint(r *bytes.Reader, size int) (uint64, error) {
 
 func readChatValue(r *bytes.Reader, kind byte, depth int) (any, error) {
 	if depth > 24 {
-		return nil, fmt.Errorf("Chat event nesting exceeds limit")
+		return nil, fmt.Errorf("chat event nesting exceeds limit")
 	}
 	switch kind {
 	case 2, 3:
@@ -167,7 +167,7 @@ func decodeChatMessage(encoded string) (ChatMessage, bool, error) {
 	}
 	m := ChatMessage{ID: event.text(2), SequenceID: event.text(1), SenderID: event.text(3), ConversationID: event.text(4), conversationToken: event.text(5)}
 	if m.ID == "" || m.SequenceID == "" || m.SenderID == "" || m.ConversationID == "" {
-		return ChatMessage{}, false, fmt.Errorf("Chat message is missing its identity")
+		return ChatMessage{}, false, fmt.Errorf("chat message is missing its identity")
 	}
 	_, hasKey := create[101]
 	version, hasVersion := create[112]
@@ -185,7 +185,7 @@ func decodeChatMessage(encoded string) (ChatMessage, bool, error) {
 	}
 	m.Text = holder.child(1).child(1).text(1)
 	if !utf8.ValidString(m.Text) {
-		return ChatMessage{}, false, fmt.Errorf("Chat message text is not UTF-8")
+		return ChatMessage{}, false, fmt.Errorf("chat message text is not UTF-8")
 	}
 	return m, true, nil
 }
