@@ -1,6 +1,6 @@
 # linkedin
 
-A Go CLI that returns LinkedIn people searches, company people, profiles, mutual connections, messages, text posts and private analytics as JSON using your browser's
+A Go CLI that returns LinkedIn people searches, company people and job openings, profiles, mutual connections, messages, text posts and private analytics as JSON using your browser's
 signed-in session. Cookie import uses [SweetCookie](https://github.com/steipete/sweetcookie/).
 
 ```sh
@@ -21,6 +21,7 @@ replace them with the company you want to look up.
 ```sh
 linkedin --help
 linkedin companies people --help
+linkedin companies jobs --help
 linkedin people search --help
 linkedin people profile --help
 linkedin people mutuals --help
@@ -87,6 +88,36 @@ which can change or be restricted by your account.
 
 Successful commands emit JSON to stdout. Help is plain text. Diagnostics go to
 stderr; failures exit nonzero without emitting a partial result.
+
+## Company job openings
+
+```sh
+go run . companies jobs sanity-io
+go run . companies jobs https://www.linkedin.com/company/sanity-io/jobs/ --all
+go run . companies jobs 18400536 --limit 5
+go run . companies jobs sanity-io --start 25
+```
+
+Accepts the same company identifiers as `companies people`, including `/jobs/`
+URLs. Returns up to 25 jobs by default; `--limit N` bounds results and `--all`
+fetches every available page. Use `next_start` with `--start` to resume.
+
+Uses LinkedIn's company-filtered listings API with Worldwide scope and no
+keyword restriction. The company's jobs tab shows only a few recent roles;
+its newer semantic search can silently substitute a country for Worldwide.
+This command verifies the returned geography and each card's company ID.
+Slugs require one company lookup, followed by one GET per page of up to 25.
+Requests use the existing spacing and authentication, without automatic retries.
+Unknown responses, incomplete cards and repeated pages fail without partial JSON.
+
+Output contains `company`, `jobs`, `total`, `returned`, `start`, `has_more`,
+`next_start`, and `fetched_at`. Each job includes `id`, `title`, `company`,
+`location` (including any workplace label), and a direct LinkedIn job `url`.
+Optional `listed_at` is a UTC timestamp; `details` preserves additional card text,
+which can include compensation. No description or application form is fetched.
+Job IDs are deduplicated while preserving search order. `total` is LinkedIn's
+reported count, not the employer's own vacancy inventory; it can change between
+pages. A LinkedIn listing does not verify that its external application is open.
 
 ## Keyword people search
 

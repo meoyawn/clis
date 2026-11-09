@@ -17,7 +17,7 @@ import (
 )
 
 const Origin = "https://x.com"
-const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
 
 type Client struct {
 	http              *http.Client
@@ -28,17 +28,29 @@ type Client struct {
 	threadCapture     io.Writer
 	bootstrapDocument string
 	transaction       *transaction.Generator
+	redesigned        bool
+	publicModules     map[string][]byte
+	relayVariables    map[string]bool
+	chatModule        []byte
 }
 
 func NewClient(httpClient *http.Client, session Session) *Client {
 	return &Client{http: httpClient, session: session}
 }
 
-// request is deliberately single-attempt. Cookies never leave x.com and its
-// observed upload host; redirects are refused by the owning HTTP client.
+type pageRedirect struct {
+	location string
+	cause    error
+}
+
+func (e *pageRedirect) Error() string { return e.cause.Error() }
+func (e *pageRedirect) Unwrap() error { return e.cause }
+
+// request is deliberately single-attempt. Cookies stay on x.com and its
+// observed API/upload hosts; redirects are refused by the owning HTTP client.
 func (c *Client) request(ctx context.Context, method, target, contentType string, body []byte, extraHeaders ...http.Header) ([]byte, error) {
 	u, err := url.Parse(target)
-	if err != nil || u.User != nil || u.Scheme != "https" || (u.Host != "x.com" && u.Host != "upload.x.com" && u.Host != "abs.twimg.com") {
+	if err != nil || u.User != nil || u.Scheme != "https" || (u.Host != "x.com" && u.Host != "api.x.com" && u.Host != "upload.x.com" && u.Host != "abs.twimg.com" && !(u.Host == "chat.x.com" && method == http.MethodGet && u.Path == "/embed-v1.json")) {
 		return nil, fmt.Errorf("unsupported request destination %q", target)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, target, bytes.NewReader(body))
@@ -49,19 +61,19 @@ func (c *Client) request(ctx context.Context, method, target, contentType string
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	if u.Host == "x.com" || u.Host == "upload.x.com" {
+	if u.Host == "x.com" || u.Host == "api.x.com" || u.Host == "upload.x.com" {
 		for _, cookie := range []*http.Cookie{{Name: "auth_token", Value: c.session.AuthToken}, {Name: "ct0", Value: c.session.CSRF}, {Name: "twid", Value: c.session.TWID}} {
 			req.AddCookie(cookie)
 		}
 		req.Header.Set("Origin", Origin)
 		req.Header.Set("Referer", Origin+"/home")
-		if c.bearer != "" {
+		if c.bearer != "" && (u.Host == "api.x.com" || u.Host == "upload.x.com" || strings.HasPrefix(u.Path, "/i/api/")) {
 			req.Header.Set("Authorization", "Bearer "+c.bearer)
 			req.Header.Set("X-CSRF-Token", c.session.CSRF)
 			req.Header.Set("X-Twitter-Auth-Type", "OAuth2Session")
 			req.Header.Set("X-Twitter-Active-User", "yes")
 			req.Header.Set("X-Twitter-Client-Language", "en")
-			if c.transaction != nil && strings.HasPrefix(u.Path, "/i/api/graphql/") {
+			if c.transaction != nil && (strings.HasPrefix(u.Path, "/i/api/graphql/") || (u.Host == "api.x.com" && (strings.HasPrefix(u.Path, "/graphql/") || u.Path == "/1.1/friendships/create.json"))) {
 				header, err := c.transaction.Header(method, u.Path, time.Now())
 				if err != nil {
 					return nil, err
@@ -88,7 +100,14 @@ func (c *Client) request(ctx context.Context, method, target, contentType string
 		return nil, fmt.Errorf("response for %s exceeds 16 MiB", u.Path)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return data, fmt.Errorf("%s %s: HTTP %d; Retry-After=%q; stop and inspect the account before retrying", method, u.Path, resp.StatusCode, resp.Header.Get("Retry-After"))
+		failure := fmt.Errorf("%s %s: HTTP %d; Retry-After=%q; stop and inspect the account before retrying", method, u.Path, resp.StatusCode, resp.Header.Get("Retry-After"))
+		if method == http.MethodGet && resp.Header.Get("Location") != "" {
+			switch resp.StatusCode {
+			case http.StatusMovedPermanently, http.StatusFound, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+				return data, &pageRedirect{location: resp.Header.Get("Location"), cause: failure}
+			}
+		}
+		return data, failure
 	}
 	return data, nil
 }
@@ -104,6 +123,9 @@ func (c *Client) Bootstrap(ctx context.Context) (domain.Profile, error) {
 	data, err := c.request(ctx, http.MethodGet, Origin+"/home", "", nil)
 	if err != nil {
 		return domain.Profile{}, err
+	}
+	if bytes.Contains(data, []byte("window.__INITIAL_DATA__=")) {
+		return c.bootstrapRedesigned(data)
 	}
 	// The initial document contains the authenticated account's settings. It is
 	// parsed as data only; browser scripts and telemetry are never executed.
@@ -160,6 +182,9 @@ func (c *Client) Bootstrap(ctx context.Context) (domain.Profile, error) {
 func (c *Client) PrepareWriteMetadata(ctx context.Context) error {
 	if c.transaction != nil {
 		return nil
+	}
+	if c.redesigned {
+		return c.prepareRedesignedWrites(ctx)
 	}
 	chunkURL, _, err := transaction.ChunkURL(c.bootstrapDocument)
 	if err != nil {
@@ -250,8 +275,8 @@ func (c *Client) Owner() domain.Profile { return c.owner }
 // inspection. Session credentials and public client authorization stay private.
 func (c *Client) Operations() map[string]string {
 	result := map[string]string{}
-	for _, op := range []domain.Operation{domain.ProfileOperation(), domain.TimelineOperation(), domain.RepliesOperation(), domain.ReadOperation(), domain.CreateOperation()} {
-		result[op.String()] = c.operations[op.String()]
+	for name, id := range c.operations {
+		result[name] = id
 	}
 	return result
 }
@@ -261,6 +286,13 @@ func (c *Client) CapturePostResponses(w io.Writer) { c.threadCapture = w }
 func (c *Client) Profile(ctx context.Context, handle string) (domain.Profile, error) {
 	if _, err := domain.Handle(handle); err != nil {
 		return domain.Profile{}, err
+	}
+	if c.redesigned {
+		results, err := c.redesignedPage(ctx, "/"+handle)
+		if err != nil {
+			return domain.Profile{}, err
+		}
+		return profileInResults(results, "", handle)
 	}
 	data, err := c.query(ctx, domain.ProfileOperation(), map[string]any{"screen_name": handle, "withGrokTranslatedBio": true}, map[string]bool{"withPayments": false, "withAuxiliaryUserLabels": true})
 	if err != nil {

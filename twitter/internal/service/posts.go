@@ -15,9 +15,24 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
+	"unicode/utf16"
 
 	"github.com/meoyawn/clis/twitter/internal/domain"
 )
+
+type urlEntity struct {
+	URL      string `json:"url"`
+	Expanded string `json:"expanded_url"`
+}
+
+type mediaEntity struct {
+	ID       string `json:"id_str"`
+	URL      string `json:"url"`
+	Type     string `json:"type"`
+	ImageURL string `json:"media_url_https"`
+	Indices  []int  `json:"indices"`
+}
 
 type tweetRecord struct {
 	Type string `json:"__typename"`
@@ -39,18 +54,10 @@ type tweetRecord struct {
 		Quotes    int64  `json:"quote_count"`
 		Bookmarks int64  `json:"bookmark_count"`
 		Entities  struct {
-			URLs []struct {
-				URL      string `json:"url"`
-				Expanded string `json:"expanded_url"`
-			} `json:"urls"`
+			URLs []urlEntity `json:"urls"`
 		} `json:"entities"`
 		Extended struct {
-			Media []struct {
-				ID       string `json:"id_str"`
-				URL      string `json:"url"`
-				Type     string `json:"type"`
-				ImageURL string `json:"media_url_https"`
-			} `json:"media"`
+			Media []mediaEntity `json:"media"`
 		} `json:"extended_entities"`
 	} `json:"legacy"`
 	Views struct {
@@ -61,6 +68,66 @@ type tweetRecord struct {
 			Text string `json:"text"`
 		} `json:"result"`
 	} `json:"note_tweet_results"`
+}
+
+func (t *tweetRecord) UnmarshalJSON(data []byte) error {
+	type record tweetRecord
+	var wire struct {
+		*record
+		Details *struct {
+			Text      string `json:"full_text"`
+			CreatedAt int64  `json:"created_at_ms"`
+		} `json:"details"`
+		Counts struct {
+			Likes     int64 `json:"favorite_count"`
+			Replies   int64 `json:"reply_count"`
+			Reposts   int64 `json:"retweet_count"`
+			Quotes    int64 `json:"quote_count"`
+			Bookmarks int64 `json:"bookmark_count"`
+		} `json:"counts"`
+		URLs  []urlEntity   `json:"url_entities"`
+		Media []mediaEntity `json:"media_entities2"`
+		Reply struct {
+			ID string `json:"rest_id"`
+		} `json:"reply_to_results"`
+	}
+	wire.record = (*record)(t)
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	if wire.Details == nil {
+		return nil
+	}
+	// The redesigned schema keeps identity in rest_id/core and moves content,
+	// timestamps, counters, and entities out of legacy.
+	if t.Legacy.ID == "" {
+		t.Legacy.ID = t.ID
+	}
+	if t.Legacy.AuthorID == "" {
+		t.Legacy.AuthorID = t.Core.User.Result.ID
+	}
+	t.Legacy.Text = wire.Details.Text
+	if wire.Reply.ID != "" {
+		if t.Legacy.ReplyTo != "" && t.Legacy.ReplyTo != wire.Reply.ID {
+			return fmt.Errorf("post %q contains conflicting reply parents", t.ID)
+		}
+		t.Legacy.ReplyTo = wire.Reply.ID
+	}
+	t.Legacy.CreatedAt = time.UnixMilli(wire.Details.CreatedAt).UTC().Format("Mon Jan 02 15:04:05 -0700 2006")
+	t.Legacy.Likes = wire.Counts.Likes
+	t.Legacy.Replies = wire.Counts.Replies
+	t.Legacy.Reposts = wire.Counts.Reposts
+	t.Legacy.Quotes = wire.Counts.Quotes
+	t.Legacy.Bookmarks = wire.Counts.Bookmarks
+	t.Legacy.Entities.URLs = wire.URLs
+	t.Legacy.Extended.Media = wire.Media
+	text := utf16.Encode([]rune(wire.Details.Text))
+	for i, media := range t.Legacy.Extended.Media {
+		if media.URL == "" && len(media.Indices) == 2 && media.Indices[0] >= 0 && media.Indices[0] < media.Indices[1] && media.Indices[1] <= len(text) {
+			t.Legacy.Extended.Media[i].URL = string(utf16.Decode(text[media.Indices[0]:media.Indices[1]]))
+		}
+	}
+	return nil
 }
 
 func (t tweetRecord) post() (domain.Post, error) {
@@ -142,7 +209,13 @@ func tweetRecords(data []byte) ([]tweetRecord, error) {
 }
 
 func (c *Client) threadRecords(ctx context.Context, ref domain.PostRef) ([]tweetRecord, error) {
-	data, err := c.query(ctx, domain.ReadOperation(), map[string]any{"focalTweetId": ref.ID(), "referrer": "me", "with_rux_injections": false, "rankingMode": "Relevance", "includePromotedContent": true, "withCommunity": true, "withQuickPromoteEligibilityTweetFields": true, "withBirdwatchNotes": true, "withVoice": true}, map[string]bool{"withPayments": false, "withDmBlocks": false, "withArticleRichContentState": true, "withArticlePlainText": false, "withArticleSummaryText": true, "withArticleVoiceOver": true, "withGrokAnalyze": false, "withDisallowedReplyControls": false})
+	var data []byte
+	var err error
+	if c.redesigned {
+		data, err = c.redesignedThread(ctx, ref)
+	} else {
+		data, err = c.query(ctx, domain.ReadOperation(), map[string]any{"focalTweetId": ref.ID(), "referrer": "me", "with_rux_injections": false, "rankingMode": "Relevance", "includePromotedContent": true, "withCommunity": true, "withQuickPromoteEligibilityTweetFields": true, "withBirdwatchNotes": true, "withVoice": true}, map[string]bool{"withPayments": false, "withDmBlocks": false, "withArticleRichContentState": true, "withArticlePlainText": false, "withArticleSummaryText": true, "withArticleVoiceOver": true, "withGrokAnalyze": false, "withDisallowedReplyControls": false})
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +279,13 @@ func (c *Client) OwnReplies(ctx context.Context, ref domain.PostRef) ([]domain.P
 	posts := []domain.Post{}
 	seen := map[string]bool{}
 	{
-		data, err := c.query(ctx, domain.RepliesOperation(), map[string]any{"userId": c.owner.ID, "count": 20, "includePromotedContent": true, "withCommunity": true, "withVoice": true}, map[string]bool{"withPayments": false, "withArticlePlainText": false})
+		var data []byte
+		var err error
+		if c.redesigned {
+			data, err = c.redesignedTimeline(ctx, "/"+c.owner.Handle+"/with_replies")
+		} else {
+			data, err = c.query(ctx, domain.RepliesOperation(), map[string]any{"userId": c.owner.ID, "count": 20, "includePromotedContent": true, "withCommunity": true, "withVoice": true}, map[string]bool{"withPayments": false, "withArticlePlainText": false})
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -231,7 +310,13 @@ func (c *Client) OwnReplies(ctx context.Context, ref domain.PostRef) ([]domain.P
 }
 
 func (c *Client) OwnPosts(ctx context.Context) ([]domain.Post, error) {
-	data, err := c.query(ctx, domain.TimelineOperation(), map[string]any{"userId": c.owner.ID, "count": 20, "includePromotedContent": true, "withQuickPromoteEligibilityTweetFields": true, "withVoice": true}, map[string]bool{"withPayments": false, "withArticlePlainText": false})
+	var data []byte
+	var err error
+	if c.redesigned {
+		data, err = c.redesignedTimeline(ctx, "/"+c.owner.Handle)
+	} else {
+		data, err = c.query(ctx, domain.TimelineOperation(), map[string]any{"userId": c.owner.ID, "count": 20, "includePromotedContent": true, "withQuickPromoteEligibilityTweetFields": true, "withVoice": true}, map[string]bool{"withPayments": false, "withArticlePlainText": false})
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -353,11 +438,14 @@ func (c *Client) uploadImage(ctx context.Context, image *Image) (string, error) 
 // CreatePost is called only after the CLI has recorded the reviewed package.
 // The result is accepted only after an independent read of the exact post.
 func (c *Client) CreatePost(ctx context.Context, draft domain.Draft, image *Image, replyTo string, receiptWriter io.Writer) (domain.Post, error) {
-	if c.owner.ID == "" || c.operations[domain.CreateOperation().String()] == "" {
-		return domain.Post{}, fmt.Errorf("publication requires a verified signed-in account and create operation")
+	if c.owner.ID == "" {
+		return domain.Post{}, fmt.Errorf("publication requires a verified signed-in account")
 	}
 	if err := c.PrepareWriteMetadata(ctx); err != nil {
 		return domain.Post{}, err
+	}
+	if c.operations[domain.CreateOperation().String()] == "" {
+		return domain.Post{}, fmt.Errorf("publication requires a discovered create operation")
 	}
 	media := []map[string]any{}
 	var mediaID string
@@ -375,7 +463,18 @@ func (c *Client) CreatePost(ctx context.Context, draft domain.Draft, image *Imag
 		variables["semantic_annotation_options"] = map[string]any{"composition_signal_1": true, "source": "UniversalLink"}
 	}
 	id := c.operations["CreateTweet"]
-	body, err := json.Marshal(map[string]any{"variables": variables, "features": writeFeatures(), "queryId": id})
+	payload := map[string]any{"variables": variables, "features": writeFeatures(), "queryId": id}
+	target := Origin + "/i/api/graphql/" + id + "/CreateTweet"
+	if c.redesigned {
+		delete(variables, "disallowed_reply_options")
+		delete(variables, "semantic_annotation_options")
+		for name, value := range c.relayVariables {
+			variables[name] = value
+		}
+		delete(payload, "features")
+		target = "https://api.x.com/graphql/" + id + "/CreateTweet"
+	}
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return domain.Post{}, err
 	}
@@ -383,7 +482,7 @@ func (c *Client) CreatePost(ctx context.Context, draft domain.Draft, image *Imag
 	if replyTo != "" {
 		referer += "/status/" + replyTo
 	}
-	data, err := c.request(ctx, http.MethodPost, Origin+"/i/api/graphql/"+id+"/CreateTweet", "application/json", body, http.Header{"Referer": {referer}})
+	data, err := c.request(ctx, http.MethodPost, target, "application/json", body, http.Header{"Referer": {referer}})
 	if receiptWriter != nil {
 		if _, err := receiptWriter.Write(data); err != nil {
 			return domain.Post{}, fmt.Errorf("save create receipt after transmission: %w", err)

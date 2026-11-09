@@ -24,29 +24,53 @@ Usage:
   go run . auth status
   go run . me
   go run . api status
+  go run . people follow [--send --expect-account HANDLE --expect-id ID] HANDLE
+  go run . messages check HANDLE
+  go run . messages send --text-file FILE HANDLE
+  go run . messages send --text-file FILE --send --expect-account HANDLE --expect-sha256 HASH HANDLE
   go run . posts list
   go run . posts read [--save-response NEW.json] ID|https://x.com/HANDLE/status/ID
   go run . posts replies [--save-response NEW.json] ID|https://x.com/HANDLE/status/ID
   go run . posts create --text-file FILE [--image FILE] [--reply-to ID|URL]
   go run . posts create --text-file FILE [--image FILE] [--reply-to ID|URL] 
     --publish --expect-author HANDLE --expect-sha256 PACKAGE_HASH
+  go run . posts delete [--apply --expect-author HANDLE --expect-sha256 HASH] ID|URL
 
 Create previews by default, including the exact author, text, image hash and
 reply target. It never uploads in preview. Review that package before using
 --publish with its package_sha256. Replies are supported only to your own posts.
+people follow previews the account, recipient and current relationship. --send
+follows only the expected account ID, saves a private receipt and verifies the
+profile afterward. Existing follows or pending requests are no-ops. No retries.
+messages check reads the exact recipient's X Chat permissions and reason.
+can_message combines DM permission, recipient blocks and the Premium check.
+can_dm_on_xchat separately reports encrypted Chat support, not DM access.
+Null permission fields mean unavailable, never false. This does not send messages,
+open conversations, fetch message history, or create encryption keys/tokens.
+The check reports server permission, not guaranteed future delivery or reading.
+messages send previews plain-text DMs by default, reading one conversation page
+without read receipts. --send requires the preview's account and package hash.
+Encrypted recipients/conversations are unsupported; no keys are created.
+A private attempt blocks duplicates/uncertain retries. Sends are verified by
+their exact server receipt and a conversation readback; no automatic retries.
 One static PNG/JPEG/WebP image, at most 5 MiB; no video, polls or long posts.
+Delete previews by default. --apply deletes only the exact reviewed own post,
+saves its receipt, and requires the returned deleted ID to match. No retries.
 Text is never truncated. A conservative 280-character upper bound may overcount
 URLs and compound emoji. A saved attempt blocks duplicate/uncertain sends.
 
-auth import/status are local-only. Other commands read the current X bootstrap
-and public app bundle, then verify the selected account. Reads export no private
-contact fields. Post output includes direct public photo URLs in image_urls.
+auth import/status are local-only. Other commands verify the selected account
+against X's bootstrap. Reads decode streamed page JSON; classic API responses
+remain supported. Publishing discovers current public modules and query IDs.
+Reads export no private contact fields. Post output includes direct public photo
+URLs in image_urls.
 posts read includes parents oldest first and visible direct replies from one
 conversation request. parents_complete and missing_parent_id report gaps;
 reply history is not exhausted.
 posts list is one page of up to 20 own original posts, with
 available views and engagement counters; no pagination or attribution claims.
-HTTP 429, auth errors, redirects and API restrictions stop without retries.
+HTTP 429, auth errors and API restrictions stop without retries. Reads may follow
+one canonical redirect on x.com only when it preserves the exact post ID.
 TWITTER_CONFIG_DIR overrides the OS user configuration directory/twitter.
 `
 
@@ -72,8 +96,20 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if args[0] == "auth" {
 		return auth(ctx, args[1:], dir, out, errOut)
 	}
+	if args[0] == "people" && len(args) > 1 && args[1] == "follow" {
+		return followCommand(ctx, args[2:], dir, out, errOut)
+	}
+	if args[0] == "messages" && len(args) > 1 && args[1] == "check" {
+		return checkMessaging(ctx, args[2:], dir, out)
+	}
+	if args[0] == "messages" && len(args) > 1 && args[1] == "send" {
+		return chatCommand(ctx, args[2:], dir, out, errOut)
+	}
 	if args[0] == "posts" && len(args) > 1 && args[1] == "create" {
 		return create(ctx, args[2:], dir, out, errOut)
+	}
+	if args[0] == "posts" && len(args) > 1 && args[1] == "delete" {
+		return deleteCommand(ctx, args[2:], dir, out, errOut)
 	}
 	apiStatus := len(args) == 2 && args[0] == "api" && args[1] == "status"
 	if !apiStatus && (args[0] != "me" || len(args) != 1) && (args[0] != "posts" || len(args) < 2 || (args[1] != "read" && args[1] != "list" && args[1] != "replies")) {

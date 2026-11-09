@@ -1,0 +1,47 @@
+{
+  "metadata": {
+    "geo": {
+      "entityUrn": "urn:li:fsd_geo:92000000",
+      "fullLocalizedName": "Worldwide"
+    }
+  },
+  "paging": { "start": 0, "count": 3, "total": 5 },
+  "elements": [
+    {
+      "jobCardUnion": {
+        "jobPostingCard": {
+          "jobPostingUrn": "urn:li:fsd_jobPosting:201",
+          "jobPostingTitle": "Senior Platform Engineer",
+          "primaryDescription": { "text": "Example Company" },
+          "secondaryDescription": { "text": "London, England (Hybrid)" },
+          "tertiaryDescription": { "text": "$150K–$200K/yr" },
+          "logo": {
+            "attributes": [
+              { "detailDataUnion": { "companyLogo": "urn:li:fsd_company:123456789" } }
+            ]
+          },
+          "footerItems": [
+            { "type": "LISTED_DATE", "timeAt": 1794052800000 }
+          ]
+        }
+      }
+    },
+    { "jobCardUnion": { "jobSearchSuggestion": { "title": "Try a different search" } } },
+    {
+      "jobCardUnion": {
+        "jobPostingCard": {
+          "jobPostingUrn": "urn:li:fsd_jobPosting:202",
+          "jobPostingTitle": "Developer Tools Engineer",
+          "primaryDescription": { "text": "Example Company" },
+          "secondaryDescription": { "text": "United States (Remote)" },
+          "logo": {
+            "attributes": [
+              { "detailDataUnion": { "companyLogo": "urn:li:fsd_company:123456789" } }
+            ]
+          },
+          "footerItems": []
+        }
+      }
+    }
+  ]
+}

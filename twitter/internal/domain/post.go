@@ -20,7 +20,7 @@ func Handle(value string) (string, error) {
 	return value, nil
 }
 
-type PostRef struct{ id string }
+type PostRef struct{ id, handle string }
 
 func NewPostRef(value string) (PostRef, error) {
 	if numericID.MatchString(value) {
@@ -31,7 +31,7 @@ func NewPostRef(value string) (PostRef, error) {
 		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 		if len(parts) == 3 && parts[1] == "status" && numericID.MatchString(parts[2]) {
 			if _, err := Handle(parts[0]); err == nil {
-				return PostRef{id: parts[2]}, nil
+				return PostRef{id: parts[2], handle: parts[0]}, nil
 			}
 		}
 	}
@@ -39,6 +39,8 @@ func NewPostRef(value string) (PostRef, error) {
 }
 
 func (r PostRef) ID() string { return r.id }
+
+func (r PostRef) Handle() string { return r.handle }
 
 type Draft struct {
 	text  string

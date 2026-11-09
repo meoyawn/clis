@@ -49,12 +49,14 @@ func signingDocument() string {
 // Responses are synthetic and follow the inspected browser schema.
 func TestPostPackageLifecycle(t *testing.T) {
 	for _, tc := range []struct {
-		name                                                                                                                   string
-		status                                                                                                                 int
-		timeout, wrongReadback, receiptError, reply, minimalReceipt, idOnlyReceipt, legacyOnlyReceipt, wrongMedia, wrongParent bool
+		name                                                                                                                               string
+		status                                                                                                                             int
+		timeout, wrongReadback, receiptError, reply, minimalReceipt, idOnlyReceipt, legacyOnlyReceipt, wrongMedia, wrongParent, redesigned bool
 	}{
 		{name: "verified image publication and duplicate no-op"},
 		{name: "own reply retains exact parent", reply: true},
+		{name: "redesigned image publication", redesigned: true},
+		{name: "redesigned own reply", redesigned: true, reply: true},
 		{name: "create receipt omits duplicate legacy identifiers", minimalReceipt: true},
 		{name: "receipt contains only a post identifier", idOnlyReceipt: true},
 		{name: "receipt uses legacy post identifier", legacyOnlyReceipt: true},
@@ -89,6 +91,13 @@ func TestPostPackageLifecycle(t *testing.T) {
 				wireTweet = strings.Replace(wireTweet, `"legacy":{`, `"legacy":{"in_reply_to_status_id_str":"122",`, 1)
 			}
 			var packagePath string
+			redesignedPage := func(body string) string {
+				encoded, err := json.Marshal(body)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return signingDocument() + `<script>window.__INITIAL_DATA__={"viewerId":"42","viewerScreenName":"example"};</script><script>const entryHref="https://abs.twimg.com/x-web/x-web/entry-client-fixture.js";</script><script>const result={kind:"Result.Ok",value:` + string(encoded) + `};</script>`
+			}
 			transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
 				if r.URL.Host == "abs.twimg.com" {
 					if r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" {
@@ -96,6 +105,22 @@ func TestPostPackageLifecycle(t *testing.T) {
 					}
 					if strings.Contains(r.URL.Path, "/ondemand.s.") {
 						return response(200, `(a[1],16);(a[2],16);`), nil
+					}
+					if tc.redesigned {
+						switch {
+						case strings.HasSuffix(r.URL.Path, "/entry-client-fixture.js"):
+							return response(200, `import{a}from"./assets/shared.js";import{b}from"./assets/routes.js";`), nil
+						case strings.HasSuffix(r.URL.Path, "/shared.js"):
+							return response(200, `const token="AAAAA`+strings.Repeat("a", 70)+`";`), nil
+						case strings.HasSuffix(r.URL.Path, "/routes.js"):
+							return response(200, "const route={path:`/compose/post`,lazyComponent:()=>import(`./composer.js`)};const signer=()=>import(`./signer.js`).then(e=>e.default());"), nil
+						case strings.HasSuffix(r.URL.Path, "/composer.js"):
+							return response(200, "const op={params:{id:`test-query`,metadata:{},name:`CreateTweet`,operationKind:`mutation`,text:null,providedVariables:{__relay_internal__pv__xclientsfeaturesappviewerisloggedinrelayprovider:P}}};"), nil
+						case strings.HasSuffix(r.URL.Path, "/signer.js"):
+							return response(200, `(a[1],16);(a[2],16);`), nil
+						default:
+							t.Fatalf("unexpected public module %s", r.URL.Path)
+						}
 					}
 					bundle := `const token="AAAAA` + strings.Repeat("a", 70) + `";`
 					for _, op := range []string{"UserByScreenName", "TweetDetail", "CreateTweet", "UserOriginalsTimeline"} {
@@ -107,10 +132,13 @@ func TestPostPackageLifecycle(t *testing.T) {
 					gets++
 					switch {
 					case r.URL.Path == "/home":
+						if tc.redesigned {
+							return response(200, redesignedPage(`{"data":{"viewer":{"user_results":{"result":`+userJSON+`}}}}`)), nil
+						}
 						return response(200, signingDocument()+`<script src="https://abs.twimg.com/responsive-web/client-web/main.fixture.js"></script><script>window.__INITIAL_STATE__={"settings":{"remote":{"settings":{"screen_name":"example"}}}};</script>`), nil
 					case strings.HasSuffix(r.URL.Path, "/UserByScreenName"):
 						return response(200, `{"data":{"user":{"result":`+userJSON+`}}}`), nil
-					case strings.HasSuffix(r.URL.Path, "/TweetDetail"):
+					case strings.HasSuffix(r.URL.Path, "/TweetDetail") || (tc.redesigned && r.URL.Path == "/example/status/123"):
 						body := wireTweet
 						if tc.wrongReadback {
 							body = strings.Replace(body, "Keep the session running", "Another post", 1)
@@ -121,7 +149,11 @@ func TestPostPackageLifecycle(t *testing.T) {
 						if tc.wrongParent {
 							body = strings.Replace(body, `"in_reply_to_status_id_str":"122"`, `"in_reply_to_status_id_str":"777"`, 1)
 						}
-						return response(200, `{"data":{"threaded_conversation_with_injections_v2":{"instructions":[{"entries":[{"content":{"itemContent":{"tweet_results":{"result":`+body+`}}}}]}]}}}`), nil
+						result := `{"data":{"threaded_conversation_with_injections_v2":{"instructions":[{"entries":[{"content":{"itemContent":{"tweet_results":{"result":` + body + `}}}}]}]}}}`
+						if tc.redesigned {
+							return response(200, redesignedPage(result)), nil
+						}
+						return response(200, result), nil
 					default:
 						return nil, fmt.Errorf("unexpected GET %s", r.URL.Path)
 					}
@@ -197,20 +229,25 @@ func TestPostPackageLifecycle(t *testing.T) {
 				}
 				var body struct {
 					Variables struct {
-						Text  string          `json:"tweet_text"`
-						Reply json.RawMessage `json:"reply"`
-						Media struct {
+						Text     string          `json:"tweet_text"`
+						Reply    json.RawMessage `json:"reply"`
+						LoggedIn bool            `json:"__relay_internal__pv__xclientsfeaturesappviewerisloggedinrelayprovider"`
+						Media    struct {
 							Entities []struct {
 								ID string `json:"media_id"`
 							} `json:"media_entities"`
 						} `json:"media"`
 					} `json:"variables"`
+					Features json.RawMessage `json:"features"`
 				}
 				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 					t.Fatal(err)
 				}
 				if body.Variables.Text != draft.Text() || len(body.Variables.Media.Entities) != 1 || body.Variables.Media.Entities[0].ID != "456" {
 					t.Fatal("create request changed reviewed text/media/reply")
+				}
+				if tc.redesigned && (r.URL.Host != "api.x.com" || !body.Variables.LoggedIn || len(body.Features) != 0) {
+					t.Fatal("redesigned publication did not use the observed API host and Relay variables")
 				}
 				if tc.reply {
 					var reply struct {
@@ -254,7 +291,11 @@ func TestPostPackageLifecycle(t *testing.T) {
 				parent = &domain.Post{ID: "122", Author: owner, URL: "https://x.com/example/status/122"}
 			}
 			p := preview(owner, draft, image, parent)
-			if p.Published || p.Verified || p.Text != draft.Text() || p.Image.SHA256 != image.SHA256 || posts != 0 || uploads != 0 || gets != 2 {
+			wantGets := 2
+			if tc.redesigned {
+				wantGets = 1
+			}
+			if p.Published || p.Verified || p.Text != draft.Text() || p.Image.SHA256 != image.SHA256 || posts != 0 || uploads != 0 || gets != wantGets {
 				t.Fatalf("preview performed writes or lost reviewed values: %+v", p)
 			}
 			packagePath = filepath.Join(dir, "posts", p.SHA256+".json")

@@ -40,8 +40,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	store := authStore{dir: dir}
 	switch args[0] {
 	case "companies":
+		if len(args) >= 2 && args[1] == "jobs" {
+			return runCompanyJobs(ctx, args[2:], store, stdout, stderr)
+		}
 		if len(args) < 2 || args[1] != "people" {
-			return fmt.Errorf("expected %q; run linkedin --help", args[0]+" people <company>")
+			return fmt.Errorf("expected companies people <company> or companies jobs <company>; run linkedin --help")
 		}
 		fs := flag.NewFlagSet("companies people", flag.ContinueOnError)
 		fs.SetOutput(stderr)

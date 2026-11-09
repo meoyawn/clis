@@ -6,13 +6,14 @@ import (
 	"strings"
 )
 
-const rootHelp = `LinkedIn people, profiles, mutual connections, and messages, as JSON.
+const rootHelp = `LinkedIn people, jobs, profiles, mutual connections, and messages, as JSON.
 
 Usage:
   linkedin <command> [flags]
 
 Commands:
   companies people <company>  List people at a company
+  companies jobs <company>    List a company's job openings worldwide
   people search <query>...    Search people with one or more keyword queries
   people profile <person>     Read profile details and experience
   people mutuals <person>     Find shared first-degree connections
@@ -60,19 +61,59 @@ Environment:
 Run 'linkedin <command> --help' for command options and examples.
 `
 
-const companiesHelp = `Look up people at LinkedIn companies.
+const companiesHelp = `Look up people and job openings at LinkedIn companies.
 
 Usage:
   linkedin companies <command>
 
 Commands:
   people <company>           List people at a company as JSON
+  jobs <company>             List job openings worldwide as JSON
 
 Examples:
   linkedin companies people example-company
   linkedin companies people https://www.linkedin.com/company/example-company/
+  linkedin companies jobs https://www.linkedin.com/company/example-company/jobs/ --all
 
-Run 'linkedin companies people --help' for options.
+Run 'linkedin companies <command> --help' for options.
+`
+
+const companyJobsHelp = `List a LinkedIn company's job openings worldwide, as JSON.
+
+Usage:
+  linkedin companies jobs <company> [flags]
+
+Arguments:
+  <company>                  Company slug, numeric ID, LinkedIn company URL
+                             (including /jobs/), or organization URN
+
+Options:
+      --limit N              Maximum jobs to return (default: 25)
+      --start N              Start at this result offset (default: 0)
+      --all                  Fetch every available page; overrides --limit
+  -h, --help                 Show help
+
+Examples:
+  linkedin companies jobs sanity-io
+  linkedin companies jobs https://www.linkedin.com/company/sanity-io/jobs/ --all
+  linkedin companies jobs 18400536 --limit 5
+  linkedin companies jobs sanity-io --start 25
+
+Flags may precede or follow the company. Sign in with 'linkedin auth login'.
+Reads the company-filtered listings API in pages of up to 25, without a keyword
+or country restriction. Slugs require one company lookup; numeric IDs skip it.
+Worldwide scope and company identity are checked in the returned data.
+Requests are spaced and are not retried; failures produce no partial JSON.
+
+Output includes company, jobs, total, returned, start, has_more, next_start,
+and fetched_at. Use next_start with --start to continue in LinkedIn search order.
+Each job has id, title, company, location, and a direct /jobs/view/ URL.
+Location retains any Remote/Hybrid/On-site label. Optional details preserves
+LinkedIn's additional card text (which can include pay); listed_at is UTC.
+Repeated job IDs are deduplicated. Total is LinkedIn's reported result count,
+not the employer's vacancy count; postings and search order can change.
+Listings do not establish that an external application is still accepting
+candidates. This command does not fetch descriptions or application forms.
 `
 
 const peopleHelp = `List people at a LinkedIn company as JSON.
@@ -382,6 +423,8 @@ func writeHelp(w io.Writer, commands []string) error {
 		help = companiesHelp
 	case "companies people":
 		help = fmt.Sprintf(peopleHelp, pageSize, pageSize)
+	case "companies jobs":
+		help = companyJobsHelp
 	case "people":
 		help = profilesHelp
 	case "people search":
