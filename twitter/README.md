@@ -56,7 +56,10 @@ is never downgraded, and the CLI creates no encryption keys or Chat tokens.
 It reads one conversation page without read receipts, checks for an identical
 outgoing message, saves a private durable attempt, and sends at most once.
 Both the server receipt and subsequent readback must match the exact sender,
-recipient, message ID and UTF-8 text. An uncertain attempt blocks another send;
+recipient and message ID. The receipt must match the exact UTF-8 text; readback
+also permits the server to remove terminal CR/LF, while exposing the actual
+returned text. No other whitespace or content changes are accepted.
+An uncertain attempt blocks another send;
 inspect its receipt and the conversation before any manual retry. History
 deduplication covers only the fetched page, not the entire conversation.
 Post reads may follow one canonical redirect on `x.com` that preserves the exact

@@ -24,3 +24,24 @@ func TestChatApprovalBindsSenderRecipientAndExactText(t *testing.T) {
 		t.Fatalf("unreviewed send did not stop before loading credentials: %v", err)
 	}
 }
+
+func TestChatReadbackOnlyAllowsRemovalOfTerminalLineBreaks(t *testing.T) {
+	for _, tc := range []struct {
+		expected string
+		actual   string
+		matches  bool
+	}{
+		{"hello\n", "hello\n", true},
+		{"hello\r\n", "hello", true},
+		{"first\nsecond\n", "first\nsecond", true},
+		{"hello ", "hello", false},
+		{" hello\n", "hello", false},
+		{"first\nsecond\n", "first second", false},
+		{"hello", "hello\n", false},
+		{"hello!\n", "hello", false},
+	} {
+		if got := chatReadbackMatches(tc.expected, tc.actual); got != tc.matches {
+			t.Fatalf("readbackMatches(%q, %q)=%t; want %t", tc.expected, tc.actual, got, tc.matches)
+		}
+	}
+}

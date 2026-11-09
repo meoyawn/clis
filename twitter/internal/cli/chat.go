@@ -64,6 +64,12 @@ func chatPackageHash(owner, recipient, text string) string {
 	return fmt.Sprintf("%x", sha256.Sum256(encoded))
 }
 
+func chatReadbackMatches(expected, actual string) bool {
+	// X preserves file-ending line breaks in its send receipt but may remove
+	// them in conversation reads. All other bytes must still match exactly.
+	return actual == expected || actual == strings.TrimRight(expected, "\r\n")
+}
+
 func chatCommand(ctx context.Context, args []string, dir string, out, errOut io.Writer) error {
 	fs := flag.NewFlagSet("messages send", flag.ContinueOnError)
 	fs.SetOutput(errOut)
@@ -124,7 +130,7 @@ func chatCommand(ctx context.Context, args []string, dir string, out, errOut io.
 	}
 	result := chatPreview{Account: owner, Availability: availability, ConversationID: page.ConversationID, Text: messageText, SHA256: hash, CheckedAt: time.Now().UTC()}
 	for _, message := range page.Messages {
-		if message.SenderID == owner.ID && !message.Encrypted && message.Text == messageText {
+		if message.SenderID == owner.ID && !message.Encrypted && chatReadbackMatches(messageText, message.Text) {
 			result.AlreadyPresent, result.Verified = true, true
 			result.Message = &message
 			return writeJSON(out, result)
@@ -175,8 +181,9 @@ func chatCommand(ctx context.Context, args []string, dir string, out, errOut io.
 		return fmt.Errorf("message %q accepted, readback failed; do not resend: %w", message.ID, err)
 	}
 	for _, found := range after.Messages {
-		if found.ID == message.ID && found.SenderID == owner.ID && found.ConversationID == page.ConversationID && found.Text == messageText {
+		if found.ID == message.ID && found.SenderID == owner.ID && found.ConversationID == page.ConversationID && chatReadbackMatches(messageText, found.Text) {
 			result.Verified = true
+			result.Message = &found
 		}
 	}
 	if !result.Verified {
