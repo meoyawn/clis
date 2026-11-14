@@ -22,6 +22,7 @@ Commands:
   profile headline <person>  Preview or update your own profile headline
   profile about <person>     Preview or update your About section
   profile project <person>   Preview or add a dated project
+  profile skill <person>     Preview or add a native skill
   messages read <person>      Read recent messages in a direct conversation
   messages send <person>      Preview or send approved plain text
   posts create                Preview or publish an approved personal feed post

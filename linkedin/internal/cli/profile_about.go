@@ -23,8 +23,11 @@ func runProfile(ctx context.Context, args []string, store authStore, out, errOut
 	if args[0] == "project" {
 		return runProfileProject(ctx, args[1:], store, out, errOut)
 	}
+	if args[0] == "skill" {
+		return runProfileSkill(ctx, args[1:], store, out, errOut)
+	}
 	if args[0] != "about" {
-		return fmt.Errorf("unknown profile command %q; expected headline, about or project", args[0])
+		return fmt.Errorf("unknown profile command %q; expected headline, about, project or skill", args[0])
 	}
 	fs := flag.NewFlagSet("profile about", flag.ContinueOnError)
 	fs.SetOutput(errOut)
@@ -77,6 +80,7 @@ Usage:
   linkedin profile headline <person> --text TEXT [--apply]
   linkedin profile about <person> --text-file FILE [--apply]
   linkedin profile project <person> --file FILE [--apply]
+  linkedin profile skill <person> --name NAME [--apply]
 
 Preview does not write. --apply saves the user's requested content and verifies
 the fresh form, account identity, headline and all other intro fields, including
