@@ -19,6 +19,10 @@ const CreateCommentPath = "/flagship-web/rsc-action/actions/server-request?sduii
 // PrepareComment follows the observed own-profile comment composer. Binding
 // keys and optimistic IDs are local identifiers, not copied account state.
 func PrepareComment(ref domain.PostRef, draft domain.PostDraft) ([]byte, error) {
+	return PrepareCommentThread(ref, draft, ref.URN())
+}
+
+func PrepareCommentThread(ref domain.PostRef, draft domain.PostDraft, threadURN string) ([]byte, error) {
 	if _, err := domain.NewPostDraft(draft.Text()); err != nil {
 		return nil, err
 	}
@@ -34,6 +38,15 @@ func PrepareComment(ref domain.PostRef, draft domain.PostDraft) ([]byte, error) 
 	payload := map[string]any{
 		"optimisticKey": "auto-component-" + suffix,
 		"collection":    map[string]any{"updateKey": map[string]any{"feedType": 51, "items": []any{map[string]any{"feedUpdateUrn": map[string]any{"updateUrnActivityUrn": map[string]any{"activityUrn": map[string]any{"activityId": strings.TrimPrefix(ref.URN(), "urn:li:activity:")}}}, "trackingId": base64.StdEncoding.EncodeToString(random[16:])}}, "aggregationReasonTypes": []any{}, "isVideoCarousel": false}, "threadUrn": map[string]any{"threadUrnActivityThreadUrn": map[string]any{"activityUrn": map[string]any{"activityId": strings.TrimPrefix(ref.URN(), "urn:li:activity:")}}}},
+	}
+	if threadURN != ref.URN() {
+		id, ok := strings.CutPrefix(threadURN, "urn:li:ugcPost:")
+		if !ok || !regexp.MustCompile(`^[1-9][0-9]*$`).MatchString(id) {
+			return nil, fmt.Errorf("invalid comment thread %q", threadURN)
+		}
+		collection := payload["collection"].(map[string]any)
+		collection["threadUrn"] = map[string]any{"threadUrnUgcPostThreadUrn": map[string]any{"userGeneratedContentPostUrn": map[string]any{"userGeneratedContentId": id}}}
+		collection["updateKey"].(map[string]any)["feedType"] = 3
 	}
 	for _, f := range []struct {
 		name, key string
@@ -54,7 +67,7 @@ func PrepareComment(ref domain.PostRef, draft domain.PostDraft) ([]byte, error) 
 		keys = append(keys, map[string]any{"key": map[string]any{"value": map[string]any{"$case": "id", "id": key}}})
 		payload[f.name] = mediaBinding(key)
 	}
-	metadata := map[string]any{"$type": "proto.sdui.common.RequestMetadata", "currentActor": map[string]any{"$type": "proto.sdui.bindings.core.Bindable", "key": map[string]any{"key": map[string]any{"value": map[string]any{"$case": "id", "id": "identitySwitcherActorContext-" + ref.URN()}}, "namespace": ""}, "content": map[string]any{"$case": "stringBinding", "stringBinding": map[string]any{}}}}
+	metadata := map[string]any{"$type": "proto.sdui.common.RequestMetadata", "currentActor": map[string]any{"$type": "proto.sdui.bindings.core.Bindable", "key": map[string]any{"key": map[string]any{"value": map[string]any{"$case": "id", "id": "identitySwitcherActorContext-" + threadURN}}, "namespace": ""}, "content": map[string]any{"$case": "stringBinding", "stringBinding": map[string]any{}}}}
 	args := map[string]any{"$type": "proto.sdui.actions.requests.RequestedArguments", "requestedStateKeys": keys, "payload": payload, "requestMetadata": metadata}
 	clientArgs := map[string]any{}
 	for k, v := range args {
@@ -66,12 +79,16 @@ func PrepareComment(ref domain.PostRef, draft domain.PostDraft) ([]byte, error) 
 
 func ConfirmCommentCompletion(data []byte) error { _, err := rscCompletion(data); return err }
 
-var commentKey = regexp.MustCompile(`^replaceableComment_urn:li:comment:\(activity:([1-9][0-9]*),([1-9][0-9]*)\)$`)
+var commentKey = regexp.MustCompile(`^replaceableComment_urn:li:comment:\((activity|ugcPost):([1-9][0-9]*),([1-9][0-9]*)\)$`)
 
 // ParsePostComments reads only the exact activity's rendered comment cards. The
 // first page is not an exhaustive historical search.
 func ParsePostComments(ref domain.PostRef, document string) ([]domain.Comment, error) {
-	if _, err := ParsePostDocument(ref, document); err != nil {
+	return ParsePostCommentsThread(ref, document, ref.URN())
+}
+
+func ParsePostCommentsThread(ref domain.PostRef, document, threadURN string) ([]domain.Comment, error) {
+	if _, err := ParsePostDocumentThread(ref, document, threadURN); err != nil {
 		return nil, err
 	}
 	root, err := html.Parse(strings.NewReader(document))
@@ -85,7 +102,7 @@ func ParsePostComments(ref domain.PostRef, document string) ([]domain.Comment, e
 			continue
 		}
 		m := commentKey.FindStringSubmatch(postAttr(n, "componentkey"))
-		if len(m) != 3 || "urn:li:activity:"+m[1] != ref.URN() {
+		if len(m) != 4 || "urn:li:"+m[1]+":"+m[2] != threadURN {
 			continue
 		}
 		inPrimary := false
@@ -98,8 +115,8 @@ func ParsePostComments(ref domain.PostRef, document string) ([]domain.Comment, e
 		if !inPrimary {
 			continue
 		}
-		comment := domain.Comment{ID: m[2], URN: "urn:li:comment:(activity:" + m[1] + "," + m[2] + ")", ParentURN: ref.URN()}
-		comment.URL = ref.URL() + "?dashCommentUrn=" + url.QueryEscape("urn:li:fsd_comment:("+m[2]+","+ref.URN()+")")
+		comment := domain.Comment{ID: m[3], URN: "urn:li:comment:(" + m[1] + ":" + m[2] + "," + m[3] + ")", ParentURN: ref.URN()}
+		comment.URL = ref.URL() + "?dashCommentUrn=" + url.QueryEscape("urn:li:fsd_comment:("+m[3]+","+threadURN+")")
 		var textNode *html.Node
 		for child := range n.Descendants() {
 			if child.Type != html.ElementNode || postHidden(child) {
@@ -118,7 +135,7 @@ func ParsePostComments(ref domain.PostRef, document string) ([]domain.Comment, e
 				bound := true
 				for p := child.Parent; p != nil && p != n; p = p.Parent {
 					key := postAttr(p, "componentkey")
-					if strings.HasPrefix(key, "replaceableComment_") || (strings.HasPrefix(key, "translatable-commentary-") && !strings.Contains(key, "commentId="+m[2]+",")) {
+					if strings.HasPrefix(key, "replaceableComment_") || (strings.HasPrefix(key, "translatable-commentary-") && !strings.Contains(key, "commentId="+m[3]+",")) {
 						bound = false
 					}
 				}

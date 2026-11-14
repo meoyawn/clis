@@ -17,7 +17,7 @@ import (
 
 func TestApplicationApprovalIdentityAndReceipt(t *testing.T) {
 	const letter = "Ксения, привет!\n\nAndroid offline-first: https://example.com/work?a=1&b=2"
-	for _, scenario := range []string{"preview", "send", "unapproved", "tampered-letter", "changed-resume", "wrong-vacancy", "test-required", "already-applied", "wrong-readback", "rate-limit"} {
+	for _, scenario := range []string{"preview", "send", "unapproved", "tampered-letter", "changed-resume", "wrong-vacancy", "test-required", "already-applied", "wrong-readback", "rate-limit", "remote-relocation-warning", "onsite-relocation-warning", "remote-country-visibility"} {
 		t.Run(scenario, func(t *testing.T) {
 			posts, requests := 0, 0
 			submitted, changed := false, false
@@ -50,14 +50,18 @@ func TestApplicationApprovalIdentityAndReceipt(t *testing.T) {
 					if scenario == "wrong-vacancy" {
 						id++
 					}
-					state, _ := json.Marshal(hh.Object{"vacancyView": hh.Object{"vacancyFull": hh.Object{"vacancy": hh.Object{"vacancyId": id, "name": "Senior Android", "company": hh.Object{"id": 125, "name": "Employer"}, "description": "<p>Build offline-first Android applications</p>", "status": hh.Object{"archived": false}}}}, "applicantVacancyResponseStatuses": hh.Object{"135582813": responseStatus()}})
+					formats := []any{"ON_SITE"}
+					if strings.HasPrefix(scenario, "remote-") {
+						formats = []any{"REMOTE"}
+					}
+					state, _ := json.Marshal(hh.Object{"vacancyView": hh.Object{"vacancyFull": hh.Object{"vacancy": hh.Object{"vacancyId": id, "name": "Senior Android", "company": hh.Object{"id": 125, "name": "Employer"}, "description": "<p>Build offline-first Android applications</p>", "workFormats": formats, "status": hh.Object{"archived": false}}}}, "applicantVacancyResponseStatuses": hh.Object{"135582813": responseStatus()}})
 					fmt.Fprintf(w, `<template id="HH-Lux-InitialState">%s</template>`, html.EscapeString(string(state)))
 				case "/applicant/vacancy_response/popup":
 					if r.Method == http.MethodGet {
 						if r.URL.Query().Get("vacancyId") != "135582813" {
 							t.Errorf("wrong vacancy preflight: %s", r.URL)
 						}
-						_ = json.NewEncoder(w).Encode(hh.Object{"type": "modal", "responsePopup": hh.Object{"type": "normal", "vacancy": hh.Object{"vacancyId": 135582813}}, "responseStatus": responseStatus()})
+						_ = json.NewEncoder(w).Encode(hh.Object{"type": "modal", "responsePopup": hh.Object{"type": "normal", "vacancy": hh.Object{"vacancyId": 135582813}}, "responseStatus": responseStatus(), "relocationWarning": hh.Object{"show": strings.HasSuffix(scenario, "relocation-warning"), "regionTrl": "Other regions", "vacancyId": 135582813}, "countriesProfileVisibilityAgreement": hh.Object{"show": scenario == "remote-country-visibility"}})
 						return
 					}
 					posts++
@@ -106,6 +110,16 @@ func TestApplicationApprovalIdentityAndReceipt(t *testing.T) {
 			vacancy, _ := hh.NewVacancyIDFromValue("https://kazan.hh.ru/vacancy/135582813?from=main")
 			resume, _ := hh.NewResumeIDFromValue(hashes[1])
 			draft, err := client.PrepareApplication(context.Background(), vacancy, resume, letter, nil)
+			if scenario == "onsite-relocation-warning" || scenario == "remote-country-visibility" {
+				warning := "relocationWarning"
+				if scenario == "remote-country-visibility" {
+					warning = "countriesProfileVisibilityAgreement"
+				}
+				if err == nil || !strings.Contains(err.Error(), warning) || posts != 0 {
+					t.Fatalf("want %s to prevent submission; got %v posts=%d", warning, err, posts)
+				}
+				return
+			}
 			if scenario == "wrong-vacancy" || scenario == "test-required" || scenario == "already-applied" {
 				if err == nil || posts != 0 {
 					t.Fatalf("unsupported or duplicate application accepted: %v posts=%d", err, posts)

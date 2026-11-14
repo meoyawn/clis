@@ -58,7 +58,9 @@ func (p PostRef) URL() string { return "https://www.linkedin.com/feed/update/" +
 type Post struct {
 	URL           string   `json:"url"`
 	URN           string   `json:"urn"`
+	ThreadURN     string   `json:"thread_urn,omitempty"`
 	AuthorURL     string   `json:"author_url"`
 	Text          string   `json:"text"`
 	ImageAssetIDs []string `json:"image_asset_ids,omitempty"`
+	VideoAssetIDs []string `json:"video_asset_ids,omitempty"`
 }

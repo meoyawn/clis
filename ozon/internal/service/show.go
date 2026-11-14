@@ -8,20 +8,51 @@ import (
 	"strings"
 )
 
-// Show fetches one product page. Full mode also fetches its details section and
-// the first cheaper/faster offer lists, for at most four pages. Each page may
-// additionally follow up to three validated redirects.
+const buttonTextPath = "/api/composer-api.bx/_action/v2/pdpGetButtonTexts"
+const buttonTextPayload = `{"params":{"enableProductViewedExtended":"true","inCartPosition":"subtitle","pageType":"pdp","toCartPosition":"subtitle"}}`
+
+// Show fetches one product page and, when needed, its delivery button text.
+// Full mode also fetches its details section and the first cheaper/faster
+// offer lists. Each request may follow up to three validated redirects.
 func (c *Client) Show(ctx context.Context, ref ItemReference, o ShowOptions, opt RequestOptions) (*ShowResult, error) {
 	if !skuPattern.MatchString(ref.SKU) {
 		return nil, fmt.Errorf("invalid SKU %q", ref.SKU)
 	}
-	p, err := c.fetchProduct(ctx, ref.Path, ref.SKU, opt)
+	if ref.ShareToken != "" && !shareTokenPattern.MatchString(ref.ShareToken) {
+		return nil, fmt.Errorf("invalid product share token")
+	}
+	productPath := ref.Path
+	if ref.ShareToken != "" {
+		u, err := productPageURL(productPath, ref.SKU)
+		if err != nil {
+			return nil, err
+		}
+		q := u.Query()
+		q.Set("sh", ref.ShareToken)
+		u.RawQuery = q.Encode()
+		productPath = u.String()
+	}
+	p, err := c.fetchProduct(ctx, productPath, ref.SKU, opt)
 	if err != nil {
 		return nil, err
 	}
 	out, err := parseShow(p, ref)
 	if err != nil {
 		return nil, err
+	}
+	if out.DeliveryDay == "" && out.Available != nil && *out.Available {
+		day, meta, err := c.fetchButtonDelivery(ctx, productPath, ref, opt)
+		mergeMeta(&out.Metadata, meta)
+		if err != nil {
+			out.Warnings = append(out.Warnings, err.Error())
+		} else {
+			out.DeliveryDay = day
+			for i := range out.Sellers {
+				if out.Sellers[i].Current {
+					out.Sellers[i].DeliveryDay = day
+				}
+			}
+		}
 	}
 	out.Full = o.Full
 	if !o.Full {
@@ -86,6 +117,33 @@ func (c *Client) Show(ctx context.Context, ref ItemReference, o ShowOptions, opt
 		out.Warnings = append(out.Warnings, "Ozon did not supply a text description in the fetched product sections.")
 	}
 	return out, nil
+}
+
+func (c *Client) fetchButtonDelivery(ctx context.Context, productPath string, ref ItemReference, opt RequestOptions) (string, Metadata, error) {
+	target, err := url.Parse(WebOrigin + buttonTextPath)
+	if err != nil {
+		return "", Metadata{}, err
+	}
+	q := url.Values{"product_id": {ref.SKU}}
+	if ref.ShareToken != "" {
+		q.Set("sh", ref.ShareToken)
+	}
+	target.RawQuery = q.Encode()
+	response, err := c.fetchPostWithRedirect(ctx, productPath, target, opt, []byte(buttonTextPayload))
+	if response == nil {
+		return "", Metadata{}, fmt.Errorf("load product delivery: %w", err)
+	}
+	for i := range response.meta.SourceURLs {
+		response.meta.SourceURLs[i] = target.String()
+	}
+	if err != nil {
+		return "", response.meta, fmt.Errorf("load product delivery: %w", err)
+	}
+	var body object
+	if err := json.Unmarshal(response.body, &body); err != nil {
+		return "", response.meta, fmt.Errorf("invalid product delivery response: %w", err)
+	}
+	return text(at(body, "data", "firstButton", "toCartText")), response.meta, nil
 }
 
 func validateProductSection(path, sku string) error {

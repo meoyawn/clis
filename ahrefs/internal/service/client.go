@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -35,7 +36,28 @@ func (c *Client) call(ctx context.Context, endpoint string, input, output any) e
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Origin", Origin)
 	req.Header.Set("Referer", Origin+"/site-audit")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36")
+	return c.read(req, endpoint, output)
+}
+
+func (c *Client) get(ctx context.Context, endpoint string, input, output any) error {
+	body, err := json.Marshal(input)
+	if err != nil {
+		return fmt.Errorf("encode %s request: %w", endpoint, err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, Origin+"/v4/"+endpoint+"?input="+url.QueryEscape(string(body)), nil)
+	if err != nil {
+		return fmt.Errorf("create %s request: %w", endpoint, err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Referer", Origin+"/site-explorer")
+	req.Header.Set("Origin", Origin)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36")
+	return c.read(req, endpoint, output)
+}
+
+func (c *Client) read(req *http.Request, endpoint string, output any) error {
+	req.Header.Set("X-Client-Version", "release-20261110-bk61949-4852b32f51f04")
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return fmt.Errorf("request to Ahrefs %s failed: %w", endpoint, err)
@@ -70,6 +92,10 @@ func (c *Client) call(ctx context.Context, endpoint string, input, output any) e
 		var tag string
 		if len(parts) > 0 && json.Unmarshal(parts[0], &tag) == nil {
 			if tag != "Ok" || len(parts) != 2 {
+				var code string
+				if len(parts) == 2 && json.Unmarshal(parts[1], &code) == nil && code == "SeDomainIsNotVerified" {
+					return fmt.Errorf("request to Ahrefs %s: domain is not verified; this account requires domain ownership or a plan with competitor access", endpoint)
+				}
 				return fmt.Errorf("request to Ahrefs %s returned an API error or unsupported result; check the signed-in Chrome session", endpoint)
 			}
 			b = parts[1]

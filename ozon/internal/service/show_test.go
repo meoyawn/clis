@@ -6,6 +6,54 @@ import (
 	"testing"
 )
 
+func TestShowSharedLinkResolvesDelivery(t *testing.T) {
+	t.Parallel()
+	ref, err := ParseItemReference("https://www.ozon.ru/product/sample-100/?from=share&sh=s_lIb1luCA")
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	c := testClient(t, func(r *http.Request) (*http.Response, error) {
+		calls++
+		switch calls {
+		case 1:
+			if got := requireRequest(t, r); got != "/product/sample-100/?sh=s_lIb1luCA" {
+				t.Fatalf("shared product path = %q", got)
+			}
+			p := fixturePage(t, "product")
+			cart, err := p.first("webAddToCart")
+			if err != nil {
+				t.Fatal(err)
+			}
+			delete(obj(cart["firstButton"]), "toCart")
+			putWidget(t, p, "webAddToCart-123-default-1", cart)
+			body, err := json.Marshal(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return response(body, http.StatusOK), nil
+		case 2:
+			if r.Method != http.MethodPost || r.URL.Path != "/api/composer-api.bx/_action/v2/pdpGetButtonTexts" || r.URL.Query().Get("product_id") != "100" || r.URL.Query().Get("sh") != "s_lIb1luCA" {
+				t.Fatalf("unexpected delivery request: %s %s", r.Method, r.URL)
+			}
+			if got := r.Header.Get("Referer"); got != "https://www.ozon.ru/product/sample-100/?sh=s_lIb1luCA" {
+				t.Fatalf("delivery referer = %q", got)
+			}
+			return response([]byte(`{"data":{"firstButton":{"toCartText":{"text":"Доставим с 16 ноября"}}}}`), http.StatusOK), nil
+		default:
+			t.Fatalf("unexpected request %s", r.URL)
+			return nil, nil
+		}
+	})
+	got, err := c.Show(t.Context(), ref, ShowOptions{}, RequestOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 || got.HTTPRequests != 2 || got.DeliveryDay != "Доставим с 16 ноября" || len(got.Sellers) != 1 || got.Sellers[0].DeliveryDay != got.DeliveryDay {
+		t.Fatalf("delivery result = %+v", got)
+	}
+}
+
 func TestShowLightweightUsesOnlyMainPage(t *testing.T) {
 	t.Parallel()
 	for _, detailsPresent := range []bool{false, true} {

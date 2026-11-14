@@ -109,38 +109,38 @@ func (c *Client) CartList(ctx context.Context, opt RequestOptions) (*CartResult,
 	}
 }
 
-// Only 307/308 navigation redirects to the identical write endpoint are followed.
+// Only 307/308 navigation redirects to the identical POST endpoint are followed.
 // They preserve the method and body; changing any parameter except __rr is rejected.
-func cartWriteRedirectURL(raw string, current *url.URL) (*url.URL, error) {
+func postRedirectURL(raw string, current *url.URL) (*url.URL, error) {
 	u, err := url.Parse(raw)
 	if err != nil || u.User != nil || u.Opaque != "" || u.Fragment != "" || strings.ContainsAny(raw, "\\\r\n") {
-		return nil, fmt.Errorf("invalid cart write redirect")
+		return nil, fmt.Errorf("invalid POST redirect")
 	}
 	next := current.ResolveReference(u)
 	if next.Scheme != current.Scheme || next.Host != current.Host || next.EscapedPath() != current.EscapedPath() {
-		return nil, fmt.Errorf("cart write redirect changed endpoint")
+		return nil, fmt.Errorf("POST redirect changed endpoint")
 	}
 	q, err := url.ParseQuery(next.RawQuery)
 	if err != nil || q.Get("__rr") == "" {
-		return nil, fmt.Errorf("cart write redirect lacks navigation state")
+		return nil, fmt.Errorf("POST redirect lacks navigation state")
 	}
 	for key, values := range q {
 		if len(values) != 1 || values[0] == "" {
-			return nil, fmt.Errorf("invalid cart write redirect parameters")
+			return nil, fmt.Errorf("invalid POST redirect parameters")
 		}
 		if key != "__rr" && values[0] != current.Query().Get(key) {
-			return nil, fmt.Errorf("cart write redirect changed parameters")
+			return nil, fmt.Errorf("POST redirect changed parameters")
 		}
 	}
 	for key, values := range current.Query() {
 		if key != "__rr" && q.Get(key) != values[0] {
-			return nil, fmt.Errorf("cart write redirect dropped parameters")
+			return nil, fmt.Errorf("POST redirect dropped parameters")
 		}
 	}
 	return next, nil
 }
 
-func (c *Client) fetchCartWrite(ctx context.Context, relative string, target *url.URL, opt RequestOptions, payload []byte) (*jsonResponse, error) {
+func (c *Client) fetchPostWithRedirect(ctx context.Context, relative string, target *url.URL, opt RequestOptions, payload []byte) (*jsonResponse, error) {
 	cookies, err := c.auth.cookiesFor(target)
 	if err != nil {
 		return nil, err
@@ -165,14 +165,14 @@ func (c *Client) fetchCartWrite(ctx context.Context, relative string, target *ur
 			return response, err
 		}
 		if redirects == maxCartRedirects {
-			return response, fmt.Errorf("%w: exceeded %d cart write redirects", err, maxCartRedirects)
+			return response, fmt.Errorf("%w: exceeded %d POST redirects", err, maxCartRedirects)
 		}
-		next, validationErr := cartWriteRedirectURL(redirect.target, target)
+		next, validationErr := postRedirectURL(redirect.target, target)
 		if validationErr != nil {
-			return response, fmt.Errorf("%w: invalid cart write redirect", err)
+			return response, fmt.Errorf("%w: invalid POST redirect", err)
 		}
 		if visited[next.String()] {
-			return response, fmt.Errorf("%w: cart write redirect loop", err)
+			return response, fmt.Errorf("%w: POST redirect loop", err)
 		}
 		visited[next.String()] = true
 		jar.SetCookies(target, redirect.cookies)
@@ -196,7 +196,7 @@ func (c *Client) CartAdd(ctx context.Context, ref ItemReference, opt RequestOpti
 	if err != nil {
 		return nil, err
 	}
-	result, err := c.fetchCartWrite(ctx, "/product/"+ref.SKU+"/", target, opt, payload)
+	result, err := c.fetchPostWithRedirect(ctx, "/product/"+ref.SKU+"/", target, opt, payload)
 	if err != nil {
 		return nil, fmt.Errorf("add SKU %s to cart: %w", ref.SKU, err)
 	}
@@ -240,7 +240,7 @@ func (c *Client) CartRemove(ctx context.Context, ref ItemReference, opt RequestO
 		return nil, err
 	}
 	path := "/cart?page_changed=true"
-	response, err := c.fetchCartWrite(ctx, "/cart", entrypointURL(path), opt, payload)
+	response, err := c.fetchPostWithRedirect(ctx, "/cart", entrypointURL(path), opt, payload)
 	if err != nil {
 		return nil, fmt.Errorf("remove SKU %s from cart: %w", ref.SKU, err)
 	}

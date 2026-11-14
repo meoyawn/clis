@@ -16,7 +16,9 @@ const (
 	chatSendOperation  = "SendMessageCreateMutation"
 )
 
-var allowedOperations = [...]string{profileOperation, timelineOperation, readOperation, createOperation, repliesOperation, deleteOperation, chatUsersOperation, chatReadOperation, chatSendOperation}
+const legacyDeleteOperation = "DeleteTweet"
+
+var allowedOperations = [...]string{profileOperation, timelineOperation, readOperation, createOperation, repliesOperation, deleteOperation, legacyDeleteOperation, chatUsersOperation, chatReadOperation, chatSendOperation}
 
 func RepliesOperation() Operation { return Operation{repliesOperation} }
 
@@ -30,6 +32,8 @@ func ChatReadOperation() Operation  { return Operation{chatReadOperation} }
 func ChatSendOperation() Operation  { return Operation{chatSendOperation} }
 func (o Operation) String() string  { return o.value }
 
+func LegacyDeleteOperation() Operation { return Operation{legacyDeleteOperation} }
+
 func NewOperationFromValue(value string) (Operation, error) {
 	switch value {
 	case profileOperation:
@@ -42,6 +46,8 @@ func NewOperationFromValue(value string) (Operation, error) {
 		return CreateOperation(), nil
 	case deleteOperation:
 		return DeleteOperation(), nil
+	case legacyDeleteOperation:
+		return LegacyDeleteOperation(), nil
 	case repliesOperation:
 		return RepliesOperation(), nil
 	case chatUsersOperation:

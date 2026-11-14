@@ -437,7 +437,7 @@ func (c *Client) uploadImage(ctx context.Context, image *Image) (string, error) 
 
 // CreatePost is called only after the CLI has recorded the reviewed package.
 // The result is accepted only after an independent read of the exact post.
-func (c *Client) CreatePost(ctx context.Context, draft domain.Draft, image *Image, replyTo string, receiptWriter io.Writer) (domain.Post, error) {
+func (c *Client) CreatePost(ctx context.Context, draft domain.Draft, image *Image, video *Video, replyTo string, receiptWriter io.Writer) (domain.Post, error) {
 	if c.owner.ID == "" {
 		return domain.Post{}, fmt.Errorf("publication requires a verified signed-in account")
 	}
@@ -451,6 +451,14 @@ func (c *Client) CreatePost(ctx context.Context, draft domain.Draft, image *Imag
 	var mediaID string
 	if image != nil {
 		id, err := c.uploadImage(ctx, image)
+		if err != nil {
+			return domain.Post{}, err
+		}
+		mediaID = id
+		media = append(media, map[string]any{"media_id": id, "tagged_users": []string{}})
+	}
+	if video != nil {
+		id, err := c.uploadVideo(ctx, video)
 		if err != nil {
 			return domain.Post{}, err
 		}

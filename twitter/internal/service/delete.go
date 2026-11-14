@@ -17,16 +17,23 @@ func (c *Client) DeletePost(ctx context.Context, post domain.Post, receipt io.Wr
 	if _, err := domain.NewPostRef(post.ID); err != nil {
 		return err
 	}
-	if err := c.prepareDeletion(ctx); err != nil {
+	if err := c.PrepareDeletionMetadata(ctx); err != nil {
 		return err
 	}
 	operation := domain.DeleteOperation().String()
+	endpoint := "https://api.x.com/graphql/"
+	variables := map[string]any{"tweetId": post.ID}
+	if !c.redesigned {
+		operation = domain.LegacyDeleteOperation().String()
+		endpoint = Origin + "/i/api/graphql/"
+		variables = map[string]any{"tweet_id": post.ID, "dark_request": false}
+	}
 	id := c.operations[operation]
-	body, err := json.Marshal(map[string]any{"variables": map[string]string{"tweetId": post.ID}, "queryId": id})
+	body, err := json.Marshal(map[string]any{"variables": variables, "queryId": id})
 	if err != nil {
 		return err
 	}
-	data, err := c.request(ctx, http.MethodPost, "https://api.x.com/graphql/"+id+"/"+operation, "application/json", body)
+	data, err := c.request(ctx, http.MethodPost, endpoint+id+"/"+operation, "application/json", body)
 	if receipt != nil {
 		if _, writeErr := receipt.Write(data); writeErr != nil {
 			return fmt.Errorf("save deletion receipt after transmission: %w", writeErr)
@@ -51,6 +58,26 @@ func (c *Client) DeletePost(ctx context.Context, post domain.Post, receipt io.Wr
 		return fmt.Errorf("decode deletion receipt: %w", err)
 	}
 	if result.Data.Deleted.Results.ID != post.ID {
+		if !c.redesigned && result.Data.Deleted.Results.ID == "" {
+			var acknowledgement struct {
+				Data struct {
+					Deleted map[string]json.RawMessage `json:"delete_tweet"`
+				} `json:"data"`
+			}
+			if json.Unmarshal(data, &acknowledgement) == nil && acknowledgement.Data.Deleted["tweet_results"] != nil {
+				ref, _ := domain.NewPostRef(post.ID)
+				records, readErr := c.threadRecords(ctx, ref)
+				if readErr != nil {
+					return fmt.Errorf("deletion acknowledged but readback failed; do not resend: %w", readErr)
+				}
+				for _, record := range records {
+					if record.ID == post.ID {
+						return fmt.Errorf("deletion acknowledged but post %q remains visible", post.ID)
+					}
+				}
+				return nil
+			}
+		}
 		return fmt.Errorf("deletion receipt does not confirm post %q; inspect the saved response before retrying", post.ID)
 	}
 	return nil

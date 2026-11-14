@@ -23,10 +23,12 @@ import (
 
 type postCreateOptions struct {
 	publish        bool
+	prepareMedia   bool
 	expectedAuthor string
 	expectedSHA256 string
 	recordDir      string
 	image          *service.PostImage
+	video          *service.PostVideo
 }
 
 type postCreateResult struct {
@@ -34,6 +36,8 @@ type postCreateResult struct {
 	Text           string             `json:"text"`
 	SHA256         string             `json:"sha256"`
 	Image          *service.PostImage `json:"image,omitempty"`
+	Video          *service.PostVideo `json:"video,omitempty"`
+	VideoURN       string             `json:"video_urn,omitempty"`
 	Published      bool               `json:"published"`
 	Verified       bool               `json:"verified"`
 	AlreadyPresent bool               `json:"already_present"`
@@ -49,6 +53,7 @@ type postAttempt struct {
 	Published   bool               `json:"published"`
 	PostURL     string             `json:"post_url,omitempty"`
 	Image       *service.PostImage `json:"image,omitempty"`
+	Video       *service.PostVideo `json:"video,omitempty"`
 	AssetID     string             `json:"asset_id,omitempty"`
 }
 
@@ -57,6 +62,9 @@ func runPosts(ctx context.Context, args []string, store authStore, stdout, stder
 		return writeHelp(stdout, []string{"posts"})
 	}
 	command := args[0]
+	if command == "delete" {
+		return runPostDelete(ctx, args[1:], store, stdout, stderr)
+	}
 	if command == "edit" {
 		return runPostEdit(ctx, args[1:], store, stdout, stderr)
 	}
@@ -64,16 +72,18 @@ func runPosts(ctx context.Context, args []string, store authStore, stdout, stder
 		return runComments(ctx, args, store, stdout, stderr)
 	}
 	if command != "create" && command != "read" {
-		return fmt.Errorf("unknown posts command %q; expected create, read, edit, comment, or comments", command)
+		return fmt.Errorf("unknown posts command %q; expected create, read, edit, delete, comment, or comments", command)
 	}
 	fs := flag.NewFlagSet("posts "+command, flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.Usage = func() { _ = writeHelp(stderr, []string{"posts", command}) }
-	var textFile, saveResponse, imagePath string
+	var textFile, saveResponse, imagePath, videoPath string
 	opts := postCreateOptions{recordDir: filepath.Join(store.dir, "posts")}
 	if command == "create" {
 		fs.StringVar(&textFile, "text-file", "", "UTF-8 file containing the exact post")
 		fs.StringVar(&imagePath, "image", "", "one native PNG, JPEG or WebP image")
+		fs.StringVar(&videoPath, "video", "", "one native MP4 video, up to 512 MiB")
+		fs.BoolVar(&opts.prepareMedia, "prepare-media", false, "upload and process the approved video without publishing")
 		fs.BoolVar(&opts.publish, "publish", false, "publish the exact human-approved post; otherwise preview only")
 		fs.StringVar(&opts.expectedAuthor, "expect-author", "", "reviewed author profile URL; required to publish")
 		fs.StringVar(&opts.expectedSHA256, "expect-sha256", "", "reviewed text SHA-256 from preview; required to publish")
@@ -106,11 +116,21 @@ func runPosts(ctx context.Context, args []string, store authStore, stdout, stder
 		if err != nil {
 			return err
 		}
+		if imagePath != "" && videoPath != "" {
+			return fmt.Errorf("--image and --video are mutually exclusive")
+		}
+		if opts.prepareMedia && (opts.publish || videoPath == "") {
+			return fmt.Errorf("--prepare-media requires --video and cannot be combined with --publish")
+		}
+		opts.video, err = service.LoadPostVideo(videoPath)
+		if err != nil {
+			return err
+		}
 		opts.image, err = service.LoadPostImage(imagePath)
 		if err != nil {
 			return err
 		}
-		if opts.publish && (opts.expectedAuthor == "" || opts.expectedSHA256 == "") {
+		if (opts.publish || opts.prepareMedia) && (opts.expectedAuthor == "" || opts.expectedSHA256 == "") {
 			return fmt.Errorf("--publish requires --expect-author and --expect-sha256 from the reviewed preview")
 		}
 	} else {
@@ -154,7 +174,7 @@ func (c *linkedinClient) readPost(ctx context.Context, ref domain.PostRef, captu
 	if err != nil {
 		return domain.Post{}, err
 	}
-	return service.ParsePostDocument(ref, string(data))
+	return parsePostPage(ref, data)
 }
 
 func (c *linkedinClient) readPostDocument(ctx context.Context, ref domain.PostRef, capture io.Writer) ([]byte, error) {
@@ -194,7 +214,10 @@ func (c *linkedinClient) createPost(ctx context.Context, draft domain.PostDraft,
 		return postCreateResult{}, err
 	}
 	contentHash := postContentHash(draft, opts.image)
-	if opts.publish && (opts.expectedAuthor == "" || opts.expectedSHA256 != contentHash) {
+	if opts.video != nil {
+		contentHash = fmt.Sprintf("%x", sha256.Sum256([]byte(draft.Text()+"\x00video:"+opts.video.SHA256)))
+	}
+	if (opts.publish || opts.prepareMedia) && (opts.expectedAuthor == "" || opts.expectedSHA256 != contentHash) {
 		return postCreateResult{}, fmt.Errorf("post text or author approval is missing or changed; preview and review the final package again")
 	}
 	self, err := c.mailbox(ctx)
@@ -208,12 +231,23 @@ func (c *linkedinClient) createPost(ctx context.Context, draft domain.PostDraft,
 	if author.ProfileURN != self {
 		return postCreateResult{}, fmt.Errorf("post author does not match the signed-in profile")
 	}
-	result := postCreateResult{Author: author.person, Text: draft.Text(), SHA256: contentHash, Image: opts.image}
-	if !opts.publish {
+	result := postCreateResult{Author: author.person, Text: draft.Text(), SHA256: contentHash, Image: opts.image, Video: opts.video}
+	if !opts.publish && !opts.prepareMedia {
 		return result, nil
 	}
 	if author.URL != opts.expectedAuthor {
 		return result, fmt.Errorf("signed-in post author %q does not match reviewed author %q", author.URL, opts.expectedAuthor)
+	}
+	var video preparedVideo
+	if opts.video != nil {
+		video, err = c.preparePostVideo(ctx, opts.video, author.URL, filepath.Join(opts.recordDir, "video-media"))
+		if err != nil {
+			return result, fmt.Errorf("video preparation stopped; no post created: %w", err)
+		}
+		result.VideoURN = video.URN
+	}
+	if opts.prepareMedia {
+		return result, nil
 	}
 	if err := os.MkdirAll(opts.recordDir, 0700); err != nil {
 		return result, fmt.Errorf("create post history: %w", err)
@@ -232,12 +266,31 @@ func (c *linkedinClient) createPost(ctx context.Context, draft domain.PostDraft,
 			result.Published, result.Verified, result.AlreadyPresent, result.PostURL = true, true, true, previous.PostURL
 			return result, nil
 		}
+		// A confirmed provider receipt plus independent readback can reconcile an
+		// interrupted local verification without transmitting another creation.
+		if receipt, err := os.ReadFile(recordPath + ".receipt"); err == nil {
+			ref, receiptErr := service.PostReceipt(receipt)
+			if opts.video != nil {
+				ref, receiptErr = service.VideoPostReceipt(receipt)
+			}
+			if receiptErr == nil {
+				actual, readErr := c.readPost(ctx, ref, nil)
+				if readErr == nil && actual.AuthorURL == author.URL && strings.TrimSpace(actual.Text) == strings.TrimSpace(draft.Text()) && (opts.image == nil || slices.Contains(actual.ImageAssetIDs, previous.AssetID)) && (opts.video == nil || slices.Contains(actual.VideoAssetIDs, strings.TrimPrefix(previous.AssetID, "urn:li:digitalmediaAsset:"))) {
+					previous.Published, previous.PostURL = true, ref.URL()
+					if err := savePostAttempt(recordPath, previous); err != nil {
+						return result, err
+					}
+					result.Published, result.Verified, result.AlreadyPresent, result.PostURL = true, true, true, ref.URL()
+					return result, nil
+				}
+			}
+		}
 		return result, fmt.Errorf("an earlier publish attempt is unconfirmed; inspect your profile and %q before any retry; no POST sent", recordPath)
 	}
 	if err != nil {
 		return result, fmt.Errorf("reserve post attempt: %w", err)
 	}
-	attempt := postAttempt{AuthorURL: author.URL, SHA256: contentHash, Text: draft.Text(), Image: opts.image, AttemptedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+	attempt := postAttempt{AuthorURL: author.URL, SHA256: contentHash, Text: draft.Text(), Image: opts.image, Video: opts.video, AttemptedAt: time.Now().UTC().Format(time.RFC3339Nano)}
 	writeErr := writeJSON(record, attempt)
 	if writeErr == nil {
 		writeErr = record.Sync()
@@ -247,7 +300,15 @@ func (c *linkedinClient) createPost(ctx context.Context, draft domain.PostDraft,
 		return result, fmt.Errorf("save post attempt before publishing: %w", err)
 	}
 	var body []byte
-	if opts.image != nil {
+	path, accept := service.CreatePostPath, "text/x-component"
+	if opts.video != nil {
+		attempt.AssetID = video.URN
+		if err := savePostAttempt(recordPath, attempt); err != nil {
+			return result, err
+		}
+		body, err = service.PrepareVideoPost(draft, video.URN, video.Recipes)
+		path, accept = service.CreateVideoPostPath, "application/json"
+	} else if opts.image != nil {
 		attempt.AssetID, err = c.uploadPostImage(ctx, opts.image, recordPath)
 		if err != nil {
 			return result, fmt.Errorf("image preparation stopped; no CreatePost request sent; inspect %q: %w", recordPath, err)
@@ -262,8 +323,8 @@ func (c *linkedinClient) createPost(ctx context.Context, draft domain.PostDraft,
 	if err != nil {
 		return result, err
 	}
-	resp, err := c.request(ctx, http.MethodPost, service.CreatePostPath, bytes.NewReader(body), http.Header{
-		"Accept": {"text/x-component"}, "Content-Type": {"application/json"}, "Origin": {"https://www.linkedin.com"}, "Referer": {"https://www.linkedin.com/sharing/compose"},
+	resp, err := c.request(ctx, http.MethodPost, path, bytes.NewReader(body), http.Header{
+		"Accept": {accept}, "Content-Type": {"application/json"}, "Origin": {"https://www.linkedin.com"}, "Referer": {"https://www.linkedin.com/sharing/compose"},
 	})
 	if err != nil {
 		return result, fmt.Errorf("publish outcome unconfirmed; inspect your profile and %q before retrying: %w", recordPath, err)
@@ -278,6 +339,9 @@ func (c *linkedinClient) createPost(ctx context.Context, draft domain.PostDraft,
 		return result, fmt.Errorf("publish receipt incomplete; inspect %q and your profile before retrying", receiptPath)
 	}
 	ref, err := service.PostReceipt(data)
+	if opts.video != nil {
+		ref, err = service.VideoPostReceipt(data)
+	}
 	if err != nil {
 		return result, fmt.Errorf("publish outcome unconfirmed; inspect %q and your profile before retrying: %w", receiptPath, err)
 	}
@@ -291,6 +355,9 @@ func (c *linkedinClient) createPost(ctx context.Context, draft domain.PostDraft,
 	}
 	if opts.image != nil && !slices.Contains(actual.ImageAssetIDs, attempt.AssetID) {
 		return result, fmt.Errorf("post %q does not confirm the uploaded image asset; do not resend", ref.URL())
+	}
+	if opts.video != nil && !slices.Contains(actual.VideoAssetIDs, strings.TrimPrefix(video.URN, "urn:li:digitalmediaAsset:")) {
+		return result, fmt.Errorf("post %q does not confirm the uploaded video asset; do not resend", ref.URL())
 	}
 	attempt.Published, attempt.PostURL = true, ref.URL()
 	confirmed, err := os.CreateTemp(opts.recordDir, ".confirmed-*")
@@ -394,9 +461,11 @@ func (c *linkedinClient) uploadPostImage(ctx context.Context, image *service.Pos
 const postsHelp = `Preview and publish approved personal LinkedIn feed posts.
 
 Usage:
-  linkedin posts create --text-file FILE [--image FILE] [--publish --expect-author URL --expect-sha256 HASH]
+  linkedin posts create --text-file FILE [--image FILE | --video FILE] [--publish --expect-author URL --expect-sha256 HASH]
+  linkedin posts create --text-file FILE --video FILE --prepare-media --expect-author URL --expect-sha256 HASH
   linkedin posts read <feed-permalink-or-activity-URN>
   linkedin posts edit <post> --text-file FILE [--apply --expect-author URL --expect-sha256 HASH --expect-current-sha256 HASH]
+  linkedin posts delete <post> [--apply --expect-author URL --expect-sha256 HASH]
   linkedin posts comment <post> --text-file FILE [--publish --expect-author URL --expect-sha256 HASH]
   linkedin posts comments <post>
 
@@ -406,6 +475,11 @@ Text is limited to 3000 UTF-16 code units and is sent unchanged, including links
 One PNG/JPEG/WebP image up to 5 MiB is supported. The preview hash covers text and
 image bytes. Preview uploads nothing; publishing initializes, uploads and registers
 the image through the observed API, then creates the post. No link cards.
+Alternatively attach one MP4 video between 75,000 bytes and 512 MiB. Video bytes
+are frozen and bound to the preview hash. --prepare-media uploads and processes
+the approved video without creating a post; publishing reuses its private receipt.
+Multipart uploads require contiguous byte ranges, native part receipts and a READY
+processing status. Upload destinations are restricted to LinkedIn dms-uploads.
 
 Show the full package in chat and obtain explicit approval before --publish.
 The two --expect flags bind publishing to the reviewed identity and text; they
@@ -414,6 +488,11 @@ receipt privately, and reads the exact activity permalink to verify author/text.
 No retries. Repeating a confirmed post is a local no-op; an unconfirmed attempt
 blocks another POST. Inspect the saved receipt and your profile before retrying.
 History prevents duplicates made by this CLI/config directory, not other clients.
+Delete previews your exact owned post and package hash. --apply requires both
+expectation flags and an explicitly authorized deletion. It follows only the native
+delete action bound to that single activity, saves the original post and receipt,
+then checks that the permalink displays the unavailable-post page. No retries.
+--save-response FILE saves the read-only delete menu to a new private file.
 Read is one GET, with no reactions, read receipts, comments or other mutations.
 Read and edit also resolve https://lnkd.in/p/ links without sending account
 cookies to the shortener; share permalinks are read to identify the activity.

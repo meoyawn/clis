@@ -12,6 +12,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/meoyawn/clis/hh/internal/domain"
 )
 
 // ApplicationStatus is a live negotiation, not a locally prepared application.
@@ -35,6 +37,10 @@ type ApplicationStatus struct {
 	Verified       bool            `json:"-"`
 	CoverLetter    Object          `json:"cover_letter"`
 	RecordedLetter *RecordedLetter `json:"recorded_letter,omitempty"`
+	ApplicantState string          `json:"applicant_sub_state,omitempty"`
+	DiscardReason  any             `json:"discard_reason,omitempty"`
+	EmployerChange any             `json:"employer_last_change_time,omitempty"`
+	Messages       Object          `json:"messages,omitempty"`
 }
 
 type RecordedLetter struct {
@@ -94,6 +100,7 @@ func (c *Client) applicationStatus(v *Vacancy, row Object) (*ApplicationStatus, 
 		TopicID: topic, ChatID: nativeID(row["chatId"]), ApplicantID: nativeID(row["applicantUserId"]), ResumeID: hash, ResumeURL: viewURL,
 		CreatedAt: created, State: state, InitialType: initialType, Submitted: initialType == "RESPONSE_BY_APPLICANT",
 		Archived: archived, Viewed: viewed, Verified: true,
+		ApplicantState: nativeID(row["applicantSubState"]), DiscardReason: row["discardReason"], EmployerChange: row["employerLastChangeTime"],
 		CoverLetter: Object{"present": letter, "text_available": false,
 			"ui_add_available": state == "RESPONSE" && !viewed && !archived && !letter}}, nil
 }
@@ -136,11 +143,30 @@ func (c *Client) Application(ctx context.Context, vacancyID VacancyID, resumeID 
 // Applications follows HH's active list and its zero-based page parameter.
 // Every returned topic is independently matched against its vacancy/resume.
 func (c *Client) Applications(ctx context.Context) (Object, error) {
+	return c.ApplicationsFiltered(ctx, domain.ActiveNegotiations(), false)
+}
+
+// ApplicationsFiltered follows the observed active/deleted list contracts.
+// Deleted entries retain their actual state; deletion is not a rejection.
+func (c *Client) ApplicationsFiltered(ctx context.Context, filter domain.NegotiationFilter, rejectedOnly bool) (Object, error) {
+	if _, err := domain.NewNegotiationFilterFromValue(filter.String()); err != nil {
+		return nil, err
+	}
+	deleted := filter == domain.DeletedNegotiations()
 	rows := []Object{}
 	seen := map[string]bool{}
 	pageCount, total := 1, -1
 	for page := 0; page < pageCount; page++ {
 		query := url.Values{}
+		if deleted {
+			query.Set("filter", "deleted")
+			query.Set("state", "")
+		} else if rejectedOnly {
+			query.Set("filter", "all")
+		}
+		if rejectedOnly {
+			query.Set("state", "DISCARD")
+		}
 		if page > 0 {
 			query.Set("page", strconv.Itoa(page))
 		}
@@ -153,8 +179,8 @@ func (c *Client) Applications(ctx context.Context) (Object, error) {
 			return nil, err
 		}
 		list, _ := state["applicantNegotiations"].(map[string]any)
-		if list["filterInUse"] != "active" {
-			return nil, fmt.Errorf("negotiation list filter %v is not active; refusing a misleading list", list["filterInUse"])
+		if list["filterInUse"] != filter.String() {
+			return nil, fmt.Errorf("negotiation list filter %v does not match requested %s", list["filterInUse"], filter.String())
 		}
 		pages, err := strconv.Atoi(nativeID(list["pageCount"]))
 		if err != nil || pages < 0 || pages > 1000 {
@@ -168,25 +194,29 @@ func (c *Client) Applications(ctx context.Context) (Object, error) {
 			return nil, fmt.Errorf("invalid negotiation total %v", list["total"])
 		}
 		if page > 0 && (pages != pageCount || count != total) {
-			return nil, fmt.Errorf("active negotiation list changed during pagination; no complete result emitted")
+			return nil, fmt.Errorf("negotiation list changed during pagination; no complete result emitted")
 		}
 		pageCount, total = pages, count
 		items, ok := list["topicList"].([]any)
 		if !ok {
-			return nil, fmt.Errorf("active negotiation page %d has no topic list", page)
+			return nil, fmt.Errorf("negotiation page %d has no topic list", page)
 		}
 		for _, item := range items {
 			row, ok := item.(map[string]any)
 			id := nativeID(row["id"])
-			if !ok || !vacancyNumber.MatchString(id) || seen[id] || row["archived"] != false || row["applicantSubState"] != "SHOW" {
-				return nil, fmt.Errorf("active negotiation page %d has a duplicate, hidden, archived or invalid topic %s", page, id)
+			subState := "SHOW"
+			if deleted {
+				subState = "HIDE"
+			}
+			if !ok || !vacancyNumber.MatchString(id) || seen[id] || row["archived"] != deleted || row["applicantSubState"] != subState || rejectedOnly && row["lastState"] != "DISCARD" {
+				return nil, fmt.Errorf("negotiation page %d has a duplicate, invalid or filter-mismatched topic %s", page, id)
 			}
 			seen[id] = true
 			rows = append(rows, row)
 		}
 	}
 	if len(rows) != total {
-		return nil, fmt.Errorf("active negotiation count mismatch: read %d, expected %d; no partial list emitted", len(rows), total)
+		return nil, fmt.Errorf("negotiation count mismatch: read %d, expected %d; no partial list emitted", len(rows), total)
 	}
 	applications := []*ApplicationStatus{}
 	vacancies := map[string]*Vacancy{}
@@ -217,8 +247,8 @@ func (c *Client) Applications(ctx context.Context) (Object, error) {
 				matched = topic
 			}
 		}
-		if matched == nil || matched["archived"] != false || matched["applicantSubState"] != "SHOW" {
-			return nil, fmt.Errorf("active topic %s is not confirmed by vacancy readback", nativeID(row["id"]))
+		if matched == nil || matched["archived"] != row["archived"] || matched["applicantSubState"] != row["applicantSubState"] || matched["lastState"] != row["lastState"] {
+			return nil, fmt.Errorf("topic %s state is not confirmed by vacancy readback", nativeID(row["id"]))
 		}
 		status, err := c.applicationStatus(v, matched)
 		if err != nil {

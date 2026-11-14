@@ -78,6 +78,11 @@ func (c *Client) PrepareApplication(ctx context.Context, vacancyID VacancyID, re
 	for _, key := range []string{"countriesProfileVisibilityAgreement", "relocationWarning"} {
 		warning, _ := options[key].(map[string]any)
 		if warning["show"] == true {
+			// HH's country warning explicitly exempts remote work and its continue
+			// button only opens the normal form, without changing request fields.
+			if key == "relocationWarning" && hasNativeID(vacancy.WorkFormats, "REMOTE") {
+				continue
+			}
 			return nil, fmt.Errorf("response requires %s; resolve its terms with the human before applying", key)
 		}
 	}

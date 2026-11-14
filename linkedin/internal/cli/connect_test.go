@@ -43,6 +43,18 @@ func pendingMenuFlight() string {
 	return strings.Replace(connectionMenuFlight, `"stringValue":"Connect"`, `"stringValue":"Pending"`, 1)
 }
 
+const nativeInviteContent = `"content":{"$case":"screen","screen":{"screenId":"com.linkedin.sdui.flagshipnav.mynetwork.invitations.CustomInvite","requestedArguments":{"payload":{"inviteeUrn":{"memberId":"123456"},"connectionState":{"value":{"key":"state:invitation:urn:li:member:123456"}},"isDisabled":{"value":{"key":"connect-button-disabled-example-person"}},"nonIterableProfileId":{"profileId":"urn:li:fsd_profile:ACoExamplePerson"},"profileCanonicalUrl":"https://www.linkedin.com/in/example-person"}}}}`
+
+func nativeInviteMenuFlight() string {
+	return strings.Replace(connectionMenuFlight,
+		`"content":{"url":{"urlValue":{"url":"/preload/custom-invite/?vanityName=example-person"}}}`,
+		nativeInviteContent, 1)
+}
+
+func nativeInvitePrimaryFlight() string {
+	return `1:{"componentKey":"ConnectButtonstate:invitation:urn:li:member:123456_connect","children":{"triggers":[{"action":{"actions":[{"$type":"proto.sdui.actions.core.Navigate","value":{` + nativeInviteContent + `}}]}}]}}` + "\n"
+}
+
 func TestConnectPreviewSendAndUncertainOutcomes(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
@@ -66,6 +78,8 @@ func TestConnectPreviewSendAndUncertainOutcomes(t *testing.T) {
 		{name: "More menu preview", before: connectionMenuScript(t, connectionMenuFlight), wantReads: 1, wantCan: true},
 		{name: "More menu pending is a no-op", send: true, before: connectionMenuScript(t, pendingMenuFlight()), wantReads: 1, wantPending: true},
 		{name: "More menu send confirmed by pending", send: true, before: connectionMenuScript(t, connectionMenuFlight), after: connectionMenuScript(t, pendingMenuFlight()), wantPosts: 1, wantReads: 2, wantSent: true, wantPending: true},
+		{name: "native invitation screen confirmed by pending", send: true, before: connectionMenuScript(t, nativeInviteMenuFlight()), after: connectionMenuScript(t, pendingMenuFlight()), wantPosts: 1, wantReads: 2, wantSent: true, wantPending: true},
+		{name: "primary native invitation confirmed by pending", send: true, before: strings.Replace(connectControl, "/preload/custom-invite/?vanityName=example-person", "https://www.linkedin.com/", 1) + connectionMenuScript(t, nativeInvitePrimaryFlight()), after: pendingControl, wantPosts: 1, wantReads: 2, wantSent: true, wantPending: true},
 		{name: "HTTP success is not confirmation", send: true, before: connectControl, after: connectControl, wantPosts: 1, wantReads: 2, wantError: true},
 		{name: "readback cannot confirm a different member", send: true, before: connectControl, after: strings.ReplaceAll(pendingControl, "123456", "999999"), wantPosts: 1, wantReads: 2, wantError: true},
 		{name: "transport failure is not retried", send: true, before: connectControl, postError: true, wantPosts: 1, wantReads: 1, wantError: true},
@@ -165,6 +179,13 @@ func TestConnectRejectsUnverifiedControlsBeforePosting(t *testing.T) {
 		{name: "disabled menu action", document: connectionDocument(connectionMenuScript(t, strings.Replace(connectionMenuFlight, `"modelStates":[`, `"modelStates":[{"key":{"key":{"value":{"id":"connect-button-disabled-example-person"}}},"value":{"$case":"booleanValue","booleanValue":true}},`, 1)))},
 		{name: "menu routes to another person", document: connectionDocument(connectionMenuScript(t, strings.ReplaceAll(connectionMenuFlight, "vanityName=example-person", "vanityName=someone-else")))},
 		{name: "menu selector uses another member", document: connectionDocument(connectionMenuScript(t, strings.Replace(connectionMenuFlight, `"selectedStateKey":{"key":{"value":{"id":"state:invitation:urn:li:member:123456"`, `"selectedStateKey":{"key":{"value":{"id":"state:invitation:urn:li:member:999999"`, 1)))},
+		{name: "native invitation screen has another member", document: connectionDocument(connectionMenuScript(t, strings.Replace(nativeInviteMenuFlight(), `"memberId":"123456"`, `"memberId":"999999"`, 1)))},
+		{name: "native invitation screen has another profile", document: connectionDocument(connectionMenuScript(t, strings.Replace(nativeInviteMenuFlight(), `"profileId":"urn:li:fsd_profile:ACoExamplePerson"`, `"profileId":"urn:li:fsd_profile:ACoOtherPerson"`, 1)))},
+		{name: "native invitation screen has another destination", document: connectionDocument(connectionMenuScript(t, strings.Replace(nativeInviteMenuFlight(), `"profileCanonicalUrl":"https://www.linkedin.com/in/example-person"`, `"profileCanonicalUrl":"https://www.linkedin.com/in/someone-else"`, 1)))},
+		{name: "native invitation screen has another state binding", document: connectionDocument(connectionMenuScript(t, strings.Replace(nativeInviteMenuFlight(), `"connectionState":{"value":{"key":"state:invitation:urn:li:member:123456"}}`, `"connectionState":{"value":{"key":"state:invitation:urn:li:member:999999"}}`, 1)))},
+		{name: "primary native action without a visible control", document: connectionDocument(connectionMenuScript(t, nativeInvitePrimaryFlight()))},
+		{name: "primary native control has a foreign destination", document: connectionDocument(strings.Replace(connectControl, "/preload/custom-invite/?vanityName=example-person", "https://example.invalid/", 1) + connectionMenuScript(t, nativeInvitePrimaryFlight()))},
+		{name: "primary native action has another member", document: connectionDocument(strings.Replace(connectControl, "/preload/custom-invite/?vanityName=example-person", "https://www.linkedin.com/", 1) + connectionMenuScript(t, strings.Replace(nativeInvitePrimaryFlight(), `"memberId":"123456"`, `"memberId":"999999"`, 1)))},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			client := connectionTestClient(t, func() (*http.Response, error) {

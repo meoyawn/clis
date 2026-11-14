@@ -20,11 +20,15 @@ func TestDeletionLifecycle(t *testing.T) {
 		wrongReceipt bool
 		timeout      bool
 		otherAuthor  bool
+		legacy       bool
+		stillPresent bool
 	}{
 		{name: "matching deletion receipt"},
 		{name: "different deleted ID is unconfirmed", wrongReceipt: true},
 		{name: "timeout blocks another mutation", timeout: true},
 		{name: "another author cannot be deleted", otherAuthor: true},
+		{name: "classic web deletion and independent absence", legacy: true},
+		{name: "classic deletion still visible is unconfirmed", legacy: true, stillPresent: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -33,6 +37,16 @@ func TestDeletionLifecycle(t *testing.T) {
 				if r.URL.Host == "abs.twimg.com" {
 					if r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" {
 						t.Fatal("account secrets reached a public module")
+					}
+					if tc.legacy {
+						if strings.Contains(r.URL.Path, "/ondemand.s.") {
+							return response(200, `(a[1],16);(a[2],16);`), nil
+						}
+						bundle := `const token="AAAAA` + strings.Repeat("a", 70) + `";`
+						for _, op := range []string{"UserByScreenName", "TweetDetail", "CreateTweet", "UserOriginalsTimeline", "DeleteTweet"} {
+							bundle += `({queryId:"delete-query",operationName:"` + op + `"});`
+						}
+						return response(200, bundle), nil
 					}
 					switch {
 					case strings.HasSuffix(r.URL.Path, "/entry-client-fixture.js"):
@@ -52,22 +66,39 @@ func TestDeletionLifecycle(t *testing.T) {
 					}
 				}
 				if r.Method == http.MethodGet && r.URL.Host == "x.com" && r.URL.Path == "/home" {
+					if tc.legacy {
+						return response(200, signingDocument()+`<script src="https://abs.twimg.com/responsive-web/client-web/main.fixture.js"></script><script>window.__INITIAL_STATE__={"settings":{"remote":{"settings":{"screen_name":"example"}}}};</script>`), nil
+					}
 					encoded, err := json.Marshal(`{"data":{"viewer":{"user_results":{"result":` + userJSON + `}}}}`)
 					if err != nil {
 						t.Fatal(err)
 					}
 					return response(200, signingDocument()+`<script>window.__INITIAL_DATA__={"viewerId":"42","viewerScreenName":"example"};</script><script>const entryHref="https://abs.twimg.com/x-web/x-web/entry-client-fixture.js";const result={kind:"Result.Ok",value:`+string(encoded)+`};</script>`), nil
 				}
-				if r.Method != http.MethodPost || r.URL.Host != "api.x.com" || r.URL.Path != "/graphql/delete-query/deleteTweetMutation" || r.Header.Get("X-Client-Transaction-Id") == "" {
+				if tc.legacy && r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/UserByScreenName") {
+					return response(200, `{"data":{"user":{"result":`+userJSON+`}}}`), nil
+				}
+				if tc.legacy && r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/TweetDetail") {
+					if tc.stillPresent {
+						return response(200, `{"data":{"tweet":`+tweetJSON+`}}`), nil
+					}
+					return response(200, `{"data":{"threaded_conversation_with_injections_v2":{"instructions":[]}}}`), nil
+				}
+				wantedHost, wantedPath := "api.x.com", "/graphql/delete-query/deleteTweetMutation"
+				if tc.legacy {
+					wantedHost, wantedPath = "x.com", "/i/api/graphql/delete-query/DeleteTweet"
+				}
+				if r.Method != http.MethodPost || r.URL.Host != wantedHost || r.URL.Path != wantedPath || r.Header.Get("X-Client-Transaction-Id") == "" {
 					t.Fatalf("unexpected deletion request %s %s", r.Method, r.URL)
 				}
 				var body struct {
 					Variables struct {
-						ID string `json:"tweetId"`
+						ID       string `json:"tweetId"`
+						LegacyID string `json:"tweet_id"`
 					} `json:"variables"`
 					QueryID string `json:"queryId"`
 				}
-				if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Variables.ID != "123" || body.QueryID != "delete-query" {
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.QueryID != "delete-query" || (tc.legacy && body.Variables.LegacyID != "123") || (!tc.legacy && body.Variables.ID != "123") {
 					t.Fatal("deletion changed the reviewed target or mutation")
 				}
 				data, err := os.ReadFile(filepath.Join(dir, "deletions", "123.json"))
@@ -81,6 +112,9 @@ func TestDeletionLifecycle(t *testing.T) {
 				posts++
 				if tc.timeout {
 					return nil, context.DeadlineExceeded
+				}
+				if tc.legacy {
+					return response(200, `{"data":{"delete_tweet":{"tweet_results":{}}}}`), nil
 				}
 				id := "123"
 				if tc.wrongReceipt {
@@ -100,7 +134,7 @@ func TestDeletionLifecycle(t *testing.T) {
 			result := deletionFor(owner, post)
 			var out bytes.Buffer
 			err = deletePackage(context.Background(), client, dir, result, &out)
-			wantError := tc.timeout || tc.wrongReceipt || tc.otherAuthor
+			wantError := tc.timeout || tc.wrongReceipt || tc.otherAuthor || tc.stillPresent
 			if (err != nil) != wantError || (tc.otherAuthor && posts != 0) || (!tc.otherAuthor && posts != 1) {
 				t.Fatalf("deletion requests=%d error=%v", posts, err)
 			}

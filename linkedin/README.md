@@ -226,6 +226,10 @@ with the human before using `--send`. This command sends without a note only.
 The profile must expose a Connect control bound to that recipient's member ID,
 name and invitation URL. Controls under More are supported by reading the exact
 member's current model state and resolving only that selected menu variant.
+Native invitation-screen navigation is checked against the target member ID,
+profile URN, canonical profile URL and invitation/disabled state bindings.
+This also supports visible Connect controls whose placeholder URL is the home
+page, provided their native invitation action confirms the same target.
 Dormant serialized alternatives, other people's controls, disabled actions and
 ambiguous states do not authorize a send. A target-specific Pending control,
 including the selected More-menu variant, returns a no-op even with `--send`; the command never withdraws,

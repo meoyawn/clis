@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/meoyawn/clis/linkedin/internal/domain"
@@ -12,6 +13,15 @@ import (
 // ParsePostDocument reads the exact permalink's visible post, excluding comments,
 // sidebar content, scripts and unrelated cards. Markers were observed in Chrome.
 func ParsePostDocument(ref domain.PostRef, document string) (domain.Post, error) {
+	return ParsePostDocumentThread(ref, document, ref.URN())
+}
+
+// The caller must bind a UGC thread to the requested activity through its native
+// control-menu payload before accepting that thread's rendered card.
+func ParsePostDocumentThread(ref domain.PostRef, document, threadURN string) (domain.Post, error) {
+	if threadURN != ref.URN() && !regexp.MustCompile(`^urn:li:ugcPost:[1-9][0-9]*$`).MatchString(threadURN) {
+		return domain.Post{}, fmt.Errorf("unsupported post thread %q", threadURN)
+	}
 	root, err := html.Parse(strings.NewReader(document))
 	if err != nil {
 		return domain.Post{}, fmt.Errorf("parse post document: %w", err)
@@ -33,7 +43,7 @@ func ParsePostDocument(ref domain.PostRef, document string) (domain.Post, error)
 				continue
 			}
 			if activity, ok := strings.CutPrefix(postAttr(n, "data-testid"), "ReactionFacepileCollection-"); ok {
-				if activity != ref.URN() {
+				if activity != threadURN {
 					return domain.Post{}, fmt.Errorf("post %q primary region contains a different activity", ref.URL())
 				}
 				exactActivity = true
@@ -58,6 +68,16 @@ func ParsePostDocument(ref domain.PostRef, document string) (domain.Post, error)
 		}
 		if n.Data == "h2" && strings.TrimSpace(postText(n)) == "Feed post" {
 			heading = true
+		}
+		for _, attribute := range n.Attr {
+			u, err := url.Parse(attribute.Val)
+			if err != nil || u.Scheme != "https" || u.Host != "media.licdn.com" {
+				continue
+			}
+			parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+			if len(parts) > 3 && parts[0] == "dms" && parts[1] == "video" && parts[2] == "v2" && assetIDPattern.MatchString(parts[3]) {
+				result.VideoAssetIDs = append(result.VideoAssetIDs, parts[3])
+			}
 		}
 		if n.Data == "img" {
 			for _, attr := range []string{"src", "data-delayed-url"} {

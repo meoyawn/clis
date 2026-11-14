@@ -97,6 +97,17 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       the whole list. Requires the user's authorization; never applies for jobs.
   profile languages verify --patch FILE [--output FILE]
       Read-only profile and all-resume print verification after an uncertain save.
+  profile skill-levels get --resume HASH [--output FILE]
+      Read levels for the selected resume's skill tags. Levels are shared across
+      the account and may appear in other resumes that select the same skill.
+  profile skill-levels update --resume HASH --patch FILE [--apply] [--backup-dir DIR]
+      Preview or set shared technical-skill levels for tags in this exact resume.
+      Patch: {"levels":[{"name":"Stripe","level_id":10}]}.
+      Level IDs: 8 basic, 9 middle, 10 advanced. --apply writes changed levels
+      once, backs up profile/resumes and verifies every affected print view.
+      This may change the displayed level in other resumes using those skills.
+  profile skill-levels verify --resume HASH --patch FILE [--output FILE]
+      Read-only saved-level and print-view check after an uncertain update.
   resume get ID [--output FILE]
       Export the selected resume's current fields as JSON.
   resume view ID [--html FILE]
@@ -241,7 +252,7 @@ func run(ctx context.Context, args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("invalid command %q: run hh --help", strings.Join(args, " "))
 	}
-	if args[0] != "resume" && !(args[0] == "application" && (args[1] == "get" || args[1] == "letter" || args[1] == "questions" || args[1] == "prepare" || args[1] == "submit")) && !(args[0] == "applications" && args[1] == "list") && !(args[0] == "vacancy" && (args[1] == "get" || args[1] == "response-options")) && !(args[0] == "resumes" && args[1] == "list") && !(args[0] == "profile" && (args[1] == "get" || args[1] == "contacts" || args[1] == "languages")) {
+	if args[0] != "resume" && !(args[0] == "application" && (args[1] == "get" || args[1] == "letter" || args[1] == "questions" || args[1] == "prepare" || args[1] == "submit")) && !(args[0] == "applications" && args[1] == "list") && !(args[0] == "vacancy" && (args[1] == "get" || args[1] == "response-options")) && !(args[0] == "resumes" && args[1] == "list") && !(args[0] == "profile" && (args[1] == "get" || args[1] == "contacts" || args[1] == "languages" || args[1] == "skill-levels")) {
 		return fmt.Errorf("unknown command %q: run hh --help", strings.Join(args[:2], " "))
 	}
 	if args[0] == "resume" && args[1] != "get" && args[1] != "view" && args[1] != "update" && args[1] != "verify" && args[1] != "duplicate" && args[1] != "complete" {
@@ -249,6 +260,7 @@ func run(ctx context.Context, args []string) error {
 	}
 	contactsAction := ""
 	languagesAction := ""
+	skillLevelsAction := ""
 	if args[0] == "profile" && args[1] == "contacts" {
 		if len(args) < 3 || (args[2] != "get" && args[2] != "update") {
 			return fmt.Errorf("profile contacts requires get or update; run hh --help")
@@ -260,6 +272,12 @@ func run(ctx context.Context, args []string) error {
 			return fmt.Errorf("profile languages requires get, update or verify; run hh --help")
 		}
 		languagesAction = args[2]
+	}
+	if args[0] == "profile" && args[1] == "skill-levels" {
+		if len(args) < 3 || (args[2] != "get" && args[2] != "update" && args[2] != "verify") {
+			return fmt.Errorf("profile skill-levels requires get, update or verify; run hh --help")
+		}
+		skillLevelsAction = args[2]
 	}
 	var id hh.ResumeID
 	var vacancyID hh.VacancyID
@@ -299,7 +317,7 @@ func run(ctx context.Context, args []string) error {
 	approved := options.String("approved", "", "approved unchanged package SHA-256")
 	harPath := options.String("har", "", "recorded letter success receipt; read only, never replay")
 	start := 2
-	if args[0] == "resume" || args[0] == "vacancy" || contactsAction != "" || languagesAction != "" || args[0] == "application" && (args[1] == "prepare" || args[1] == "get" || args[1] == "letter" || args[1] == "questions") {
+	if args[0] == "resume" || args[0] == "vacancy" || contactsAction != "" || languagesAction != "" || skillLevelsAction != "" || args[0] == "application" && (args[1] == "prepare" || args[1] == "get" || args[1] == "letter" || args[1] == "questions") {
 		start = 3
 	}
 	if err := options.Parse(args[start:]); err != nil {
@@ -307,6 +325,12 @@ func run(ctx context.Context, args []string) error {
 	}
 	if options.NArg() != 0 {
 		return fmt.Errorf("unexpected arguments %q", options.Args())
+	}
+	if skillLevelsAction != "" {
+		id, err = hh.NewResumeIDFromValue(*resumeText)
+		if err != nil {
+			return fmt.Errorf("profile skill-levels requires --resume HASH: %w", err)
+		}
 	}
 	var application hh.ApplicationDraft
 	var cloneMetadata hh.CloneMetadata
@@ -368,7 +392,7 @@ func run(ctx context.Context, args []string) error {
 		}
 	}
 	var patch hh.Object
-	if args[1] == "update" || args[1] == "verify" || contactsAction == "update" || languagesAction == "update" || languagesAction == "verify" {
+	if args[1] == "update" || args[1] == "verify" || contactsAction == "update" || languagesAction == "update" || languagesAction == "verify" || skillLevelsAction == "update" || skillLevelsAction == "verify" {
 		if *patchPath == "" {
 			return fmt.Errorf("%s requires --patch FILE", strings.Join(args[:start], " "))
 		}
@@ -383,6 +407,8 @@ func run(ctx context.Context, args []string) error {
 			patch, err = hh.NormalizeContactsPatch(patch)
 		} else if languagesAction != "" {
 			patch, err = hh.NormalizeLanguagesPatch(patch)
+		} else if skillLevelsAction != "" {
+			patch, err = hh.NormalizeSkillLevelsPatch(patch)
 		} else {
 			patch, err = hh.NormalizePatch(patch)
 		}
@@ -473,6 +499,24 @@ func run(ctx context.Context, args []string) error {
 		return outputJSON(*output, hh.Redact(data))
 	}
 	if args[0] == "profile" {
+		if skillLevelsAction != "" {
+			var data hh.Object
+			switch skillLevelsAction {
+			case "get":
+				data, err = client.SkillLevels(ctx, id)
+			case "verify":
+				data, err = client.VerifySkillLevels(ctx, id, patch)
+			case "update":
+				if *backupDir == "" {
+					*backupDir = filepath.Join(stateDir(), "backups")
+				}
+				data, err = client.UpdateSkillLevels(ctx, id, patch, *apply, *backupDir)
+			}
+			if err != nil {
+				return err
+			}
+			return outputJSON(*output, data)
+		}
 		if languagesAction != "" {
 			var data hh.Object
 			switch languagesAction {

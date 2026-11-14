@@ -248,7 +248,7 @@ func (c *linkedinClient) postNativeAction(ctx context.Context, action map[string
 		clientArgs[key] = value
 	}
 	screenID := "com.linkedin.sdui.flagshipnav.feed.MainFeed"
-	if id != "feedUpdateControlMenuRequest" {
+	if id != "feedUpdateControlMenuRequest" && id != "com.linkedin.sdui.update.deletePost" {
 		screenID = "com.linkedin.sdui.flagshipnav.sharing.ShareCompose"
 	}
 	clientArgs["states"], clientArgs["screenId"], clientArgs["knownTemplateIds"] = states, screenID, []any{}

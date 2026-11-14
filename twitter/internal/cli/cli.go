@@ -32,8 +32,8 @@ Usage:
   go run . posts list
   go run . posts read [--save-response NEW.json] ID|https://x.com/HANDLE/status/ID
   go run . posts replies [--save-response NEW.json] ID|https://x.com/HANDLE/status/ID
-  go run . posts create --text-file FILE [--image FILE] [--reply-to ID|URL]
-  go run . posts create --text-file FILE [--image FILE] [--reply-to ID|URL] 
+  go run . posts create --text-file FILE [--image FILE | --video FILE] [--reply-to ID|URL]
+  go run . posts create --text-file FILE [--image FILE | --video FILE] [--reply-to ID|URL] 
     --publish --expect-author HANDLE --expect-sha256 PACKAGE_HASH
   go run . posts delete [--apply --expect-author HANDLE --expect-sha256 HASH] ID|URL
 
@@ -55,9 +55,12 @@ messages read returns one page; encrypted messages have no decoded text.
 Encrypted recipients/conversations are unsupported; no keys are created.
 A private attempt blocks duplicates/uncertain retries. Sends are verified by
 their exact server receipt and a conversation readback; no automatic retries.
-One static PNG/JPEG/WebP image, at most 5 MiB; no video, polls or long posts.
+One static PNG/JPEG/WebP image up to 5 MiB, or MP4 video up to 512 MiB.
+Videos upload in chunks and wait for server processing before publishing.
+No polls or long posts.
 Delete previews by default. --apply deletes only the exact reviewed own post,
-saves its receipt, and requires the returned deleted ID to match. No retries.
+saves its receipt, and verifies the returned ID or a deletion acknowledgement
+followed by an independent read confirming absence. No retries.
 Text is never truncated. A conservative 280-character upper bound may overcount
 URLs and compound emoji. A saved attempt blocks duplicate/uncertain sends.
 
@@ -243,6 +246,7 @@ type packagePreview struct {
 	Author           domain.Profile `json:"author"`
 	Text             string         `json:"text"`
 	Image            *service.Image `json:"image"`
+	Video            *service.Video `json:"video,omitempty"`
 	ReplyTo          *domain.Post   `json:"reply_to"`
 	LengthUpperBound int            `json:"length_upper_bound"`
 	SHA256           string         `json:"package_sha256"`
@@ -258,6 +262,7 @@ func create(ctx context.Context, args []string, dir string, out, errOut io.Write
 	fs.SetOutput(errOut)
 	file := fs.String("text-file", "", "UTF-8 plain text file")
 	imagePath := fs.String("image", "", "one PNG, JPEG or WebP")
+	videoPath := fs.String("video", "", "one MP4 video, at most 512 MiB")
 	reply := fs.String("reply-to", "", "own post ID or URL")
 	publish := fs.Bool("publish", false, "publish the reviewed package")
 	expectAuthor := fs.String("expect-author", "", "reviewed author handle")
@@ -277,6 +282,13 @@ func create(ctx context.Context, args []string, dir string, out, errOut io.Write
 		return err
 	}
 	image, err := service.LoadImage(*imagePath)
+	if err != nil {
+		return err
+	}
+	if *imagePath != "" && *videoPath != "" {
+		return fmt.Errorf("--image and --video are mutually exclusive")
+	}
+	video, err := service.LoadVideo(*videoPath)
 	if err != nil {
 		return err
 	}
@@ -308,29 +320,32 @@ func create(ctx context.Context, args []string, dir string, out, errOut io.Write
 		}
 		parent = &p
 	}
-	result := preview(c.Owner(), draft, image, parent)
+	result := preview(c.Owner(), draft, image, video, parent)
 	if !*publish {
 		return writeJSON(out, result)
 	}
 	if !strings.EqualFold(strings.TrimPrefix(*expectAuthor, "@"), result.Author.Handle) || *expectHash != result.SHA256 {
 		return fmt.Errorf("author or package changed; preview again before publishing")
 	}
-	return publishPackage(ctx, c, draft, image, parent, dir, result, out)
+	return publishPackage(ctx, c, draft, image, video, parent, dir, result, out)
 }
 
-func preview(owner domain.Profile, draft domain.Draft, image *service.Image, parent *domain.Post) packagePreview {
+func preview(owner domain.Profile, draft domain.Draft, image *service.Image, video *service.Video, parent *domain.Post) packagePreview {
 	imageHash, replyID := "", ""
 	if image != nil {
 		imageHash = image.SHA256
+	}
+	if video != nil {
+		imageHash = "video:" + video.SHA256
 	}
 	if parent != nil {
 		replyID = parent.ID
 	}
 	reviewed, _ := json.Marshal([]string{owner.ID, owner.Handle, draft.Text(), imageHash, replyID})
-	return packagePreview{Author: owner, Text: draft.Text(), Image: image, ReplyTo: parent, LengthUpperBound: draft.LengthUpperBound(), SHA256: fmt.Sprintf("%x", sha256.Sum256(reviewed))}
+	return packagePreview{Author: owner, Text: draft.Text(), Image: image, Video: video, ReplyTo: parent, LengthUpperBound: draft.LengthUpperBound(), SHA256: fmt.Sprintf("%x", sha256.Sum256(reviewed))}
 }
 
-func publishPackage(ctx context.Context, c *service.Client, draft domain.Draft, image *service.Image, parent *domain.Post, dir string, result packagePreview, out io.Writer) error {
+func publishPackage(ctx context.Context, c *service.Client, draft domain.Draft, image *service.Image, video *service.Video, parent *domain.Post, dir string, result packagePreview, out io.Writer) error {
 	history := filepath.Join(dir, "posts")
 	if err := os.MkdirAll(history, 0700); err != nil {
 		return err
@@ -373,7 +388,7 @@ func publishPackage(ctx context.Context, c *service.Client, draft domain.Draft, 
 		return fmt.Errorf("create private receipt file before publication: %w", err)
 	}
 	defer receipt.Close()
-	post, err := c.CreatePost(ctx, draft, image, replyID, receipt)
+	post, err := c.CreatePost(ctx, draft, image, video, replyID, receipt)
 	if err != nil {
 		return fmt.Errorf("publication unconfirmed; do not retry automatically; attempt %q: %w", path, err)
 	}

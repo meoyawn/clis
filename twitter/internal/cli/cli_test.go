@@ -290,7 +290,7 @@ func TestPostPackageLifecycle(t *testing.T) {
 			if tc.reply {
 				parent = &domain.Post{ID: "122", Author: owner, URL: "https://x.com/example/status/122"}
 			}
-			p := preview(owner, draft, image, parent)
+			p := preview(owner, draft, image, nil, parent)
 			wantGets := 2
 			if tc.redesigned {
 				wantGets = 1
@@ -300,7 +300,7 @@ func TestPostPackageLifecycle(t *testing.T) {
 			}
 			packagePath = filepath.Join(dir, "posts", p.SHA256+".json")
 			var out bytes.Buffer
-			err = publishPackage(context.Background(), client, draft, image, parent, dir, p, &out)
+			err = publishPackage(context.Background(), client, draft, image, nil, parent, dir, p, &out)
 			wantError := tc.timeout || tc.status != 0 || tc.receiptError || tc.wrongReadback || tc.wrongMedia || tc.wrongParent
 			if (err != nil) != wantError || posts != 1 || uploads != 3 {
 				t.Fatalf("posts=%d uploads=%d err=%v output=%s", posts, uploads, err, out.String())
@@ -314,7 +314,7 @@ func TestPostPackageLifecycle(t *testing.T) {
 			beforeUploads := uploads
 			beforePosts := posts
 			var duplicate bytes.Buffer
-			again := publishPackage(context.Background(), client, draft, image, parent, dir, p, &duplicate)
+			again := publishPackage(context.Background(), client, draft, image, nil, parent, dir, p, &duplicate)
 			if uploads != beforeUploads || posts != beforePosts {
 				t.Fatal("second invocation repeated a mutation")
 			}

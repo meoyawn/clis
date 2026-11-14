@@ -5,6 +5,8 @@ const help = `ahrefs — Site Audit through your signed-in Chrome account; JSON 
 Workflow:
   ahrefs auth import [--browser-profile Default]
   ahrefs auth status
+  ahrefs access
+  ahrefs organic-keywords DOMAIN [--country us] [--limit 50] [--offset 0]
   ahrefs projects
   ahrefs crawls PROJECT
   ahrefs issues PROJECT_OR_URL [--crawl STAMP] [--level LEVEL] [--search TEXT]
@@ -12,6 +14,16 @@ Workflow:
   ahrefs pages PROJECT_OR_URL [--issue ISSUE_ID] [--all]
 
 Start with projects, choose a project and completed crawl, then list issues.
+access reports the signed-in workspace's restricted-tool access. organic-keywords
+reads Site Explorer for a bare domain, including its subdomains. Country codes
+include us, gb, ca and au. The result is one page; use next_offset when present.
+Access depends on the account plan and domain verification. No subscription is
+purchased and no access restrictions are bypassed. Keyword fields retain Ahrefs'
+raw values: volume is the current monthly estimate, volume_avg its average,
+difficulty is KD (0–100), cpc is US cents, traffic_ml is estimated traffic to this
+target (not Traffic Potential). best_position_kind distinguishes organic from
+AI overview appearances. last_update is the keyword's SERP data date. Null stays
+null and explicit zero stays zero. Keywords Explorer metrics are not provided.
 Use issue for Ahrefs' explanation, suggested fix, filter ID and page columns.
 Pass an issue ID to pages to use that issue's exact filter and default columns.
 issues accepts the All issues URL. pages accepts a complete Data Explorer URL,

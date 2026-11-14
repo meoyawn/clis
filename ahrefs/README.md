@@ -1,12 +1,14 @@
 # Ahrefs
 
-Read Ahrefs Site Audit through the signed-in Chrome account using SweetCookie.
+Read Ahrefs Site Audit and Site Explorer through the signed-in Chrome account using SweetCookie.
 Run from the workspace root:
 
 ```sh
 go run ./ahrefs --help
 go run ./ahrefs auth import
 go run ./ahrefs auth status
+go run ./ahrefs access
+go run ./ahrefs organic-keywords example.com --country us --limit 100
 go run ./ahrefs projects
 go run ./ahrefs crawls PROJECT_ID
 go run ./ahrefs issues PROJECT_ID --crawl CRAWL_TIMESTAMP

@@ -98,7 +98,7 @@ func runComments(ctx context.Context, args []string, store authStore, stdout, st
 		if err != nil {
 			return err
 		}
-		comments, err := service.ParsePostComments(ref, string(data))
+		comments, err := parsePostPageComments(ref, data)
 		if err != nil {
 			return err
 		}
@@ -131,14 +131,20 @@ func (c *linkedinClient) createComment(ctx context.Context, ref domain.PostRef, 
 	if err != nil {
 		return commentResult{}, err
 	}
-	parent, err := service.ParsePostDocument(ref, string(page))
+	parent, err := parsePostPage(ref, page)
 	if err != nil {
 		return commentResult{}, err
 	}
 	if parent.AuthorURL != author.URL {
 		return commentResult{}, fmt.Errorf("comments are supported only on your own posts; parent author is %q", parent.AuthorURL)
 	}
-	comments, err := service.ParsePostComments(ref, string(page))
+	if parent.ThreadURN != "" {
+		body, err = service.PrepareCommentThread(ref, draft, parent.ThreadURN)
+		if err != nil {
+			return commentResult{}, err
+		}
+	}
+	comments, err := parsePostPageComments(ref, page)
 	if err != nil {
 		return commentResult{}, err
 	}
@@ -215,7 +221,7 @@ func (c *linkedinClient) createComment(ctx context.Context, ref domain.PostRef, 
 	if err != nil {
 		return result, fmt.Errorf("comment transmitted but independent read failed; do not resend: %w", err)
 	}
-	comments, err = service.ParsePostComments(ref, string(page))
+	comments, err = parsePostPageComments(ref, page)
 	if err != nil {
 		return result, err
 	}

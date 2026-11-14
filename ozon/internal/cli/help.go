@@ -66,6 +66,7 @@ Examples:
 		details = `Print product prices, availability, selected variants and the current seller as JSON.
 Use --full for additional description, characteristics and cheaper/faster seller offers.
 Check the selected variant and both Ozon-card and regular payment prices.
+Shared product URLs keep their sh parameter for the current offer and delivery estimate.
 
 Examples:
   ozon show 1613489220

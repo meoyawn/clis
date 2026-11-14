@@ -128,12 +128,15 @@ func (c *Client) prepareRedesignedWrites(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) prepareDeletion(ctx context.Context) error {
-	if !c.redesigned {
-		return fmt.Errorf("post deletion requires the inspected x-web client")
-	}
+func (c *Client) PrepareDeletionMetadata(ctx context.Context) error {
 	if err := c.PrepareWriteMetadata(ctx); err != nil {
 		return err
+	}
+	if !c.redesigned {
+		if c.operations[domain.LegacyDeleteOperation().String()] == "" {
+			return fmt.Errorf("the X web bundle has no DeleteTweet operation")
+		}
+		return nil
 	}
 	if c.operations[domain.DeleteOperation().String()] != "" {
 		return nil

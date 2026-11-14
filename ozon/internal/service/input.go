@@ -10,10 +10,12 @@ import (
 
 var skuPattern = regexp.MustCompile(`^[1-9][0-9]{0,19}$`)
 var productPattern = regexp.MustCompile(`^/product/(?:[a-zA-Z0-9_-]*-)?([1-9][0-9]{0,19})(?:/(?:reviews|features)/?)?/?$`)
+var shareTokenPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
 type ItemReference struct {
-	SKU  string
-	Path string
+	SKU        string
+	Path       string
+	ShareToken string
 }
 
 func ParseItemReference(raw string) (ItemReference, error) {
@@ -36,8 +38,20 @@ func ParseItemReference(raw string) (ItemReference, error) {
 	if m == nil {
 		return ItemReference{}, fmt.Errorf("invalid product URL: expected /product/<slug-or-sku>/")
 	}
+	query, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return ItemReference{}, fmt.Errorf("invalid product URL query: %w", err)
+	}
+	share := query["sh"]
+	if len(share) > 1 || len(share) == 1 && !shareTokenPattern.MatchString(share[0]) {
+		return ItemReference{}, fmt.Errorf("invalid product URL share token")
+	}
 	segments := strings.Split(strings.Trim(u.Path, "/"), "/")
-	return ItemReference{SKU: m[1], Path: "/product/" + segments[1] + "/"}, nil
+	ref := ItemReference{SKU: m[1], Path: "/product/" + segments[1] + "/"}
+	if len(share) == 1 {
+		ref.ShareToken = share[0]
+	}
+	return ref, nil
 }
 
 type SearchOptions struct {

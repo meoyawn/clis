@@ -175,7 +175,8 @@ func parseConnectionAvailability(body string, target person) (connectionAvailabi
 			if label != "Invite "+target.Name+" to connect" || attr(n, "aria-disabled") != "false" {
 				continue
 			}
-			if !validConnectURL(attr(n, "href"), ref) {
+			if !validConnectURL(attr(n, "href"), ref) &&
+				!(attr(n, "href") == "https://www.linkedin.com/" && nativeConnectNavigationAvailable(root, target, ref)) {
 				continue
 			}
 			state.CanConnect, state.Evidence = true, label

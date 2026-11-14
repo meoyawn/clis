@@ -98,6 +98,9 @@ func deletePackage(ctx context.Context, c *service.Client, dir string, result de
 	if result.Author.ID != c.Owner().ID || result.Post.Author.ID != c.Owner().ID {
 		return fmt.Errorf("post %q does not belong to the selected account", result.Post.ID)
 	}
+	if err := c.PrepareDeletionMetadata(ctx); err != nil {
+		return fmt.Errorf("prepare deletion before reserving an attempt; no POST sent: %w", err)
+	}
 	history := filepath.Join(dir, "deletions")
 	if err := os.MkdirAll(history, 0700); err != nil {
 		return err

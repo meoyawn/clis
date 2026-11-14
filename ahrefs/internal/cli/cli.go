@@ -21,7 +21,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	}
 	command := args[0]
 	switch command {
-	case "projects", "crawls", "issues", "issue", "pages", "auth":
+	case "projects", "crawls", "issues", "issue", "pages", "auth", "access", "organic-keywords":
 	default:
 		return fmt.Errorf("unknown command %q; use --help", command)
 	}
@@ -38,6 +38,12 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	var crawl, comparison, issueID, filterID, columns, level, search, sortValue string
 	var all bool
 	var limit, offset int
+	var country string
+	if command == "organic-keywords" {
+		fs.StringVar(&country, "country", "us", "country database code")
+		fs.IntVar(&limit, "limit", 50, "rows per request")
+		fs.IntVar(&offset, "offset", 0, "zero-based row offset")
+	}
 	if command == "issues" || command == "pages" {
 		fs.StringVar(&crawl, "crawl", "", "completed crawl timestamp")
 		fs.StringVar(&comparison, "compare-with", "", "earlier crawl or none")
@@ -65,7 +71,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 		return fmt.Errorf("invalid timeout %s; expected a positive duration", *timeout)
 	}
 	want := 1
-	if command == "projects" {
+	if command == "projects" || command == "access" {
 		want = 0
 	} else if command == "issue" {
 		want = 2
@@ -83,7 +89,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	}
 	var q domain.Query
 	var err error
-	if command != "projects" && command != "auth" {
+	if command != "projects" && command != "auth" && command != "access" && command != "organic-keywords" {
 		q, err = domain.ParseTarget(fs.Arg(0))
 		if err != nil {
 			return err
@@ -133,7 +139,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 		}
 		q.IssueID = fs.Arg(1)
 	}
-	if command != "projects" && command != "auth" {
+	if command != "projects" && command != "auth" && command != "access" && command != "organic-keywords" {
 		if err := q.Validate(); err != nil {
 			return err
 		}
@@ -150,6 +156,12 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 		issueOptions.Level = &parsed
 	}
 	var pageOptions service.PageOptions
+	keywordOptions := service.KeywordOptions{Domain: fs.Arg(0), Country: country, Limit: limit, Offset: offset}
+	if command == "organic-keywords" {
+		if err := keywordOptions.Validate(); err != nil {
+			return err
+		}
+	}
 	if command == "pages" {
 		field, direction, ok := strings.Cut(sortValue, ":")
 		if !ok {
@@ -192,6 +204,10 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	client := service.NewClient(httpClient)
 	var result any
 	switch command {
+	case "access":
+		result, err = client.RestrictedAccess(ctx)
+	case "organic-keywords":
+		result, err = client.OrganicKeywords(ctx, keywordOptions)
 	case "projects":
 		result, err = client.Projects(ctx)
 	case "crawls":
