@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -41,6 +42,10 @@ type ApplicationStatus struct {
 	DiscardReason  any             `json:"discard_reason,omitempty"`
 	EmployerChange any             `json:"employer_last_change_time,omitempty"`
 	Messages       Object          `json:"messages,omitempty"`
+	NativeResumeID string          `json:"resume_native_id,omitempty"`
+	VacancyHTTP    int             `json:"vacancy_http_status,omitempty"`
+
+	vacancyUnavailable bool
 }
 
 type RecordedLetter struct {
@@ -154,6 +159,7 @@ func (c *Client) ApplicationsFiltered(ctx context.Context, filter domain.Negotia
 	}
 	deleted := filter == domain.DeletedNegotiations()
 	rows := []Object{}
+	snapshots := map[string]Object{}
 	seen := map[string]bool{}
 	pageCount, total := 1, -1
 	for page := 0; page < pageCount; page++ {
@@ -179,6 +185,14 @@ func (c *Client) ApplicationsFiltered(ctx context.Context, filter domain.Negotia
 			return nil, err
 		}
 		list, _ := state["applicantNegotiations"].(map[string]any)
+		short, _ := state["vacanciesShort"].(map[string]any)
+		cards, _ := short["vacanciesList"].([]any)
+		for _, item := range cards {
+			card, _ := item.(map[string]any)
+			if id := nativeID(card["vacancyId"]); vacancyNumber.MatchString(id) {
+				snapshots[id] = card
+			}
+		}
 		if list["filterInUse"] != filter.String() {
 			return nil, fmt.Errorf("negotiation list filter %v does not match requested %s", list["filterInUse"], filter.String())
 		}
@@ -229,6 +243,15 @@ func (c *Client) ApplicationsFiltered(ctx context.Context, filter domain.Negotia
 		if v == nil {
 			v, err = c.Vacancy(ctx, id)
 			if err != nil {
+				var httpErr *HTTPError
+				if deleted && errors.As(err, &httpErr) && httpErr.Status == http.StatusNotFound {
+					status, err := c.unavailableDeletedApplication(row, snapshots[id.String()])
+					if err != nil {
+						return nil, err
+					}
+					applications = append(applications, status)
+					continue
+				}
 				return nil, err
 			}
 			vacancies[id.String()] = v
@@ -257,6 +280,37 @@ func (c *Client) ApplicationsFiltered(ctx context.Context, filter domain.Negotia
 		applications = append(applications, status)
 	}
 	return Object{"total": total, "pages": pageCount, "applications": applications}, nil
+}
+
+// A removed vacancy can still have a retained negotiation and chat. This
+// provisional status must be bound to that chat before it is emitted by the CLI.
+func (c *Client) unavailableDeletedApplication(row, card Object) (*ApplicationStatus, error) {
+	for _, key := range []string{"id", "vacancyId", "employerId", "resumeId", "chatId", "applicantUserId"} {
+		if !vacancyNumber.MatchString(nativeID(row[key])) {
+			return nil, fmt.Errorf("deleted topic has invalid %s %v", key, row[key])
+		}
+	}
+	letter, letterOK := row["hasResponseLetter"].(bool)
+	viewed, viewedOK := row["viewedByOpponent"].(bool)
+	if !letterOK || !viewedOK || row["archived"] != true || row["applicantSubState"] != "HIDE" {
+		return nil, fmt.Errorf("deleted topic %s has unknown or conflicting flags", nativeID(row["id"]))
+	}
+	employer := Object{"id": row["employerId"]}
+	title, _ := card["name"].(string)
+	if company, ok := card["company"].(map[string]any); ok {
+		if nativeID(company["id"]) != nativeID(row["employerId"]) || nativeID(card["vacancyId"]) != nativeID(row["vacancyId"]) {
+			return nil, fmt.Errorf("deleted topic %s vacancy card has a different identity", nativeID(row["id"]))
+		}
+		employer = company
+	}
+	initial, _ := row["initialTopicType"].(string)
+	state, _ := row["lastState"].(string)
+	created, _ := row["creationTime"].(string)
+	return &ApplicationStatus{VacancyID: nativeID(row["vacancyId"]), VacancyURL: c.base.String() + "/vacancy/" + nativeID(row["vacancyId"]),
+		Title: title, Employer: employer, TopicID: nativeID(row["id"]), ChatID: nativeID(row["chatId"]), ApplicantID: nativeID(row["applicantUserId"]),
+		NativeResumeID: nativeID(row["resumeId"]), CreatedAt: created, State: state, InitialType: initial, Submitted: initial == "RESPONSE_BY_APPLICANT",
+		Archived: true, Viewed: viewed, ApplicantState: "HIDE", DiscardReason: row["discardReason"], VacancyHTTP: http.StatusNotFound, vacancyUnavailable: true,
+		CoverLetter: Object{"present": letter, "text_available": false, "ui_add_available": false}}, nil
 }
 
 // VerifyRecordedLetter reads a local HAR; it never replays its requests or imports

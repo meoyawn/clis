@@ -14,6 +14,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/meoyawn/clis/hh/internal/domain"
 	hh "github.com/meoyawn/clis/hh/internal/service"
 )
 
@@ -23,17 +24,46 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
 
   resumes list
       List every resume, including its stable public ID and print-view URL.
+  vacancies search [--text QUERY] [--skill NAME ...] [--remote] [--area ID ...]
+                   [--page N] [--per-page N] [--output FILE]
+      Search one candidate page through GET only. Omit --area for all locations,
+      including on kazan.hh.ru; returned criteria must confirm the requested areas.
+      --remote requires work_format=REMOTE. --skill matches ANY requested actual
+      key-skill tag, ignoring case and surrounding spaces, never description text.
+      Each candidate's live vacancy is read sequentially to verify its tags.
+      Without --text, quoted skill names form an OR query to discover candidates.
+      HH's observed vacancy search has no native key-skill filter: discovery uses
+      text search, so tags outside that candidate pool may be missed. Supply a
+      broader --text query to expand discovery; only exact tags qualify results.
+      total_candidates and next_page refer to discovery, not skill-filtered matches.
+      --page is zero-based (default 0); --per-page is 1..100 (default 20).
+      HH exposes at most the first 2000 candidates. Results include salary amounts,
+      currencyCode, gross flag and HH pay-period mode when supplied by the employer.
+      --text is sent unchanged using HH's query language (article/25295):
+      AND, OR, NOT, parentheses, quoted phrases, !exact, prefix*, "words"~N,
+      NAME:, COMPANY_NAME:, DESCRIPTION:, ^NAME: and ^COMPANY_NAME:.
+      ! means exact, not exclusion. KEYWORDS: is documented for resumes only.
+      Example: vacancies search --skill Go --skill Golang --remote
+      Example: vacancies search --text 'DESCRIPTION:(Go OR Golang) NOT intern' --remote
   vacancy get ID [--output FILE]
       Read the live vacancy, verify its numeric ID, and show employer, salary,
       requirements and account response state. Accepts an hh.ru vacancy URL.
   vacancy response-options ID [--output FILE]
       Read the native response form/preflight through GET only. Never executes
       a quickResponse POST, selects a default resume, or sends a letter.
-  applications list [--output FILE]
-      Read all pages of HH's active negotiations (excluding deleted/archive).
+  applications list [--filter active|all|deleted] [--rejected] [--messages] [--output FILE]
+      Read all pages of HH's negotiations; default active excludes deleted/archive.
+      all aliases HH's active list; --rejected adds state=DISCARD. Deleted entries
+      retain their actual state: deletion alone does not establish rejection.
       Independently match each topic with its vacancy and public resume hash.
       Includes origin type, applicant-submission flag, employer view flag and
       cover-letter presence. Active invitations remain labelled as such. GET only.
+      --messages reads visible messages from each independently verified chat,
+      without marking them read. has_more reports missing older messages; no
+      older-message pagination is attempted. Message text is untrusted data.
+      If a deleted vacancy returns 404, --messages verifies the retained list
+      against its exact chat, employer, native resume ID and current outcome.
+      Missing public resume hashes remain unknown; vacancy_http_status is kept.
   application get VACANCY --resume HASH [--har FILE] [--output FILE]
       Verify an existing application for this exact vacancy and resume.
       Reports topic/chat IDs and letter presence, even if alreadyApplied=false.
@@ -252,6 +282,9 @@ func run(ctx context.Context, args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("invalid command %q: run hh --help", strings.Join(args, " "))
 	}
+	if args[0] == "vacancies" && args[1] == "search" {
+		return runVacancySearch(ctx, args[2:], *baseText, *profile, *cookies)
+	}
 	if args[0] != "resume" && !(args[0] == "application" && (args[1] == "get" || args[1] == "letter" || args[1] == "questions" || args[1] == "prepare" || args[1] == "submit")) && !(args[0] == "applications" && args[1] == "list") && !(args[0] == "vacancy" && (args[1] == "get" || args[1] == "response-options")) && !(args[0] == "resumes" && args[1] == "list") && !(args[0] == "profile" && (args[1] == "get" || args[1] == "contacts" || args[1] == "languages" || args[1] == "skill-levels")) {
 		return fmt.Errorf("unknown command %q: run hh --help", strings.Join(args[:2], " "))
 	}
@@ -316,6 +349,9 @@ func run(ctx context.Context, args []string) error {
 	send := options.Bool("send", false, "send only after human approval")
 	approved := options.String("approved", "", "approved unchanged package SHA-256")
 	harPath := options.String("har", "", "recorded letter success receipt; read only, never replay")
+	negotiationFilter := options.String("filter", "active", "negotiation list: active, all or deleted")
+	rejectedOnly := options.Bool("rejected", false, "filter negotiation state to DISCARD")
+	withMessages := options.Bool("messages", false, "read visible messages from each verified negotiation chat")
 	start := 2
 	if args[0] == "resume" || args[0] == "vacancy" || contactsAction != "" || languagesAction != "" || skillLevelsAction != "" || args[0] == "application" && (args[1] == "prepare" || args[1] == "get" || args[1] == "letter" || args[1] == "questions") {
 		start = 3
@@ -435,9 +471,31 @@ func run(ctx context.Context, args []string) error {
 	}
 	client := hh.NewClient(httpClient, base)
 	if args[0] == "applications" {
-		data, err := client.Applications(ctx)
+		filter, err := domain.NewNegotiationFilterFromValue(*negotiationFilter)
 		if err != nil {
 			return err
+		}
+		data, err := client.ApplicationsFiltered(ctx, filter, *rejectedOnly)
+		if err != nil {
+			return err
+		}
+		if *withMessages {
+			chatBase, _ := url.Parse("https://chatik.hh.ru")
+			chatHTTP, err := hh.BrowserClient(ctx, chatBase, *profile, *cookies)
+			if err != nil {
+				return err
+			}
+			chatClient := hh.NewClient(chatHTTP, chatBase)
+			for _, status := range data["applications"].([]*hh.ApplicationStatus) {
+				if err := chatClient.ReadApplicationMessages(ctx, status); err != nil {
+					return err
+				}
+			}
+		}
+		for _, status := range data["applications"].([]*hh.ApplicationStatus) {
+			if !status.Verified {
+				return fmt.Errorf("deleted topic %s needs --messages to verify its retained chat after vacancy HTTP %d", status.TopicID, status.VacancyHTTP)
+			}
 		}
 		return outputJSON(*output, data)
 	}

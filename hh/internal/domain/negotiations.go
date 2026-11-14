@@ -5,7 +5,7 @@ import "fmt"
 type NegotiationFilter struct{ value string }
 
 const (
-	activeNegotiationFilter = "active"
+	activeNegotiationFilter  = "active"
 	deletedNegotiationFilter = "deleted"
 )
 

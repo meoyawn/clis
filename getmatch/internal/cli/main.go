@@ -20,7 +20,7 @@ import (
 	"github.com/meoyawn/clis/getmatch/internal/service"
 )
 
-const help = `Getmatch salary research, profiles and native job applications, as JSON.
+const help = `Getmatch vacancy search, salary research, profiles and native applications, as JSON.
 
 Usage: getmatch [--anonymous] COMMAND [OPTIONS]
 
@@ -47,6 +47,29 @@ Usage: getmatch [--anonymous] COMMAND [OPTIONS]
       from that same session; otherwise derive UA from installed macOS Chrome.
   auth status
       Local cookie presence/expiry metadata only; never print credentials.
+  vacancies search [--specialization SLUG ...] [--skill NAME ...] [--remote]
+                   [--salary NUMBER] [--level LEVEL ...]
+                   [--page N] [--per-page N] [--output FILE]
+      Read one native candidate page through GET only. Omit --specialization
+      for all fields; slugs come from the live catalog (e.g. golang, python).
+      --skill matches ANY requested actual skill tag, ignoring case and outer
+      spaces, never title/description text. Matching happens within this page.
+      --remote requires an included remote location; geographic restrictions
+      and exclusions remain in locations. It does not imply work from anywhere.
+      --salary uses Getmatch's monthly RUB thresholds: 0 (any, default),
+      150000, 200000, 250000 or 350000. Native results can include hidden
+      salaries: a threshold does not establish a disclosed employer budget.
+      Compensation preserves the source currency, taxes (gross/net), total
+      compensation and estimate flags; amounts are monthly and not converted.
+      --level: junior, middle, senior, lead, c_level; omit for all levels.
+      --page is zero-based (default 0), mapped to native p=page+1;
+      --per-page is 1..100 (default 20). total_candidates, scanned_candidates
+      and next_page refer to native candidates, before local skill filtering.
+      Getmatch's native search has no free-text query. Profile preferences
+      and application details are excluded from JSON. --output creates a new
+      private file (0600). No account changes, automatic paging or retries.
+      Example: vacancies search --specialization golang --remote --salary 350000
+      Example: vacancies search --skill Go --skill Golang --remote --per-page 100
   vacancies get --id ID
       Read the exact live vacancy; accepts a canonical Getmatch vacancy URL.
   profile get --output FILE
@@ -132,6 +155,9 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	}
 	if len(args) < 2 {
 		return fmt.Errorf("expected salaries filters, salaries estimate, auth login or auth status")
+	}
+	if args[0] == "vacancies" && args[1] == "search" {
+		return runVacancySearch(ctx, args[2:], *anon, out)
 	}
 	account := args[0] == "profile" && (args[1] == "get" || args[1] == "cv" || args[1] == "update") || args[0] == "vacancies" && args[1] == "get" || args[0] == "applications" && args[1] == "list" || args[0] == "application" && (args[1] == "prepare" || args[1] == "submit" || args[1] == "status" || args[1] == "verify")
 	known := account || args[0] == "salaries" && (args[1] == "filters" || args[1] == "estimate") || args[0] == "auth" && (args[1] == "login" || args[1] == "status")

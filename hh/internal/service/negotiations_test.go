@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/meoyawn/clis/hh/internal/domain"
 	hh "github.com/meoyawn/clis/hh/internal/service"
 )
 
@@ -39,10 +40,27 @@ func existingVacancy(topics []any) hh.Object {
 			"resumes": hh.Object{"102": hh.Object{"hash": hashes[1]}, "103": hh.Object{"hash": hashes[2]}}}}}
 }
 
-func TestActiveApplicationListCompletenessAndIndependentIdentity(t *testing.T) {
-	for _, scenario := range []string{"paginated", "empty", "duplicate-page", "wrong-filter", "truncated", "wrong-readback", "rate-limit"} {
+func TestApplicationListCompletenessAndIndependentIdentity(t *testing.T) {
+	for _, scenario := range []string{"paginated", "empty", "duplicate-page", "wrong-filter", "truncated", "wrong-readback", "rate-limit", "deleted", "rejected", "wrong-rejected-state", "wrong-deleted-state"} {
 		t.Run(scenario, func(t *testing.T) {
 			first, second := existingTopic("501", "102", true), existingTopic("502", "103", false)
+			filter := domain.ActiveNegotiations()
+			rejectedOnly := scenario == "rejected" || scenario == "wrong-rejected-state"
+			if rejectedOnly {
+				first["lastState"], second["lastState"] = "DISCARD", "DISCARD"
+				if scenario == "wrong-rejected-state" {
+					first["lastState"] = "RESPONSE"
+				}
+			}
+			if scenario == "deleted" || scenario == "wrong-deleted-state" {
+				filter = domain.DeletedNegotiations()
+				first["archived"], second["archived"] = true, true
+				first["applicantSubState"], second["applicantSubState"] = "HIDE", "HIDE"
+				first["lastState"], second["lastState"] = "INVITATION", "DISCARD"
+				if scenario == "wrong-deleted-state" {
+					first["applicantSubState"] = "SHOW"
+				}
+			}
 			listRequests := 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodGet {
@@ -53,6 +71,9 @@ func TestActiveApplicationListCompletenessAndIndependentIdentity(t *testing.T) {
 				switch r.URL.Path {
 				case "/applicant/negotiations":
 					listRequests++
+					if filter == domain.DeletedNegotiations() && r.URL.Query().Get("filter") != "deleted" || rejectedOnly && (r.URL.Query().Get("filter") != "all" || r.URL.Query().Get("state") != "DISCARD") {
+						t.Errorf("requested negotiation filter lost: %s", r.URL)
+					}
 					page := r.URL.Query().Get("page")
 					if page != "" && page != "1" {
 						t.Errorf("unexpected zero-based page: %q", page)
@@ -67,18 +88,18 @@ func TestActiveApplicationListCompletenessAndIndependentIdentity(t *testing.T) {
 					if page == "1" && scenario != "duplicate-page" {
 						items = []any{second}
 					}
-					filter, pages, total := "active", "2", 2
+					returnedFilter, pages, total := filter.String(), "2", 2
 					if scenario == "empty" {
 						items, pages, total = []any{}, "0", 0
 					}
 					if scenario == "wrong-filter" {
-						filter = "deleted"
+						returnedFilter = "deleted"
 					}
 					if scenario == "truncated" {
 						pages = "1"
 					}
 					_ = json.NewEncoder(w).Encode(hh.Object{"applicantNegotiations": hh.Object{
-						"filterInUse": filter, "pageCount": pages, "total": total, "topicList": items}})
+						"filterInUse": returnedFilter, "pageCount": pages, "total": total, "topicList": items}})
 				case "/vacancy/135582813":
 					topics := []any{first, second}
 					if scenario == "wrong-readback" {
@@ -92,8 +113,15 @@ func TestActiveApplicationListCompletenessAndIndependentIdentity(t *testing.T) {
 			}))
 			defer server.Close()
 			base, _ := url.Parse(server.URL)
-			result, err := hh.NewClient(server.Client(), base).Applications(context.Background())
-			if scenario != "paginated" && scenario != "empty" {
+			client := hh.NewClient(server.Client(), base)
+			var result hh.Object
+			var err error
+			if scenario == "paginated" {
+				result, err = client.Applications(context.Background())
+			} else {
+				result, err = client.ApplicationsFiltered(context.Background(), filter, rejectedOnly)
+			}
+			if scenario != "paginated" && scenario != "empty" && scenario != "deleted" && scenario != "rejected" {
 				if err == nil || result != nil {
 					t.Fatalf("misleading/partial list accepted: %v %v", result, err)
 				}
@@ -112,6 +140,9 @@ func TestActiveApplicationListCompletenessAndIndependentIdentity(t *testing.T) {
 				}
 			} else if len(rows) != 2 || rows[0].ResumeID != hashes[1] || rows[1].ResumeID != hashes[2] || !rows[0].Verified || rows[0].CoverLetter["present"] != true || rows[1].CoverLetter["present"] != false {
 				t.Fatalf("wrong cross-resume identity or letter status: %+v", rows)
+			}
+			if scenario == "deleted" && (!rows[0].Archived || rows[0].State != "INVITATION" || rows[1].State != "DISCARD") {
+				t.Fatalf("deleted entries lost their independent outcome: %+v", rows)
 			}
 		})
 	}

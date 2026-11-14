@@ -39,6 +39,9 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, result 
 	req.Header = c.headers.Clone()
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Referer", Origin+"/salaries")
+	if path == "/api/offers" {
+		req.Header.Set("Referer", Origin+"/vacancies")
+	}
 	started := time.Now()
 	res, err := c.http.Do(req)
 	if err != nil {
