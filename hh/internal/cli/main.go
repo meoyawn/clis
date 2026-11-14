@@ -22,6 +22,16 @@ const help = `hh — hh.ru through the signed-in Chrome account (sweetcookie)
 
 Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
 
+  saved-searches list [--output FILE]
+      List native saved vacancy searches, their exact criteria and email state.
+      GET only. Stops on incomplete/paginated lists rather than missing duplicates.
+  saved-searches save --text QUERY [--remote] [--apply] [--output FILE]
+      Preview or save a native search across all locations. --remote adds REMOTE.
+      Reuses an exact existing search without changing its notifications.
+      --apply sends one native save POST with the verified HH account email,
+      enabling native email updates, then independently verifies the saved criteria
+      and preservation of existing searches. Never retries a write automatically;
+      after an uncertain result, inspect saved-searches list before retrying.
   resumes list
       List every resume, including its stable public ID and print-view URL.
   vacancies search [--text QUERY] [--skill NAME ...] [--remote] [--area ID ...]
@@ -284,6 +294,9 @@ func run(ctx context.Context, args []string) error {
 	}
 	if args[0] == "vacancies" && args[1] == "search" {
 		return runVacancySearch(ctx, args[2:], *baseText, *profile, *cookies)
+	}
+	if args[0] == "saved-searches" {
+		return runSavedSearches(ctx, args[1:], *baseText, *profile, *cookies)
 	}
 	if args[0] != "resume" && !(args[0] == "application" && (args[1] == "get" || args[1] == "letter" || args[1] == "questions" || args[1] == "prepare" || args[1] == "submit")) && !(args[0] == "applications" && args[1] == "list") && !(args[0] == "vacancy" && (args[1] == "get" || args[1] == "response-options")) && !(args[0] == "resumes" && args[1] == "list") && !(args[0] == "profile" && (args[1] == "get" || args[1] == "contacts" || args[1] == "languages" || args[1] == "skill-levels")) {
 		return fmt.Errorf("unknown command %q: run hh --help", strings.Join(args[:2], " "))
