@@ -92,6 +92,14 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       older-message pagination is not yet implemented. Never infer it from another
       chat message. Missing add-letter UI does not establish edit restrictions:
       inspect live can_edit_reported_by_chat; no repeat-edit POST is attempted.
+  application update-letter VACANCY --resume HASH --text-file FILE
+                            [--apply] [--backup-dir DIR] [--output FILE]
+      Preview replacement of the exact existing cover letter. --apply checks
+      the verified chat's edit permission, saves a private backup, posts the
+      native edit once and verifies the same message's current text. Trims
+      surrounding whitespace and normalizes CRLF like the native editor.
+      Never creates an application or sends a separate chat message. Inspect
+      application letter after an uncertain result before retrying.
   application questions VACANCY [--output FILE]
       Read the full native questionnaire, without sending or choosing a resume.
       Open-text and single-choice questions are supported. Multiple-choice
@@ -298,7 +306,7 @@ func run(ctx context.Context, args []string) error {
 	if args[0] == "saved-searches" {
 		return runSavedSearches(ctx, args[1:], *baseText, *profile, *cookies)
 	}
-	if args[0] != "resume" && !(args[0] == "application" && (args[1] == "get" || args[1] == "letter" || args[1] == "questions" || args[1] == "prepare" || args[1] == "submit")) && !(args[0] == "applications" && args[1] == "list") && !(args[0] == "vacancy" && (args[1] == "get" || args[1] == "response-options")) && !(args[0] == "resumes" && args[1] == "list") && !(args[0] == "profile" && (args[1] == "get" || args[1] == "contacts" || args[1] == "languages" || args[1] == "skill-levels")) {
+	if args[0] != "resume" && !(args[0] == "application" && (args[1] == "get" || args[1] == "letter" || args[1] == "update-letter" || args[1] == "questions" || args[1] == "prepare" || args[1] == "submit")) && !(args[0] == "applications" && args[1] == "list") && !(args[0] == "vacancy" && (args[1] == "get" || args[1] == "response-options")) && !(args[0] == "resumes" && args[1] == "list") && !(args[0] == "profile" && (args[1] == "get" || args[1] == "contacts" || args[1] == "languages" || args[1] == "skill-levels")) {
 		return fmt.Errorf("unknown command %q: run hh --help", strings.Join(args[:2], " "))
 	}
 	if args[0] == "resume" && args[1] != "get" && args[1] != "view" && args[1] != "update" && args[1] != "verify" && args[1] != "duplicate" && args[1] != "complete" {
@@ -328,7 +336,7 @@ func run(ctx context.Context, args []string) error {
 	var id hh.ResumeID
 	var vacancyID hh.VacancyID
 	var err error
-	if args[0] == "vacancy" || args[0] == "application" && (args[1] == "prepare" || args[1] == "get" || args[1] == "letter" || args[1] == "questions") {
+	if args[0] == "vacancy" || args[0] == "application" && (args[1] == "prepare" || args[1] == "get" || args[1] == "letter" || args[1] == "update-letter" || args[1] == "questions") {
 		if len(args) < 3 {
 			return fmt.Errorf("vacancy %s requires an explicit ID", args[1])
 		}
@@ -366,7 +374,7 @@ func run(ctx context.Context, args []string) error {
 	rejectedOnly := options.Bool("rejected", false, "filter negotiation state to DISCARD")
 	withMessages := options.Bool("messages", false, "read visible messages from each verified negotiation chat")
 	start := 2
-	if args[0] == "resume" || args[0] == "vacancy" || contactsAction != "" || languagesAction != "" || skillLevelsAction != "" || args[0] == "application" && (args[1] == "prepare" || args[1] == "get" || args[1] == "letter" || args[1] == "questions") {
+	if args[0] == "resume" || args[0] == "vacancy" || contactsAction != "" || languagesAction != "" || skillLevelsAction != "" || args[0] == "application" && (args[1] == "prepare" || args[1] == "get" || args[1] == "letter" || args[1] == "update-letter" || args[1] == "questions") {
 		start = 3
 	}
 	if err := options.Parse(args[start:]); err != nil {
@@ -398,7 +406,7 @@ func run(ctx context.Context, args []string) error {
 	var letter string
 	var answers map[string]string
 	if args[0] == "application" {
-		if args[1] == "prepare" || args[1] == "get" || args[1] == "letter" {
+		if args[1] == "prepare" || args[1] == "get" || args[1] == "letter" || args[1] == "update-letter" {
 			id, err = hh.NewResumeIDFromValue(*resumeText)
 			if err != nil {
 				return err
@@ -424,6 +432,15 @@ func run(ctx context.Context, args []string) error {
 				}
 				letter = string(data)
 			}
+		} else if args[1] == "update-letter" {
+			if *textFile == "" || *noLetter {
+				return fmt.Errorf("application update-letter requires --text-file FILE")
+			}
+			data, err := os.ReadFile(*textFile)
+			if err != nil {
+				return fmt.Errorf("read replacement letter %q: %w", *textFile, err)
+			}
+			letter = string(data)
 		} else if args[1] == "submit" {
 			data, err := os.ReadFile(*draftFile)
 			if err != nil {
@@ -520,18 +537,29 @@ func run(ctx context.Context, args []string) error {
 			}
 			return outputJSON(*output, data)
 		}
-		if args[1] == "get" || args[1] == "letter" {
+		if args[1] == "get" || args[1] == "letter" || args[1] == "update-letter" {
 			data, err := client.Application(ctx, vacancyID, id)
 			if err != nil {
 				return err
 			}
-			if args[1] == "letter" {
+			if args[1] == "letter" || args[1] == "update-letter" {
 				chatBase, _ := url.Parse("https://chatik.hh.ru")
 				chatHTTP, err := hh.BrowserClient(ctx, chatBase, *profile, *cookies)
 				if err != nil {
 					return err
 				}
-				if err := hh.NewClient(chatHTTP, chatBase).ReadApplicationLetter(ctx, data); err != nil {
+				chatClient := hh.NewClient(chatHTTP, chatBase)
+				if args[1] == "update-letter" {
+					if *backupDir == "" {
+						*backupDir = filepath.Join(stateDir(), "backups")
+					}
+					result, err := chatClient.UpdateApplicationLetter(ctx, data, letter, *apply, *backupDir)
+					if err != nil {
+						return err
+					}
+					return outputJSON(*output, result)
+				}
+				if err := chatClient.ReadApplicationLetter(ctx, data); err != nil {
 					return err
 				}
 			}
