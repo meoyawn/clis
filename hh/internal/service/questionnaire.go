@@ -13,10 +13,11 @@ import (
 )
 
 type ApplicationQuestion struct {
-	ID      string              `json:"id"`
-	Prompt  string              `json:"prompt"`
-	Answer  string              `json:"answer"`
-	Choices []ApplicationChoice `json:"choices,omitempty"`
+	ID       string              `json:"id"`
+	Prompt   string              `json:"prompt"`
+	Answer   string              `json:"answer"`
+	Choices  []ApplicationChoice `json:"choices,omitempty"`
+	Multiple bool                `json:"multiple,omitempty"`
 }
 
 type ApplicationChoice struct {
@@ -90,9 +91,10 @@ func (c *Client) ApplicationQuestions(ctx context.Context, id VacancyID) (*Appli
 				return nil, fmt.Errorf("open-text question %s unexpectedly contains choices; stopped", questionID)
 			}
 		case "false":
-			if task["multiple"] != "false" || len(choices) == 0 {
-				return nil, fmt.Errorf("question %s is not a supported single-choice question; stopped", questionID)
+			if task["multiple"] != "false" && task["multiple"] != "true" || len(choices) == 0 {
+				return nil, fmt.Errorf("question %s has an unknown choice format or no choices; stopped", questionID)
 			}
+			question.Multiple = task["multiple"] == "true"
 			seenChoices := map[string]bool{}
 			for _, item := range choices {
 				choice, _ := item.(map[string]any)

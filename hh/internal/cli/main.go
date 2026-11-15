@@ -74,13 +74,15 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       If a deleted vacancy returns 404, --messages verifies the retained list
       against its exact chat, employer, native resume ID and current outcome.
       Missing public resume hashes remain unknown; vacancy_http_status is kept.
-  application get VACANCY --resume HASH [--har FILE] [--output FILE]
+  application get VACANCY --resume HASH [--messages] [--har FILE] [--output FILE]
       Verify an existing application for this exact vacancy and resume.
       Reports topic/chat IDs and letter presence, even if alreadyApplied=false.
       --har binds a recorded edit_ajax POST/success receipt to the live topic,
       and shows the exact text in that recording. Never replays any request.
       This status command reads letter presence, not its current text. Use
       application letter to read the current letter from the associated chat.
+      --messages reads this exact application's visible chat history through
+      GET only, without marking messages read. has_more reports older messages.
   application letter VACANCY --resume HASH [--har FILE] [--output FILE]
       Read current cover-letter text from the live chat, using the same Chrome
       profile at chatik.hh.ru. Verify chat, applicant, topic, vacancy, public
@@ -100,10 +102,20 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       surrounding whitespace and normalizes CRLF like the native editor.
       Never creates an application or sends a separate chat message. Inspect
       application letter after an uncertain result before retrying.
+  application reply VACANCY --resume HASH --text-file FILE
+                    [--send --approved SHA256] [--backup-dir DIR] [--output FILE]
+      Preview a normal reply in this exact application's verified chat. GET only
+      without --send. Show the complete preview and obtain human approval first.
+      Both sending flags are required. The checksum binds destination, sender,
+      resume, text and latest visible message; new messages require a new review.
+      Sends one plain-text message with a new idempotency key, saves a private
+      pre-send backup, and verifies its exact ID, author and text by chat readback.
+      Never applies again or edits the cover letter. No automatic retries;
+      after an uncertain result, inspect application get --messages first.
   application questions VACANCY [--output FILE]
       Read the full native questionnaire, without sending or choosing a resume.
-      Open-text and single-choice questions are supported. Multiple-choice
-      questions and access challenges stop.
+      Open text and one selected ID per radio/checkbox question are supported.
+      Multiple selections and access challenges stop.
   application prepare VACANCY --resume HASH --text-file FILE [--answers-file FILE] [--output FILE]
       Prepare an exact local application package using GET requests only.
       Check live eligibility, selected resume/print view and letter limit.
@@ -305,6 +317,9 @@ func run(ctx context.Context, args []string) error {
 	}
 	if args[0] == "saved-searches" {
 		return runSavedSearches(ctx, args[1:], *baseText, *profile, *cookies)
+	}
+	if args[0] == "application" && args[1] == "reply" {
+		return runApplicationReply(ctx, args[2:], *baseText, *profile, *cookies)
 	}
 	if args[0] != "resume" && !(args[0] == "application" && (args[1] == "get" || args[1] == "letter" || args[1] == "update-letter" || args[1] == "questions" || args[1] == "prepare" || args[1] == "submit")) && !(args[0] == "applications" && args[1] == "list") && !(args[0] == "vacancy" && (args[1] == "get" || args[1] == "response-options")) && !(args[0] == "resumes" && args[1] == "list") && !(args[0] == "profile" && (args[1] == "get" || args[1] == "contacts" || args[1] == "languages" || args[1] == "skill-levels")) {
 		return fmt.Errorf("unknown command %q: run hh --help", strings.Join(args[:2], " "))
@@ -542,7 +557,7 @@ func run(ctx context.Context, args []string) error {
 			if err != nil {
 				return err
 			}
-			if args[1] == "letter" || args[1] == "update-letter" {
+			if args[1] == "letter" || args[1] == "update-letter" || *withMessages {
 				chatBase, _ := url.Parse("https://chatik.hh.ru")
 				chatHTTP, err := hh.BrowserClient(ctx, chatBase, *profile, *cookies)
 				if err != nil {
@@ -559,7 +574,11 @@ func run(ctx context.Context, args []string) error {
 					}
 					return outputJSON(*output, result)
 				}
-				if err := chatClient.ReadApplicationLetter(ctx, data); err != nil {
+				if args[1] == "get" && *withMessages {
+					if err := chatClient.ReadApplicationMessages(ctx, data); err != nil {
+						return err
+					}
+				} else if err := chatClient.ReadApplicationLetter(ctx, data); err != nil {
 					return err
 				}
 			}

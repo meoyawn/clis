@@ -16,7 +16,7 @@ import (
 )
 
 func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
-	for _, scenario := range []string{"send", "single-choice", "changed-choice", "invalid-choice", "changed-question", "tampered-answer", "choice-question", "extra-hidden", "unknown-answer"} {
+	for _, scenario := range []string{"send", "single-choice", "checkbox-choice", "changed-choice-mode", "changed-choice", "invalid-choice", "changed-question", "tampered-answer", "choice-question", "extra-hidden", "unknown-answer"} {
 		t.Run(scenario, func(t *testing.T) {
 			posts, requests, nonce := 0, 0, 0
 			submitted, changed := false, false
@@ -51,7 +51,7 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 					}
 					nonce++
 					prompt := "Confirm the external form was sent"
-					if changed {
+					if changed && scenario != "changed-choice-mode" {
 						prompt = "A different question added by the employer"
 					}
 					choices := []any{}
@@ -62,12 +62,16 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 					form := fmt.Sprintf(`<form name="vacancy_response" method="POST"><input type="hidden" name="_xsrf" value="fixture-token"><input type="hidden" name="uidPk" value="700"><input type="hidden" name="guid" value="synthetic-guid-%d"><input type="hidden" name="startTime" value="%d"><input type="hidden" name="testRequired" value="true">`, nonce, nonce)
 					if strings.Contains(scenario, "choice") && scenario != "choice-question" {
 						label := "Yes"
-						if changed {
+						if changed && scenario != "changed-choice-mode" {
 							label = "A changed choice"
 						}
-						tasks = append(tasks, hh.Object{"id": 702, "description": "Confirm relevant experience", "open": "false", "multiple": "false",
+						multiple, inputType := "false", "radio"
+						if scenario == "checkbox-choice" || scenario == "changed-choice-mode" && changed {
+							multiple, inputType = "true", "checkbox"
+						}
+						tasks = append(tasks, hh.Object{"id": 702, "description": "Confirm relevant experience", "open": "false", "multiple": multiple,
 							"candidateSolutions": []any{hh.Object{"id": "703", "text": label}, hh.Object{"id": "704", "text": "No"}}})
-						form += `<input type="radio" name="task_702" value="703"><input type="radio" name="task_702" value="704">`
+						form += fmt.Sprintf(`<input type="%s" name="task_702" value="703"><input type="%s" name="task_702" value="704">`, inputType, inputType)
 					}
 					if scenario == "extra-hidden" {
 						form += `<input type="hidden" name="unexpected_challenge" value="unknown">`
@@ -95,8 +99,8 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 							t.Errorf("native field %s: got %q, want %q", key, got, want)
 						}
 					}
-					if scenario == "single-choice" && (r.FormValue("task_702") != "703" || r.FormValue("task_702_text") != "") {
-						t.Error("single-choice answer did not use the native radio field and choice ID")
+					if (scenario == "single-choice" || scenario == "checkbox-choice") && (r.FormValue("task_702") != "703" || r.FormValue("task_702_text") != "") {
+						t.Error("selected answer did not use the native task field and choice ID")
 					}
 					if nonce != 2 || r.Header.Get("X-Xsrftoken") != "fixture-token" {
 						t.Error("submission did not use a fresh form and CSRF protection")
@@ -150,7 +154,7 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 			if err := json.Unmarshal(data, &saved); err != nil {
 				t.Fatal(err)
 			}
-			changed = scenario == "changed-question" || scenario == "changed-choice"
+			changed = scenario == "changed-question" || scenario == "changed-choice" || scenario == "changed-choice-mode"
 			if scenario == "tampered-answer" {
 				saved.Questionnaire.Questions[0].Answer = "Unapproved change"
 			}
@@ -162,7 +166,7 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 				}
 				return
 			}
-			if scenario == "changed-question" || scenario == "changed-choice" {
+			if scenario == "changed-question" || scenario == "changed-choice" || scenario == "changed-choice-mode" {
 				if err == nil || !strings.Contains(err.Error(), "changed since approval") || posts != 0 {
 					t.Fatalf("changed prompt bypassed approval: err=%v posts=%d", err, posts)
 				}

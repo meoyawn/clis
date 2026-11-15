@@ -40,9 +40,10 @@ func decodeChatState(body []byte) (Object, error) {
 }
 
 type applicationChat struct {
-	chat      Object
-	resume    string
-	sourceURL string
+	chat         Object
+	resume       string
+	sourceURL    string
+	writeAllowed bool
 }
 
 func (c *Client) readApplicationChat(ctx context.Context, status *ApplicationStatus) (*applicationChat, error) {
@@ -87,7 +88,9 @@ func (c *Client) readApplicationChat(ctx context.Context, status *ApplicationSta
 		}
 		status.Verified = true
 	}
-	return &applicationChat{chat: chat, resume: resume, sourceURL: c.base.String() + path + "?" + query.Encode()}, nil
+	chatStates, _ := data["chatStates"].(map[string]any)
+	writeState, _ := chatStates["writeMessageState"].(map[string]any)
+	return &applicationChat{chat: chat, resume: resume, sourceURL: c.base.String() + path + "?" + query.Encode(), writeAllowed: writeState["allowed"] == true}, nil
 }
 
 // ReadApplicationMessages exports visible messages from the verified chat.
@@ -122,7 +125,7 @@ func (c *Client) ReadApplicationMessages(ctx context.Context, status *Applicatio
 		row["from_applicant"] = nativeID(message["participantId"]) == status.ApplicantID
 		visible = append(visible, row)
 	}
-	status.Messages = Object{"items": visible, "has_more": hasMore, "source_url": result.sourceURL}
+	status.Messages = Object{"items": visible, "has_more": hasMore, "source_url": result.sourceURL, "write_allowed": result.writeAllowed}
 	return nil
 }
 
