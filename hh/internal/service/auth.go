@@ -13,12 +13,23 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
-func BrowserClient(ctx context.Context, base *url.URL, profile, cookieFile string) (*http.Client, error) {
+func BrowserClient(ctx context.Context, base *url.URL, profile, cookieFile string, headers http.Header) (*Client, error) {
 	if base.Scheme != "https" || !IsHHHost(base.Hostname()) || base.User != nil || base.Port() != "" {
 		return nil, fmt.Errorf("invalid HH base URL %q: expected https://hh.ru or an hh.ru subdomain", base.Redacted())
 	}
 	if profile == "" {
 		return nil, fmt.Errorf("invalid Chrome profile %q: choose an explicit profile", profile)
+	}
+	headers = headers.Clone()
+	if headers == nil {
+		headers = make(http.Header)
+	}
+	if headers.Get("User-Agent") == "" {
+		agent, err := installedChromeUserAgent(ctx)
+		if err != nil {
+			return nil, err
+		}
+		headers.Set("User-Agent", agent)
 	}
 	opts := sweetcookie.Options{URL: base.String() + "/", Browsers: []sweetcookie.Browser{sweetcookie.BrowserChrome}, Profiles: map[sweetcookie.Browser]string{sweetcookie.BrowserChrome: profile}, Timeout: 15 * time.Second}
 	if cookieFile != "" {
@@ -48,7 +59,7 @@ func BrowserClient(ctx context.Context, base *url.URL, profile, cookieFile strin
 		}
 		jar.SetCookies(origin, []*http.Cookie{converted})
 	}
-	return browserHTTPClient(base, jar, http.DefaultTransport.(*http.Transport).Clone()), nil
+	return NewClient(browserHTTPClient(base, jar, http.DefaultTransport.(*http.Transport).Clone()), base, headers), nil
 }
 
 func browserHTTPClient(base *url.URL, jar http.CookieJar, transport http.RoundTripper) *http.Client {

@@ -14,12 +14,19 @@ import (
 )
 
 type Client struct {
-	http *http.Client
-	base *url.URL
+	http    *http.Client
+	base    *url.URL
+	headers http.Header
 }
 
-func NewClient(client *http.Client, base *url.URL) *Client {
-	return &Client{http: client, base: base}
+func NewClient(client *http.Client, base *url.URL, headers ...http.Header) *Client {
+	c := &Client{http: client, base: base, headers: make(http.Header)}
+	for _, values := range headers {
+		for name, value := range values {
+			c.headers[name] = append([]string(nil), value...)
+		}
+	}
+	return c
 }
 
 // HTTPError retains bounded, redacted server diagnostics on stderr, not stdout.
@@ -52,11 +59,19 @@ func (c *Client) request(ctx context.Context, method, path string, query url.Val
 
 func (c *Client) requestBody(ctx context.Context, method, path string, query url.Values, payload Object, htmlPage bool, body io.Reader, contentType string) ([]byte, error) {
 	u := c.base.ResolveReference(&url.URL{Path: path, RawQuery: query.Encode()})
+	return c.requestAt(ctx, method, u, payload, htmlPage, body, contentType, nil)
+}
+
+// requestAt is the only HTTP execution boundary, including native requests to
+// resume-profile-front.hh.ru. Operation code supplies data and page context;
+// browser headers, current CSRF, diagnostics and no-retry behavior live here.
+func (c *Client) requestAt(ctx context.Context, method string, u *url.URL, payload Object, htmlPage bool, body io.Reader, contentType string, overrides http.Header) ([]byte, error) {
+	path := u.Path
 	req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
 	if err != nil {
 		return nil, fmt.Errorf("create %s request: %w", method, err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
+	req.Header = c.headers.Clone()
 	if htmlPage {
 		req.Header.Set("Accept", "text/html")
 	} else {
@@ -66,7 +81,17 @@ func (c *Client) requestBody(ctx context.Context, method, path string, query url
 	if payload != nil {
 		req.Header.Set("Content-Type", contentType)
 		req.Header.Set("Origin", c.base.String())
-		req.Header.Set("Referer", c.base.String()+"/applicant/profile/me")
+		if req.Header.Get("Referer") == "" {
+			if path == "/applicant/vacancy_response/popup" {
+				req.Header.Set("Referer", c.base.String()+"/vacancy/"+nativeID(payload["vacancy_id"]))
+			} else {
+				req.Header.Set("Referer", c.base.String()+"/applicant/profile/me")
+			}
+		}
+		if path == "/applicant/vacancy_response/popup" {
+			req.Header.Set("X-Hhtmfrom", "vacancy")
+			req.Header.Set("X-Hhtmsource", "vacancy")
+		}
 		if c.http.Jar != nil {
 			for _, cookie := range c.http.Jar.Cookies(u) {
 				if cookie.Name == "_xsrf" {
@@ -77,6 +102,9 @@ func (c *Client) requestBody(ctx context.Context, method, path string, query url
 		if req.Header.Get("X-Xsrftoken") == "" {
 			return nil, fmt.Errorf("missing _xsrf cookie for %s: read the selected resume first; no write attempted", u.Host)
 		}
+	}
+	for name, values := range overrides {
+		req.Header[name] = append([]string(nil), values...)
 	}
 	started := time.Now()
 	res, err := c.http.Do(req)
@@ -116,7 +144,7 @@ func Redact(value any) any {
 		out := make(Object, len(v))
 		for key, val := range v {
 			lower := strings.ToLower(key)
-			if strings.Contains(lower, "token") || strings.Contains(lower, "cookie") || strings.Contains(lower, "password") || strings.Contains(lower, "xsrf") || strings.Contains(lower, "csrf") || lower == "authorization" || lower == "otp" {
+			if strings.Contains(lower, "token") || strings.Contains(lower, "cookie") || strings.Contains(lower, "password") || strings.Contains(lower, "xsrf") || strings.Contains(lower, "csrf") || lower == "authorization" || lower == "otp" || lower == "captchastate" || lower == "captchakey" || lower == "captchatext" {
 				out[key] = "[redacted]"
 			} else {
 				out[key] = Redact(val)

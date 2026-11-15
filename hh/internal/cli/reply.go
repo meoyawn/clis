@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -11,7 +12,7 @@ import (
 	hh "github.com/meoyawn/clis/hh/internal/service"
 )
 
-func runApplicationReply(ctx context.Context, args []string, baseText, profile, cookies string) error {
+func runApplicationReply(ctx context.Context, args []string, baseText, profile, cookies string, headers http.Header) error {
 	if len(args) == 0 {
 		return fmt.Errorf("application reply requires VACANCY --resume HASH --text-file FILE")
 	}
@@ -60,20 +61,20 @@ func runApplicationReply(ctx context.Context, args []string, baseText, profile, 
 		return err
 	}
 	defer unlock()
-	httpClient, err := hh.BrowserClient(ctx, base, profile, cookies)
+	client, err := hh.BrowserClient(ctx, base, profile, cookies, headers)
 	if err != nil {
 		return err
 	}
-	status, err := hh.NewClient(httpClient, base).Application(ctx, vacancy, resume)
+	status, err := client.Application(ctx, vacancy, resume)
 	if err != nil {
 		return err
 	}
 	chatBase, _ := url.Parse("https://chatik.hh.ru")
-	chatHTTP, err := hh.BrowserClient(ctx, chatBase, profile, cookies)
+	chatClient, err := hh.BrowserClient(ctx, chatBase, profile, cookies, headers)
 	if err != nil {
 		return err
 	}
-	result, err := hh.NewClient(chatHTTP, chatBase).ReplyApplicationMessage(ctx, status, string(text), *send, *approved, *backupDir)
+	result, err := chatClient.ReplyApplicationMessage(ctx, status, string(text), *send, *approved, *backupDir)
 	if err != nil {
 		return err
 	}

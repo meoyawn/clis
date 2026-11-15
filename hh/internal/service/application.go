@@ -1,14 +1,12 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"mime/multipart"
-	"net/http"
+	"net/url"
 	"strings"
 	"unicode/utf8"
 )
@@ -174,10 +172,18 @@ func (c *Client) PrepareApplication(ctx context.Context, vacancyID VacancyID, re
 	vacancy.ResponseState = nil // do not copy unrelated resumes into a review package.
 	draft := &ApplicationDraft{Vacancy: vacancy, ResumeID: resumeID.String(), ResumeURL: view.URL, ResumeTitle: fields["title"], ResumeSalary: fields["salary"], ResumeEmail: view.Contacts.Email, ResumeFingerprint: hex.EncodeToString(resumeSum[:]), Letter: letter,
 		Request: Object{"vacancy_id": vacancyID.String(), "resume_hash": resumeID.String(), "letter": letter, "lux": "true", "ignore_postponed": "true", "incomplete": "false", "withoutTest": "no", "mark_applicant_visible_in_vacancy_country": "false", "country_ids": "[]"}}
+	draft.Request["hhtmFromLabel"] = ""
+	draft.Request["hhtmSourceLabel"] = ""
+	if referer := c.headers.Get("Referer"); referer != "" {
+		page, err := url.Parse(referer)
+		if err != nil || page.Host != c.base.Host || page.Scheme != c.base.Scheme || page.Path != "/vacancy/"+vacancyID.String() {
+			return nil, fmt.Errorf("browser Referer must identify vacancy %s on the selected origin; no application attempted", vacancyID)
+		}
+		draft.Request["hhtmFromLabel"] = page.Query().Get("hhtmFromLabel")
+		draft.Request["hhtmSourceLabel"] = page.Query().Get("hhtmSourceLabel")
+	}
 	draft.Questionnaire = questionnaire
 	if questionnaire != nil {
-		draft.Request["hhtmFromLabel"] = ""
-		draft.Request["hhtmSourceLabel"] = ""
 		for _, question := range questionnaire.Questions {
 			key := "task_" + question.ID
 			if len(question.Choices) == 0 {
@@ -218,8 +224,6 @@ func (c *Client) SubmitApplication(ctx context.Context, draft ApplicationDraft, 
 	if fresh.ReviewSHA256 != approvedSHA {
 		return nil, fmt.Errorf("vacancy, resume, or application package changed since approval; show the fresh package and obtain renewed approval; no POST attempted")
 	}
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
 	request := Object{}
 	for key, value := range fresh.Request {
 		request[key] = value
@@ -229,15 +233,7 @@ func (c *Client) SubmitApplication(ctx context.Context, draft ApplicationDraft, 
 			request[key] = value
 		}
 	}
-	for key, value := range request {
-		if err := writer.WriteField(key, value.(string)); err != nil {
-			return nil, fmt.Errorf("encode application field %s: %w", key, err)
-		}
-	}
-	if err := writer.Close(); err != nil {
-		return nil, err
-	}
-	data, err := c.requestBody(ctx, http.MethodPost, "/applicant/vacancy_response/popup", nil, request, false, &body, writer.FormDataContentType())
+	data, err := c.postApplicationForm(ctx, request)
 	if err != nil {
 		return nil, fmt.Errorf("application outcome may be uncertain: %w; inspect response-options before retrying", err)
 	}

@@ -1,0 +1,54 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/applicant/vacancy_response/popup",
+    "headers": {
+      "sec-ch-ua-platform": "\"macOS\"",
+      "sec-ch-ua": "\"Not-A.Brand\";v=\"99\", \"Google Chrome\";v=\"157\", \"Chromium\";v=\"157\"",
+      "sec-ch-ua-mobile": "?0",
+      "x-hhtmfrom": "vacancy",
+      "x-requested-with": "XMLHttpRequest",
+      "accept": "application/json",
+      "content-type": "multipart/form-data; boundary=----WebKitFormBoundaryAAAAAAAAAAAAAAAA",
+      "x-xsrftoken": "fixture-token",
+      "referer": "https://hh.ru/vacancy/135582813?hhtmFromLabel=suitable_vacancies&hhtmFrom=vacancy",
+      "x-hhtmsource": "vacancy",
+      "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+      "dnt": "1",
+      "accept-language": "en-US,en;q=0.9",
+      "origin": "https://hh.ru",
+      "priority": "u=1, i",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin"
+    },
+    "body": "------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"_xsrf\"\r\n\r\nfixture-token\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"isBot\"\r\n\r\nfalse\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"vacancy_id\"\r\n\r\n135582813\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"resume_hash\"\r\n\r\nbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"ignore_postponed\"\r\n\r\ntrue\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"incomplete\"\r\n\r\nfalse\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"mark_applicant_visible_in_vacancy_country\"\r\n\r\nfalse\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"country_ids\"\r\n\r\n[]\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"letter\"\r\n\r\nЗдравствуйте!\r\n\r\nПример работы: https://example.com/work?a=1&b=2\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"lux\"\r\n\r\ntrue\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"withoutTest\"\r\n\r\nno\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"hhtmFromLabel\"\r\n\r\nsuitable_vacancies\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"hhtmSourceLabel\"\r\n\r\n\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"captchaKey\"\r\n\r\n00000000-0000-4000-8000-000000000000\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"captchaText\"\r\n\r\nfixture-human-answer\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA\r\nContent-Disposition: form-data; name=\"captchaState\"\r\n\r\nfixture-captcha-state\r\n------WebKitFormBoundaryAAAAAAAAAAAAAAAA--\r\n"
+  },
+  "input": {
+    "_xsrf": "fixture-token",
+    "isBot": "false",
+    "vacancy_id": "135582813",
+    "resume_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "ignore_postponed": "true",
+    "incomplete": "false",
+    "mark_applicant_visible_in_vacancy_country": "false",
+    "country_ids": "[]",
+    "letter": "Здравствуйте!\r\n\r\nПример работы: https://example.com/work?a=1&b=2",
+    "lux": "true",
+    "withoutTest": "no",
+    "hhtmFromLabel": "suitable_vacancies",
+    "hhtmSourceLabel": "",
+    "captchaKey": "00000000-0000-4000-8000-000000000000",
+    "captchaText": "fixture-human-answer",
+    "captchaState": "fixture-captcha-state"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "success": "true",
+      "topic_id": "98765",
+      "chat_id": "54321",
+      "vacancy_id": "135582813"
+    }
+  }
+}

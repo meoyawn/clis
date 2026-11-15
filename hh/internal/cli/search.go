@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 
@@ -40,7 +41,7 @@ func parseVacancySearch(args []string) (domain.VacancySearchOptions, string, err
 	return search, *output, search.Validate()
 }
 
-func runVacancySearch(ctx context.Context, args []string, baseText, profile, cookies string) error {
+func runVacancySearch(ctx context.Context, args []string, baseText, profile, cookies string, headers http.Header) error {
 	search, output, err := parseVacancySearch(args)
 	if err != nil {
 		return err
@@ -58,11 +59,11 @@ func runVacancySearch(ctx context.Context, args []string, baseText, profile, coo
 		return err
 	}
 	defer unlock()
-	httpClient, err := hh.BrowserClient(ctx, base, profile, cookies)
+	client, err := hh.BrowserClient(ctx, base, profile, cookies, headers)
 	if err != nil {
 		return err
 	}
-	result, err := hh.NewClient(httpClient, base).SearchVacancies(ctx, search)
+	result, err := client.SearchVacancies(ctx, search)
 	if err != nil {
 		return err
 	}

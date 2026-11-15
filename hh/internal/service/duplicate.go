@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -51,6 +50,9 @@ func (c *Client) Duplicate(ctx context.Context, source ResumeID, metadata CloneM
 func (c *Client) validateBrowserMetadata(metadata CloneMetadata) error {
 	if metadata.Origin != c.base.String() || metadata.UserAgent == "" || strings.ContainsAny(metadata.UserAgent, "\r\n") {
 		return fmt.Errorf("invalid browser metadata: origin must match %s and user_agent must be captured from that browser", c.base)
+	}
+	if selected := c.headers.Get("User-Agent"); selected != "" && selected != metadata.UserAgent {
+		return fmt.Errorf("native resume metadata User-Agent differs from the selected Chrome session; capture both from the same session")
 	}
 	if metadata.CapturedAt.IsZero() || time.Since(metadata.CapturedAt) > 24*time.Hour || time.Until(metadata.CapturedAt) > time.Minute {
 		return fmt.Errorf("browser metadata is missing or older than 24 hours; capture the native request again")
@@ -187,43 +189,13 @@ func (c *Client) nativeResumeRequest(ctx context.Context, endpoint *url.URL, fie
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), bytes.NewReader(payload))
+	body, err := c.requestAt(ctx, http.MethodPost, endpoint, fields, false, bytes.NewReader(payload), "application/json", http.Header{
+		"Origin":     {metadata.Origin},
+		"Referer":    {metadata.Origin + "/applicant/profile/me"},
+		"User-Agent": {metadata.UserAgent},
+	})
 	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Origin", metadata.Origin)
-	req.Header.Set("Referer", metadata.Origin+"/applicant/profile/me")
-	req.Header.Set("User-Agent", metadata.UserAgent)
-	req.Header.Set("X-Requested-With", "XMLHttpRequest")
-	if c.http.Jar != nil {
-		for _, cookie := range c.http.Jar.Cookies(req.URL) {
-			if cookie.Name == "_xsrf" {
-				req.Header.Set("X-Xsrftoken", cookie.Value)
-			}
-		}
-	}
-	if req.Header.Get("X-Xsrftoken") == "" {
-		return nil, fmt.Errorf("missing _xsrf cookie for native resume host; no write attempted")
-	}
-	started := time.Now()
-	res, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("native resume request: %w; outcome may be uncertain, no automatic retry", err)
-	}
-	defer res.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
-	if err != nil {
-		return nil, fmt.Errorf("read native resume response: %w; outcome may be uncertain", err)
-	}
-	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		keys := make([]string, 0, len(fields))
-		for key := range fields {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		return nil, &HTTPError{Method: http.MethodPost, URL: endpoint.String(), Status: res.StatusCode, DurationMS: time.Since(started).Milliseconds(), RetryAfter: res.Header.Get("Retry-After"), RequestKeys: keys, Response: boundedResponse(body)}
+		return nil, fmt.Errorf("native resume request: %w", err)
 	}
 	var result Object
 	if err := json.Unmarshal(body, &result); err != nil {

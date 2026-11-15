@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 
@@ -11,7 +12,7 @@ import (
 	hh "github.com/meoyawn/clis/hh/internal/service"
 )
 
-func runSavedSearches(ctx context.Context, args []string, baseText, profile, cookies string) error {
+func runSavedSearches(ctx context.Context, args []string, baseText, profile, cookies string, headers http.Header) error {
 	if len(args) == 0 || args[0] != "list" && args[0] != "save" {
 		return fmt.Errorf("saved-searches requires list or save; run hh --help")
 	}
@@ -49,11 +50,10 @@ func runSavedSearches(ctx context.Context, args []string, baseText, profile, coo
 		return err
 	}
 	defer unlock()
-	httpClient, err := hh.BrowserClient(ctx, base, profile, cookies)
+	client, err := hh.BrowserClient(ctx, base, profile, cookies, headers)
 	if err != nil {
 		return err
 	}
-	client := hh.NewClient(httpClient, base)
 	if args[0] == "list" {
 		result, err := client.SavedSearches(ctx)
 		if err != nil {

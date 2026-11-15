@@ -16,7 +16,7 @@ import (
 )
 
 func TestApplicationApprovalIdentityAndReceipt(t *testing.T) {
-	const letter = "Ксения, привет!\n\nAndroid offline-first: https://example.com/work?a=1&b=2"
+	const letter = "Здравствуйте!\n\nПример работы: https://example.com/work?a=1&b=2"
 	for _, scenario := range []string{"preview", "send", "unapproved", "tampered-letter", "changed-resume", "wrong-vacancy", "test-required", "already-applied", "wrong-readback", "rate-limit", "remote-relocation-warning", "onsite-relocation-warning", "remote-country-visibility"} {
 		t.Run(scenario, func(t *testing.T) {
 			posts, requests := 0, 0
@@ -71,7 +71,7 @@ func TestApplicationApprovalIdentityAndReceipt(t *testing.T) {
 					if err := r.ParseMultipartForm(1 << 20); err != nil {
 						t.Errorf("not the native multipart contract: %v", err)
 					}
-					if r.FormValue("vacancy_id") != "135582813" || r.FormValue("resume_hash") != hashes[1] || r.FormValue("letter") != letter {
+					if r.FormValue("vacancy_id") != "135582813" || r.FormValue("resume_hash") != hashes[1] || strings.ReplaceAll(r.FormValue("letter"), "\r\n", "\n") != letter {
 						t.Errorf("wrong destination, resume or exact letter: %v", r.Form)
 					}
 					if r.FormValue("mark_applicant_visible_in_vacancy_country") != "false" || r.FormValue("country_ids") != "[]" {

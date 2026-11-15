@@ -252,6 +252,11 @@ Global options (before COMMAND):
   --base-url URL       HTTPS hh.ru origin; default https://kazan.hh.ru.
   --cookies-file FILE  Explicit cookie JSON through sweetcookie, instead of
                        reading Chrome. Cookies are never printed or persisted.
+  --headers-file FILE  Non-secret headers captured from the same Chrome session.
+                       User-Agent/client hints are used unchanged; Referer sets
+                       the application page context. Cookies/CSRF are rejected.
+                       Without this file, use the installed Chrome's version;
+                       client hints are never invented. CAPTCHA stops writes.
 
 All network commands take one exclusive local account lock. Run one at a time.
 stdout contains successful JSON only. Errors/HTTP diagnostics go to stderr:
@@ -288,6 +293,7 @@ func run(ctx context.Context, args []string) error {
 	profile := global.String("profile", "Default", "Chrome profile")
 	baseText := global.String("base-url", "https://kazan.hh.ru", "HH origin")
 	cookies := global.String("cookies-file", "", "inline cookie JSON file")
+	headersFile := global.String("headers-file", "", "captured non-secret Chrome headers")
 	global.Usage = func() { fmt.Fprint(os.Stdout, help) }
 	if err := global.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -312,14 +318,18 @@ func run(ctx context.Context, args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("invalid command %q: run hh --help", strings.Join(args, " "))
 	}
+	headers, headersErr := hh.BrowserHeaders(*headersFile)
+	if headersErr != nil {
+		return headersErr
+	}
 	if args[0] == "vacancies" && args[1] == "search" {
-		return runVacancySearch(ctx, args[2:], *baseText, *profile, *cookies)
+		return runVacancySearch(ctx, args[2:], *baseText, *profile, *cookies, headers)
 	}
 	if args[0] == "saved-searches" {
-		return runSavedSearches(ctx, args[1:], *baseText, *profile, *cookies)
+		return runSavedSearches(ctx, args[1:], *baseText, *profile, *cookies, headers)
 	}
 	if args[0] == "application" && args[1] == "reply" {
-		return runApplicationReply(ctx, args[2:], *baseText, *profile, *cookies)
+		return runApplicationReply(ctx, args[2:], *baseText, *profile, *cookies, headers)
 	}
 	if args[0] != "resume" && !(args[0] == "application" && (args[1] == "get" || args[1] == "letter" || args[1] == "update-letter" || args[1] == "questions" || args[1] == "prepare" || args[1] == "submit")) && !(args[0] == "applications" && args[1] == "list") && !(args[0] == "vacancy" && (args[1] == "get" || args[1] == "response-options")) && !(args[0] == "resumes" && args[1] == "list") && !(args[0] == "profile" && (args[1] == "get" || args[1] == "contacts" || args[1] == "languages" || args[1] == "skill-levels")) {
 		return fmt.Errorf("unknown command %q: run hh --help", strings.Join(args[:2], " "))
@@ -510,11 +520,10 @@ func run(ctx context.Context, args []string) error {
 		return err
 	}
 	defer unlock()
-	httpClient, err := hh.BrowserClient(ctx, base, *profile, *cookies)
+	client, err := hh.BrowserClient(ctx, base, *profile, *cookies, headers)
 	if err != nil {
 		return err
 	}
-	client := hh.NewClient(httpClient, base)
 	if args[0] == "applications" {
 		filter, err := domain.NewNegotiationFilterFromValue(*negotiationFilter)
 		if err != nil {
@@ -526,11 +535,10 @@ func run(ctx context.Context, args []string) error {
 		}
 		if *withMessages {
 			chatBase, _ := url.Parse("https://chatik.hh.ru")
-			chatHTTP, err := hh.BrowserClient(ctx, chatBase, *profile, *cookies)
+			chatClient, err := hh.BrowserClient(ctx, chatBase, *profile, *cookies, headers)
 			if err != nil {
 				return err
 			}
-			chatClient := hh.NewClient(chatHTTP, chatBase)
 			for _, status := range data["applications"].([]*hh.ApplicationStatus) {
 				if err := chatClient.ReadApplicationMessages(ctx, status); err != nil {
 					return err
@@ -559,11 +567,10 @@ func run(ctx context.Context, args []string) error {
 			}
 			if args[1] == "letter" || args[1] == "update-letter" || *withMessages {
 				chatBase, _ := url.Parse("https://chatik.hh.ru")
-				chatHTTP, err := hh.BrowserClient(ctx, chatBase, *profile, *cookies)
+				chatClient, err := hh.BrowserClient(ctx, chatBase, *profile, *cookies, headers)
 				if err != nil {
 					return err
 				}
-				chatClient := hh.NewClient(chatHTTP, chatBase)
 				if args[1] == "update-letter" {
 					if *backupDir == "" {
 						*backupDir = filepath.Join(stateDir(), "backups")
