@@ -17,6 +17,7 @@ use (
 	./ozon-tech
 	./planeta
 	./santehnika
+	./tastycoffee
 	./twitter
 	./uslugi-tatar
 )

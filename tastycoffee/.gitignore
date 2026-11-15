@@ -1,0 +1,8 @@
+# Local sessions and browser captures must never be committed.
+/session.json
+/session.json.*
+.session-*
+*.network-request
+*.network-response
+/captures/
+/private/
