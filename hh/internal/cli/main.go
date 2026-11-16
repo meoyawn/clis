@@ -22,6 +22,20 @@ const help = `hh — hh.ru through the signed-in Chrome account (sweetcookie)
 
 Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
 
+  mcp serve [--interval 15s]
+      Serve read-only MCP Events over stdio using the selected Chrome account.
+      events/list advertises hh.chat.reply with poll delivery. Pass chat_id as
+      a numeric ID or HTTPS hh.ru/chat/ID URL to events/poll. A null cursor starts
+      from now; retain the returned cursor for subsequent polls and restarts.
+      Only incoming visible SIMPLE messages produce events. read_chat reads the
+      current page, including own messages. Older history is not paginated;
+      a cursor outside the returned page is reported with truncated=true.
+      --interval is the per-chat read minimum (1s..5m); reads share the account
+      lock with other commands. 429, authentication and challenge failures halt
+      further reads until the problem is resolved and the server is restarted.
+      Supports server/discover (2026-07-28) and legacy initialize (2025-11-25).
+      The MCP client owns the subscription/poll loop between agent turns.
+      Stdout is JSON-RPC only. No messages are sent or marked read.
   saved-searches list [--output FILE]
       List native saved vacancy searches, their exact criteria and email state.
       GET only. Stops on incomplete/paginated lists rather than missing duplicates.
@@ -321,6 +335,9 @@ func run(ctx context.Context, args []string) error {
 	headers, headersErr := hh.BrowserHeaders(*headersFile)
 	if headersErr != nil {
 		return headersErr
+	}
+	if args[0] == "mcp" {
+		return runMCP(ctx, args[1:], *profile, *cookies, headers)
 	}
 	if args[0] == "vacancies" && args[1] == "search" {
 		return runVacancySearch(ctx, args[2:], *baseText, *profile, *cookies, headers)

@@ -5,5 +5,3 @@ go:
   # Go commands download dependencies as needed. Avoid rewriting every module
   # with an automatic `go work sync` during ordinary builds.
   installDependencies: false
-  bins:
-    - 'github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0'

@@ -254,8 +254,9 @@ moon run ozon:lint
 moon run ozon:build
 ```
 
-Tests run with the race detector. Moon's Go plugin installs the pinned compiler
-and golangci-lint; every CLI uses the root `.golangci.yml`.
+Tests run with the race detector. Moon's Go plugin installs the pinned compiler;
+the shared `.tools` module provides `go tool golangci-lint`. Every CLI uses the
+root `.golangci.yml`.
 Normal tests use synthetic responses and require no Ozon session. They cover
 request counts, lightweight/full product modes, combined facets, prediction and
 pagination, explicit filter preservation, prices, stock, variants, reviews,

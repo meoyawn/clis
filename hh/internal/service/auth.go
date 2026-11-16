@@ -62,16 +62,21 @@ func BrowserClient(ctx context.Context, base *url.URL, profile, cookieFile strin
 	return NewClient(browserHTTPClient(base, jar, http.DefaultTransport.(*http.Transport).Clone()), base, headers), nil
 }
 
+// BrowserAccessError stops repeated reads after an authentication or origin change.
+type BrowserAccessError struct{ reason string }
+
+func (e *BrowserAccessError) Error() string { return e.reason }
+
 func browserHTTPClient(base *url.URL, jar http.CookieJar, transport http.RoundTripper) *http.Client {
 	return &http.Client{Jar: serializableCookieJar{jar}, Transport: browserCookieTransport{jar: jar, next: transport}, Timeout: 30 * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		if req.URL.Scheme != "https" || req.URL.Host != base.Host {
-			return fmt.Errorf("refusing redirect outside selected HH origin to %s", req.URL.Redacted())
+			return &BrowserAccessError{reason: fmt.Sprintf("refusing redirect outside selected HH origin to %s", req.URL.Redacted())}
 		}
 		if strings.Contains(req.URL.Path, "/account/login") || strings.Contains(req.URL.Path, "/account/signup") {
-			return fmt.Errorf("hh.ru authentication redirect; stop and sign in to the selected Chrome profile")
+			return &BrowserAccessError{reason: "hh.ru authentication redirect; stop and sign in to the selected Chrome profile"}
 		}
 		if len(via) >= 5 {
-			return fmt.Errorf("too many HH redirects; stopped")
+			return &BrowserAccessError{reason: "too many HH redirects; stopped"}
 		}
 		return nil
 	}}

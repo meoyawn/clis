@@ -193,7 +193,8 @@ moon run avito:lint
 moon run avito:build
 ```
 
-Moon's Go toolchain plugin installs the pinned Go and golangci-lint versions.
+Moon's Go toolchain plugin installs the pinned Go version. The shared `.tools`
+module provides the pinned linter through `go tool golangci-lint`.
 All CLIs share the root `.golangci.yml`. Checks run race tests, lint, and a build;
 GitHub Actions runs `moon run :check` for every pull request and push.
 

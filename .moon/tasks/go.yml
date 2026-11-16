@@ -7,6 +7,8 @@ implicitInputs:
   - '/go.work.sum'
   - '/*/go.mod'
   - '/*/go.sum'
+  - '/.tools/go.mod'
+  - '/.tools/go.sum'
   - '/.moon/toolchains.yml'
   - '/.golangci.yml'
 
@@ -22,7 +24,7 @@ tasks:
 
   lint:
     description: Run the shared golangci-lint configuration
-    command: golangci-lint run --config ../.golangci.yml ./...
+    command: ['go', 'tool', 'golangci-lint', 'run', '--config', '../.golangci.yml', './...']
 
   check:
     description: Build, lint, and test this CLI

@@ -14,7 +14,9 @@ Go module, connected through `go.work`.
 
 [Moon](https://moonrepo.dev/) 2.6.2 or newer manages the shared build tasks.
 Its [Go toolchain plugin](https://github.com/moonrepo/plugins/tree/master/toolchains/go)
-installs Go 1.27.2 and golangci-lint 2.14.0.
+installs Go 1.27.2. The shared tooling module [`.tools/go.mod`](.tools/go.mod)
+pins golangci-lint 2.14.0 as a Go tool. `go.work` exposes it to every CLI;
+Moon runs `go tool golangci-lint` without a separately installed binary.
 
 ```sh
 moon setup              # install the toolchain

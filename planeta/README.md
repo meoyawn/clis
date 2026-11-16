@@ -162,7 +162,8 @@ moon run planeta:check
 ```
 
 This runs race tests, lint, and a build. Moon's Go plugin installs the pinned
-compiler and golangci-lint, using the shared root `.golangci.yml`.
+compiler. The shared `.tools` module provides `go tool golangci-lint`, using the
+shared root `.golangci.yml`.
 GitHub Actions runs `moon run :check` for every pull request and push.
 
 Offline tests cover recorded public HTML, request counts, immediate challenge failures, region selection, pagination, empty searches, negative batch IDs, pharmacy-count extraction (including unknown versus zero and conflicting counts), ingredient and table parsing, default versus full output, explicit auth recovery, expiry/profile diagnostics, cancellation, cookie renewals, browser-import filtering, secret-free auth output, private file permissions, persistent URL lookup, user config, flag overrides, and invalid config updates.

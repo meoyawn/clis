@@ -7,8 +7,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/meoyawn/clis/hh/internal/domain"
 	"golang.org/x/net/html"
 )
 
@@ -46,17 +50,22 @@ type applicationChat struct {
 	writeAllowed bool
 }
 
+func (c *Client) readChatState(ctx context.Context, id string) (Object, string, error) {
+	query := url.Values{"without_list": {"1"}, "platform": {"xhh"}, "theme": {"hh-day"}, "dest": {"iframe"}, "microphone": {"true"}}
+	path := "/chat/" + id
+	body, err := c.request(ctx, http.MethodGet, path, query, nil, true)
+	if err != nil {
+		return nil, "", err
+	}
+	state, err := decodeChatState(body)
+	return state, c.base.String() + path + "?" + query.Encode(), err
+}
+
 func (c *Client) readApplicationChat(ctx context.Context, status *ApplicationStatus) (*applicationChat, error) {
 	if status == nil || (!status.Verified && !status.vacancyUnavailable) || !vacancyNumber.MatchString(status.ChatID) || !vacancyNumber.MatchString(status.ApplicantID) {
 		return nil, fmt.Errorf("chat read requires a verified application with valid chat/applicant IDs")
 	}
-	query := url.Values{"without_list": {"1"}, "platform": {"xhh"}, "theme": {"hh-day"}, "dest": {"iframe"}, "microphone": {"true"}}
-	path := "/chat/" + status.ChatID
-	body, err := c.request(ctx, http.MethodGet, path, query, nil, true)
-	if err != nil {
-		return nil, err
-	}
-	state, err := decodeChatState(body)
+	state, sourceURL, err := c.readChatState(ctx, status.ChatID)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +99,92 @@ func (c *Client) readApplicationChat(ctx context.Context, status *ApplicationSta
 	}
 	chatStates, _ := data["chatStates"].(map[string]any)
 	writeState, _ := chatStates["writeMessageState"].(map[string]any)
-	return &applicationChat{chat: chat, resume: resume, sourceURL: c.base.String() + path + "?" + query.Encode(), writeAllowed: writeState["allowed"] == true}, nil
+	return &applicationChat{chat: chat, resume: resume, sourceURL: sourceURL, writeAllowed: writeState["allowed"] == true}, nil
+}
+
+// ChatMessage is a visible message in an explicitly selected conversation.
+type ChatMessage struct {
+	ID            string    `json:"message_id"`
+	ParticipantID string    `json:"participant_id"`
+	SenderName    string    `json:"sender_name,omitempty"`
+	Text          string    `json:"text"`
+	Type          string    `json:"type"`
+	CreatedAt     time.Time `json:"created_at"`
+	FromSelf      bool      `json:"from_self"`
+}
+
+// ChatSnapshot retains the page bounds even when some messages are hidden.
+type ChatSnapshot struct {
+	ChatID         string        `json:"chat_id"`
+	ParticipantID  string        `json:"participant_id"`
+	Messages       []ChatMessage `json:"messages"`
+	HasMore        bool          `json:"has_more"`
+	SourceURL      string        `json:"source_url"`
+	FirstMessageID uint64        `json:"-"`
+	LastMessageID  uint64        `json:"-"`
+}
+
+// ReadChat reads the existing native chat page without marking messages read.
+// Unlike application readback, it needs no vacancy or resume selection.
+func (c *Client) ReadChat(ctx context.Context, id domain.ChatID) (*ChatSnapshot, error) {
+	if id.String() == "" {
+		return nil, fmt.Errorf("invalid chat ID %q: select an explicit conversation", id.String())
+	}
+	state, sourceURL, err := c.readChatState(ctx, id.String())
+	if err != nil {
+		return nil, err
+	}
+	data, _ := state["chatData"].(map[string]any)
+	chat, _ := data["chat"].(map[string]any)
+	participant := nativeID(chat["currentParticipantId"])
+	if nativeID(chat["id"]) != id.String() || !vacancyNumber.MatchString(participant) {
+		return nil, fmt.Errorf("chat %s does not confirm its requested ID and current participant", id.String())
+	}
+	messages, _ := chat["messages"].(map[string]any)
+	items, itemsOK := messages["items"].([]any)
+	hasMore, moreOK := messages["hasMore"].(bool)
+	if !itemsOK || !moreOK {
+		return nil, fmt.Errorf("chat %s has no message list or pagination flag", id.String())
+	}
+	result := &ChatSnapshot{ChatID: id.String(), ParticipantID: participant, Messages: []ChatMessage{}, HasMore: hasMore, SourceURL: sourceURL}
+	seen := make(map[string]bool, len(items))
+	for _, item := range items {
+		message, _ := item.(map[string]any)
+		messageID := nativeID(message["id"])
+		if nativeID(message["chatId"]) != id.String() || !vacancyNumber.MatchString(messageID) || seen[messageID] {
+			return nil, fmt.Errorf("chat %s contains an invalid, duplicate or foreign message", id.String())
+		}
+		seen[messageID] = true
+		number, _ := strconv.ParseUint(messageID, 10, 64)
+		result.LastMessageID = max(result.LastMessageID, number)
+		if result.FirstMessageID == 0 || number < result.FirstMessageID {
+			result.FirstMessageID = number
+		}
+		hidden, hiddenOK := message["hidden"].(bool)
+		if !hiddenOK {
+			return nil, fmt.Errorf("chat %s message %s has no visibility flag", id.String(), messageID)
+		}
+		if hidden {
+			continue
+		}
+		author := nativeID(message["participantId"])
+		created, _ := message["creationTime"].(string)
+		createdAt, parseErr := time.Parse(time.RFC3339Nano, created)
+		if !vacancyNumber.MatchString(author) || parseErr != nil {
+			return nil, fmt.Errorf("chat %s message %s has no valid author or timestamp", id.String(), messageID)
+		}
+		text, _ := message["text"].(string)
+		kind, _ := message["type"].(string)
+		display, _ := message["participantDisplay"].(map[string]any)
+		name, _ := display["name"].(string)
+		result.Messages = append(result.Messages, ChatMessage{ID: messageID, ParticipantID: author, SenderName: name, Text: text, Type: kind, CreatedAt: createdAt, FromSelf: author == participant})
+	}
+	sort.Slice(result.Messages, func(i, j int) bool {
+		a, _ := strconv.ParseUint(result.Messages[i].ID, 10, 64)
+		b, _ := strconv.ParseUint(result.Messages[j].ID, 10, 64)
+		return a < b
+	})
+	return result, nil
 }
 
 // ReadApplicationMessages exports visible messages from the verified chat.

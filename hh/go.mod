@@ -5,6 +5,7 @@ go 1.27.2
 require (
 	github.com/steipete/sweetcookie v0.0.2
 	golang.org/x/net v0.61.0
+	golang.org/x/sync v0.24.0
 )
 
 require (

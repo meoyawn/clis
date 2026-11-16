@@ -28,6 +28,8 @@
 - CI uses `moon ci` to select checks affected by changed files. Use the Go
   toolchain plugin and shared root `.golangci.yml`; keep Taskfiles and per-CLI
   lint configs out of this repo.
+- Shared Go tools live in `.tools/go.mod`, included by `go.work`. Run the pinned
+  linter with `go tool golangci-lint`; do not depend on a binary installed in PATH.
 - Never commit credentials, browser captures, private exports, or real account
   data. Keep fixtures synthetic or limited to anonymous public catalog data.
 - Never send live messages, applications, or meter readings to test a change;
