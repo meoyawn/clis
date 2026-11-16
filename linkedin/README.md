@@ -374,6 +374,17 @@ never executes scripts or follows redirects, and never sends cookies to the asse
 host. Keep captures outside Git. Website UI/network inspection is for learning
 changed contracts; perform account actions and verification through the CLI.
 
+## Experience media
+
+`go run . experience link <profile> --position-id ID --url URL` previews
+replacing all media on one owned experience entry with a single native link
+card. `--apply` performs the explicitly requested replacement and checks that
+the saved entry contains exactly one direct external link. It preserves the
+description, skills, dates and profile intro, keeps notifications off, saves
+a private backup and never retries an uncertain save. `--save-response NEW_FILE`
+captures the native URL preview privately. A failed URL preview stops before
+any profile write; HTTP and HTTPS previews may differ in LinkedIn's cache.
+
 ## Private analytics
 
 ```sh

@@ -30,6 +30,9 @@ type experienceUpdateResult struct {
 }
 
 func runExperience(ctx context.Context, args []string, store authStore, stdout, stderr io.Writer) error {
+	if len(args) > 0 && args[0] == "link" {
+		return runExperienceLink(ctx, args[1:], store, stdout, stderr)
+	}
 	if len(args) == 0 || isHelpFlag(args[0]) {
 		_, err := io.WriteString(stdout, experienceHelp)
 		return err
