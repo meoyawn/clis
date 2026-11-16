@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -20,6 +21,8 @@ import (
 	hh "github.com/meoyawn/clis/hh/internal/service"
 	"golang.org/x/sync/errgroup"
 )
+
+const mcpProtocolVersion = "2026-07-28"
 
 type rpcRequest struct {
 	Version string          `json:"jsonrpc"`
@@ -69,7 +72,7 @@ var errMCPInputClosed = errors.New("MCP input closed")
 func serveMCP(ctx context.Context, input io.ReadCloser, output io.WriteCloser, source *chatEventSource) error {
 	group, lifetime := errgroup.WithContext(ctx)
 	var writing sync.Mutex
-	send := func(id json.RawMessage, result any, failure *rpcError) error {
+	send := func(id json.RawMessage, result map[string]any, failure *rpcError) error {
 		frame := map[string]any{"jsonrpc": "2.0", "id": id}
 		if failure != nil {
 			frame["error"] = failure
@@ -95,6 +98,7 @@ func serveMCP(ctx context.Context, input io.ReadCloser, output io.WriteCloser, s
 	group.Go(func() error {
 		scanner := bufio.NewScanner(input)
 		scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+		legacy := false
 		for scanner.Scan() {
 			var request rpcRequest
 			if err := json.Unmarshal(scanner.Bytes(), &request); err != nil {
@@ -132,6 +136,13 @@ func serveMCP(ctx context.Context, input io.ReadCloser, output io.WriteCloser, s
 				}
 				continue
 			}
+			modern, failure := mcpRequestVersion(request, legacy)
+			if failure != nil {
+				if err := send(request.ID, nil, failure); err != nil {
+					return err
+				}
+				continue
+			}
 			requests.Lock()
 			if _, exists := active[key]; exists {
 				requests.Unlock()
@@ -140,11 +151,22 @@ func serveMCP(ctx context.Context, input io.ReadCloser, output io.WriteCloser, s
 				}
 				continue
 			}
+			if request.Method == "initialize" {
+				requests.Unlock()
+				result, failure := source.handle(lifetime, request)
+				if failure == nil {
+					legacy = true
+				}
+				if err := send(request.ID, result, failure); err != nil {
+					return err
+				}
+				continue
+			}
 			select {
 			case slots <- struct{}{}:
 			default:
 				requests.Unlock()
-				if err := send(request.ID, nil, &rpcError{Code: -32025, Message: "Too many active requests", Data: map[string]any{"max": 32}}); err != nil {
+				if err := send(request.ID, nil, &rpcError{Code: -32025, Message: "Too many active requests", Data: map[string]any{"limit": "requests", "max": 32}}); err != nil {
 					return err
 				}
 				continue
@@ -161,6 +183,9 @@ func serveMCP(ctx context.Context, input io.ReadCloser, output io.WriteCloser, s
 				if operation.Err() != nil {
 					return nil
 				}
+				if failure == nil && modern {
+					result["resultType"] = "complete"
+				}
 				return send(request.ID, result, failure)
 			})
 		}
@@ -174,6 +199,45 @@ func serveMCP(ctx context.Context, input io.ReadCloser, output io.WriteCloser, s
 		return nil
 	}
 	return err
+}
+
+// Modern requests are self-contained. Only initialize enables metadata-free
+// legacy tool requests; the Events extension is defined for modern MCP only.
+func mcpRequestVersion(request rpcRequest, legacy bool) (bool, *rpcError) {
+	var params struct {
+		Meta map[string]json.RawMessage `json:"_meta"`
+	}
+	if failure := decodeRPCParams(request.Params, &params); failure != nil {
+		return false, failure
+	}
+	rawVersion, modern := params.Meta["io.modelcontextprotocol/protocolVersion"]
+	if !modern {
+		if request.Method == "initialize" {
+			return false, nil
+		}
+		if legacy && request.Method != "server/discover" {
+			if strings.HasPrefix(request.Method, "events/") {
+				return false, &rpcError{Code: -32601, Message: "Events requires MCP " + mcpProtocolVersion}
+			}
+			return false, nil
+		}
+		return false, &rpcError{Code: -32602, Message: "params._meta.io.modelcontextprotocol/protocolVersion is required"}
+	}
+	var version string
+	if err := json.Unmarshal(rawVersion, &version); err != nil || version == "" {
+		return false, &rpcError{Code: -32602, Message: "params._meta.io.modelcontextprotocol/protocolVersion must be a non-empty string"}
+	}
+	if version != mcpProtocolVersion {
+		return false, &rpcError{Code: -32022, Message: "Unsupported protocol version", Data: map[string]any{"supported": []string{mcpProtocolVersion}, "requested": version}}
+	}
+	var capabilities map[string]json.RawMessage
+	if err := json.Unmarshal(params.Meta["io.modelcontextprotocol/clientCapabilities"], &capabilities); err != nil || capabilities == nil {
+		return false, &rpcError{Code: -32602, Message: "params._meta.io.modelcontextprotocol/clientCapabilities must be an object"}
+	}
+	if request.Method == "initialize" {
+		return false, &rpcError{Code: -32601, Message: "MCP " + mcpProtocolVersion + " uses server/discover instead of initialize"}
+	}
+	return true, nil
 }
 
 func rpcKey(id json.RawMessage) (string, bool) {

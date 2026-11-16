@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -64,10 +65,20 @@ func (p *mcpPeer) receive(t *testing.T) rpcFrame {
 	return frame
 }
 
-func (p *mcpPeer) call(t *testing.T, method string, params any) rpcFrame {
+func (p *mcpPeer) call(t *testing.T, method string, params map[string]any) rpcFrame {
 	t.Helper()
+	fields := map[string]any{}
+	if method != "initialize" {
+		fields["_meta"] = map[string]any{
+			"io.modelcontextprotocol/protocolVersion":    "2026-07-28",
+			"io.modelcontextprotocol/clientCapabilities": map[string]any{},
+		}
+	}
+	for key, value := range params {
+		fields[key] = value
+	}
 	p.sequence++
-	p.send(t, map[string]any{"jsonrpc": "2.0", "id": p.sequence, "method": method, "params": params})
+	p.send(t, map[string]any{"jsonrpc": "2.0", "id": p.sequence, "method": method, "params": fields})
 	frame := p.receive(t)
 	if string(frame.ID) != fmt.Sprint(p.sequence) {
 		t.Fatalf("response is not for request %d: %+v", p.sequence, frame)
@@ -84,6 +95,9 @@ func (p *mcpPeer) poll(t *testing.T, chat string, cursor any, extras map[string]
 	frame := p.call(t, "events/poll", params)
 	if frame.Error != nil {
 		t.Fatalf("poll failed: %+v", frame.Error)
+	}
+	if frame.Result["resultType"] != "complete" {
+		t.Fatalf("poll did not return a complete MCP result: %+v", frame)
 	}
 	return frame.Result
 }
@@ -153,8 +167,14 @@ func TestMCPChatReplyDeliveryAndReplay(t *testing.T) {
 	if discovery.Error != nil || discovery.Result["supportedVersions"].([]any)[0] != "2026-07-28" {
 		t.Fatalf("native MCP discovery failed: %+v", discovery)
 	}
+	capabilities, _ := discovery.Result["capabilities"].(map[string]any)
+	extensions, _ := capabilities["extensions"].(map[string]any)
+	settings, offered := extensions["io.modelcontextprotocol/events"].(map[string]any)
+	if !offered || settings["listChanged"] == true || capabilities["events"] != nil || discovery.Result["resultType"] != "complete" {
+		t.Fatalf("SEP-3415 capability negotiation failed: %+v", discovery)
+	}
 	listed := p.call(t, "events/list", map[string]any{})
-	if listed.Error != nil || listed.Result["events"].([]any)[0].(map[string]any)["name"] != "hh.chat.reply" {
+	if listed.Error != nil || listed.Result["resultType"] != "complete" || listed.Result["events"].([]any)[0].(map[string]any)["name"] != "hh.chat.reply" {
 		t.Fatalf("reply event is not discoverable: %+v", listed)
 	}
 	start := p.poll(t, "https://kazan.hh.ru/chat/123", nil, nil)
@@ -187,12 +207,12 @@ func TestMCPChatReplyDeliveryAndReplay(t *testing.T) {
 		t.Fatalf("cursor or event identity did not survive restart: %v", replayed)
 	}
 	read := restarted.call(t, "tools/call", map[string]any{"name": "read_chat", "arguments": map[string]any{"chat_id": "123"}})
-	if read.Error != nil || len(read.Result["structuredContent"].(map[string]any)["messages"].([]any)) != 6 {
+	if read.Error != nil || read.Result["resultType"] != "complete" || len(read.Result["structuredContent"].(map[string]any)["messages"].([]any)) != 6 {
 		t.Fatalf("read_chat lost visible context or exposed hidden text: %+v", read)
 	}
 }
 
-func TestMCPChatCursorGapsAndArgumentValidation(t *testing.T) {
+func TestMCPChatCursorGaps(t *testing.T) {
 	f := newChatFixture(t)
 	p := openMCPPeer(t, newChatEventSource(f.client, 0))
 	start := p.poll(t, "123", nil, nil)
@@ -219,26 +239,47 @@ func TestMCPChatCursorGapsAndArgumentValidation(t *testing.T) {
 			t.Fatalf("invalid or cross-chat cursor silently replayed: %v", result)
 		}
 	}
-	f.mu.Lock()
-	reads := f.reads
-	f.mu.Unlock()
-	for _, params := range []map[string]any{
-		{"name": "unknown", "arguments": map[string]any{"chat_id": "123"}},
-		{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "https://hh.ru.evil.invalid/chat/123"}},
-		{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "123", "extra": true}},
-		{"name": "hh.chat.reply", "arguments": map[string]any{}},
-		{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "123"}, "maxAgeMs": -1},
-		{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "123"}, "maxEvents": 0},
+}
+
+func TestMCPEventRequestValidation(t *testing.T) {
+	f := newChatFixture(t)
+	p := openMCPPeer(t, newChatEventSource(f.client, 0))
+	// Build the webhook fixture from 24 zero bytes instead of storing a token.
+	syntheticWebhookSecret := "whsec_" + base64.StdEncoding.EncodeToString(make([]byte, 24))
+	for _, test := range []struct {
+		method string
+		params map[string]any
+		code   int
+		data   map[string]any
+	}{
+		{"events/poll", map[string]any{"name": "unknown", "arguments": map[string]any{"chat_id": "123"}}, -32023, map[string]any{"kind": "event"}},
+		{"events/poll", map[string]any{"arguments": map[string]any{"chat_id": "123"}}, -32602, nil},
+		{"events/poll", map[string]any{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "https://hh.ru.evil.invalid/chat/123"}}, -32602, nil},
+		{"events/poll", map[string]any{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "123", "extra": true}}, -32602, nil},
+		{"events/poll", map[string]any{"name": "hh.chat.reply", "arguments": map[string]any{}}, -32602, nil},
+		{"events/poll", map[string]any{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "123"}, "maxAgeMs": -1}, -32602, nil},
+		{"events/poll", map[string]any{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "123"}, "maxEvents": 0}, -32602, nil},
+		{"events/stream", map[string]any{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "123"}}, -32026, map[string]any{"feature": "deliveryMode", "value": "push"}},
+		{"events/stream", map[string]any{"name": "unknown", "arguments": map[string]any{"chat_id": "123"}}, -32023, map[string]any{"kind": "event"}},
+		{"events/stream", map[string]any{"name": "hh.chat.reply", "arguments": map[string]any{}}, -32602, nil},
+		{"events/subscribe", map[string]any{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "123"}, "delivery": map[string]any{"mode": "webhook", "url": "https://callback.example.test/events", "secret": syntheticWebhookSecret}}, -32024, nil},
+		{"events/unsubscribe", map[string]any{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "123"}, "delivery": map[string]any{"url": "https://callback.example.test/events"}}, -32024, nil},
 	} {
-		frame := p.call(t, "events/poll", params)
-		if frame.Error == nil {
-			t.Fatalf("invalid subscription accepted: %v", params)
+		frame := p.call(t, test.method, test.params)
+		if frame.Error == nil || frame.Error.Code != test.code {
+			t.Errorf("%s %v: expected error %d, got %+v", test.method, test.params, test.code, frame)
+			continue
+		}
+		for key, value := range test.data {
+			if frame.Error.Data[key] != value {
+				t.Errorf("%s lost error discriminator %s=%v: %+v", test.method, key, value, frame.Error)
+			}
 		}
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.reads != reads {
-		t.Fatalf("invalid arguments made HH requests: %d -> %d", reads, f.reads)
+	if f.reads != 0 {
+		t.Fatalf("rejected subscriptions made HH requests: %d", f.reads)
 	}
 }
 
@@ -259,6 +300,57 @@ func TestMCPFramingAndLegacyDiscovery(t *testing.T) {
 	legacy := p.call(t, "initialize", map[string]any{"protocolVersion": "2025-11-25"})
 	if legacy.Error != nil || legacy.Result["protocolVersion"] != "2025-11-25" {
 		t.Fatalf("framing recovery or legacy discovery failed: %+v", legacy)
+	}
+	capabilities, _ := legacy.Result["capabilities"].(map[string]any)
+	if capabilities["events"] != nil || capabilities["extensions"] != nil || legacy.Result["resultType"] != nil {
+		t.Fatalf("legacy initialization advertised modern Events: %+v", legacy)
+	}
+	p.send(t, map[string]any{"jsonrpc": "2.0", "id": "legacy-tools", "method": "tools/list"})
+	if frame := p.receive(t); frame.Error != nil || len(frame.Result["tools"].([]any)) != 1 || frame.Result["resultType"] != nil {
+		t.Fatalf("legacy tools stopped working: %+v", frame)
+	}
+	for _, method := range []string{"events/list", "events/poll"} {
+		p.send(t, map[string]any{"jsonrpc": "2.0", "id": method, "method": method, "params": map[string]any{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "123"}}})
+		if frame := p.receive(t); frame.Error == nil || frame.Error.Code != -32601 {
+			t.Fatalf("legacy request used the modern Events extension: %+v", frame)
+		}
+	}
+	if frame := p.call(t, "ping", nil); frame.Error != nil || frame.Result["resultType"] != "complete" {
+		t.Fatalf("modern request inherited legacy behavior: %+v", frame)
+	}
+}
+
+func TestMCPRequestMetadata(t *testing.T) {
+	p := openMCPPeer(t, newChatEventSource(nil, 0))
+	for _, test := range []struct {
+		name string
+		meta any
+		code int
+	}{
+		{"unsupported-version", map[string]any{"io.modelcontextprotocol/protocolVersion": "2099-01-01", "io.modelcontextprotocol/clientCapabilities": map[string]any{}}, -32022},
+		{"missing-version", map[string]any{"io.modelcontextprotocol/clientCapabilities": map[string]any{}}, -32602},
+		{"invalid-version", map[string]any{"io.modelcontextprotocol/protocolVersion": 123, "io.modelcontextprotocol/clientCapabilities": map[string]any{}}, -32602},
+		{"missing-capabilities", map[string]any{"io.modelcontextprotocol/protocolVersion": "2026-07-28"}, -32602},
+		{"null-capabilities", map[string]any{"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": nil}, -32602},
+		{"invalid-capabilities", map[string]any{"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": []any{}}, -32602},
+		{"invalid-meta", []any{}, -32602},
+		{"missing-meta", nil, -32602},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			frame := p.call(t, "ping", map[string]any{"_meta": test.meta})
+			if frame.Error == nil || frame.Error.Code != test.code {
+				t.Fatalf("expected error %d, got %+v", test.code, frame)
+			}
+			if test.code == -32022 {
+				supported, _ := frame.Error.Data["supported"].([]any)
+				if len(supported) != 1 || supported[0] != "2026-07-28" || frame.Error.Data["requested"] != "2099-01-01" {
+					t.Fatalf("version mismatch did not tell the client how to retry: %+v", frame.Error)
+				}
+			}
+		})
+	}
+	if frame := p.call(t, "ping", nil); frame.Error != nil || frame.Result["resultType"] != "complete" {
+		t.Fatalf("valid modern request failed after metadata errors: %+v", frame)
 	}
 }
 
@@ -281,7 +373,7 @@ func TestMCPSharedChatCacheAndAccountLock(t *testing.T) {
 	f.set("456", []any{}, false)
 	blocked := p.call(t, "events/poll", map[string]any{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "456"}})
 	unlock()
-	if blocked.Error == nil || blocked.Error.Code != -32025 {
+	if blocked.Error == nil || blocked.Error.Code != -32025 || blocked.Error.Data["limit"] != "accountLock" {
 		t.Fatalf("poll did not respect the other command's account lock: %+v", blocked)
 	}
 	p.poll(t, "456", nil, nil)
@@ -328,7 +420,7 @@ func TestMCPStopsAfterAccessOrContractFailure(t *testing.T) {
 				if frame.Error == nil || frame.Error.Data["restartRequired"] != true || strings.Contains(string(encoded), "sentinel") {
 					t.Fatalf("failure did not halt reads or exposed upstream content: %s", encoded)
 				}
-				if scenario == "rate-limit" && (frame.Error.Code != -32025 || frame.Error.Data["retryAfterMs"] != float64(60000)) {
+				if scenario == "rate-limit" && (frame.Error.Code != -32025 || frame.Error.Data["limit"] != "upstreamRequests" || frame.Error.Data["retryAfterMs"] != float64(60000)) {
 					t.Fatalf("Retry-After lost: %+v", frame.Error)
 				}
 			}
@@ -354,7 +446,7 @@ func TestMCPRequestCancellationAndDisconnect(t *testing.T) {
 			t.Cleanup(server.Close)
 			base, _ := url.Parse(server.URL)
 			p := openMCPPeer(t, newChatEventSource(hh.NewClient(server.Client(), base), 0))
-			p.send(t, map[string]any{"jsonrpc": "2.0", "id": "pending", "method": "events/poll", "params": map[string]any{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "123"}}})
+			p.send(t, map[string]any{"jsonrpc": "2.0", "id": "pending", "method": "events/poll", "params": map[string]any{"name": "hh.chat.reply", "arguments": map[string]any{"chat_id": "123"}, "_meta": map[string]any{"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": map[string]any{}}}})
 			select {
 			case <-started:
 			case <-time.After(3 * time.Second):

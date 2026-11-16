@@ -13,12 +13,28 @@ Global `--profile`, `--cookies-file` and `--headers-file` options still apply.
 Every actual HH read takes the same exclusive account lock as ordinary CLI
 commands and releases it immediately afterward.
 
-The server follows the experimental [MCP Events design sketch](https://github.com/modelcontextprotocol/ext-events/blob/47d95c9/docs/design-sketch-proposal.md),
-using the native Events approach in [the gh-cli example](https://github.com/meoyawn/cli/tree/mcp-events).
-It supports `server/discover` with version `2026-07-28`, legacy `initialize`
-with version `2025-11-25`, `events/list`, `events/poll`, and the read-only
-`read_chat` tool. Only poll delivery is advertised. There is no separate
-subscription tool, webhook registration, or push stream.
+The server implements poll delivery from the accepted
+[SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/3415),
+revision `4165cc2`. `server/discover` advertises MCP `2026-07-28` and
+`capabilities.extensions["io.modelcontextprotocol/events"]`, with no catalog
+change notifications. `events/list` discovers `hh.chat.reply`; `events/poll`
+delivers replies. The read-only `read_chat` tool provides current context.
+
+Every modern request carries `params._meta` with
+`io.modelcontextprotocol/protocolVersion` and an object-valued
+`io.modelcontextprotocol/clientCapabilities` (an empty object is valid).
+Successful modern results include `resultType: "complete"`. Unsupported
+versions return `-32022` with `data.supported` and `data.requested` so clients
+can retry with a supported version. Discovery returns server identity in
+`_meta["io.modelcontextprotocol/serverInfo"]`.
+
+Legacy `initialize` with version `2025-11-25` supports `read_chat` only.
+Events are not advertised or served under that revision. Only poll delivery
+is offered: `events/stream` returns `Unsupported` (`-32026`) with
+`data: {"feature":"deliveryMode","value":"push"}`. This stdio server has no
+authenticated MCP principal, so webhook `events/subscribe` and
+`events/unsubscribe` return `Forbidden` (`-32024`). Upstream Chrome credentials
+authorize HH reads; they do not authenticate an MCP caller for webhooks.
 
 Subscribe to `hh.chat.reply` with an explicit chat ID or URL:
 
@@ -28,6 +44,10 @@ Subscribe to `hh.chat.reply` with an explicit chat ID or URL:
   "id": 1,
   "method": "events/poll",
   "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    },
     "name": "hh.chat.reply",
     "arguments": {"chat_id": "https://kazan.hh.ru/chat/123"},
     "cursor": null

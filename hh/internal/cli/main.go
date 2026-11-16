@@ -33,7 +33,9 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       --interval is the per-chat read minimum (1s..5m); reads share the account
       lock with other commands. 429, authentication and challenge failures halt
       further reads until the problem is resolved and the server is restarted.
-      Supports server/discover (2026-07-28) and legacy initialize (2025-11-25).
+      SEP-3415 uses server/discover (2026-07-28) and requires protocolVersion
+      and clientCapabilities in params._meta under io.modelcontextprotocol/.
+      Legacy initialize (2025-11-25) exposes read_chat only, without Events.
       The MCP client owns the subscription/poll loop between agent turns.
       Stdout is JSON-RPC only. No messages are sent or marked read.
   saved-searches list [--output FILE]
