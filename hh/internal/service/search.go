@@ -173,6 +173,9 @@ func (c *Client) searchItem(row Object) (domain.VacancySearchItem, error) {
 	formats, _ := row["workFormats"].([]any)
 	for _, value := range formats {
 		format, _ := value.(map[string]any)
+		if format != nil && len(format) == 0 {
+			continue
+		}
 		values, err := searchStrings(format["workFormatsElement"])
 		if err != nil {
 			return item, fmt.Errorf("HH search vacancy %s has invalid work formats: %w", item.ID, err)

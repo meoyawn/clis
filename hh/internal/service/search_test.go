@@ -121,9 +121,12 @@ func TestSearchMatchesActualGoOrGolangTags(t *testing.T) {
 
 func TestSearchNativeQueryAndCriteria(t *testing.T) {
 	const text = `NAME:(Go OR Golang) AND DESCRIPTION:"backend platform" NOT intern prefix* "near words"~5 ^COMPANY_NAME:Example !id:(123)`
-	for _, scenario := range []string{"query", "next-page", "explicit-areas", "empty", "wrong-area", "wrong-remote", "rewritten-text", "wrong-page", "wrong-size", "missing-list", "duplicate", "nonremote", "unmarked-anonymous", "bad-next"} {
+	for _, scenario := range []string{"query", "next-page", "explicit-areas", "empty", "unknown-format", "wrong-area", "wrong-remote", "rewritten-text", "wrong-page", "wrong-size", "missing-list", "duplicate", "nonremote", "unmarked-anonymous", "bad-next"} {
 		t.Run(scenario, func(t *testing.T) {
 			options := domain.VacancySearchOptions{Text: text, Remote: true, PerPage: 20}
+			if scenario == "unknown-format" {
+				options.Remote = false
+			}
 			if scenario == "explicit-areas" {
 				options.Areas = []string{"1", "2"}
 			}
@@ -131,9 +134,13 @@ func TestSearchNativeQueryAndCriteria(t *testing.T) {
 				options.Page = 1
 			}
 			requests := 0
+			format := "REMOTE"
+			if !options.Remote {
+				format = ""
+			}
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				requests++
-				if r.Method != http.MethodGet || r.URL.Path != "/search/vacancy" || r.URL.Query().Get("text") != text || r.URL.Query().Get("work_format") != "REMOTE" || r.URL.Query().Get("page") != strconv.Itoa(options.Page) || !reflect.DeepEqual(r.URL.Query()["area"], options.Areas) {
+				if r.Method != http.MethodGet || r.URL.Path != "/search/vacancy" || r.URL.Query().Get("text") != text || r.URL.Query().Get("work_format") != format || r.URL.Query().Get("page") != strconv.Itoa(options.Page) || !reflect.DeepEqual(r.URL.Query()["area"], options.Areas) {
 					t.Errorf("native query changed or unexpected request: %s %s", r.Method, r.URL)
 				}
 				row := searchRow(101, "Backend engineer")
@@ -148,6 +155,10 @@ func TestSearchNativeQueryAndCriteria(t *testing.T) {
 					criteria["area"] = []any{"2", "1"}
 				case "empty":
 					list["vacancies"], list["totalResults"], list["paging"] = []any{}, 0, nil
+				case "unknown-format":
+					criteria["work_format"] = []any{}
+					// Chrome search response, 17 Nov 2026: the wrapper can be empty.
+					row["workFormats"] = []any{hh.Object{}}
 				case "wrong-area":
 					criteria["area"] = []any{"88"}
 				case "wrong-remote":
@@ -177,7 +188,7 @@ func TestSearchNativeQueryAndCriteria(t *testing.T) {
 			if requests != 1 {
 				t.Fatalf("query without skill filters must use one GET, got %d", requests)
 			}
-			if scenario != "query" && scenario != "next-page" && scenario != "explicit-areas" && scenario != "empty" {
+			if scenario != "query" && scenario != "next-page" && scenario != "explicit-areas" && scenario != "empty" && scenario != "unknown-format" {
 				if err == nil || result != nil {
 					t.Fatalf("unverified search accepted: %+v, %v", result, err)
 				}
@@ -194,6 +205,9 @@ func TestSearchNativeQueryAndCriteria(t *testing.T) {
 			}
 			if len(result.Vacancies) != 1 || result.Vacancies[0].Compensation["from"] != float64(200000) || len(result.Vacancies[0].Compensation) != 4 {
 				t.Fatalf("wrong compact search data: %+v", result)
+			}
+			if scenario == "unknown-format" && len(result.Vacancies[0].WorkFormats) != 0 {
+				t.Fatalf("invented work format for an unspecified search record: %+v", result.Vacancies[0])
 			}
 			if scenario == "next-page" && (result.Page != 1 || result.NextPage == nil || *result.NextPage != 2) {
 				t.Fatalf("wrong zero-based continuation: %+v", result)
