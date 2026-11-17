@@ -12,6 +12,7 @@ func TestGasFileRoutingAndValidation(t *testing.T) {
 	source := "uslugi:\n  gas:\n    account: '000000000001'\n    meter: '100001'\n2000-10-18:\n  electricity: 1100\n  cold: 200\n  hot: 110\n  gas: 123\n2000-08-25:\n  gas: 100\n"
 	for _, test := range []struct{ name, source, wantError string }{
 		{"primary account", source, ""},
+		{"BRIS configuration alongside gas", "bris:\n  login: test@example.com\n  password: test-password\n  account: '0000000001'\n  meters:\n    water: '0000000000001'\n" + source, ""},
 		{"main routing alongside gas", strings.Replace(source, "  gas:", "  main:\n    account: '0000000001'\n    flat: '1'\n    address: 'ул ПРИМЕРНАЯ, дом 1'\n    informer: '00000000-0000-4000-8000-000000000001'\n  gas:", 1), ""},
 		{"alternate account independent of path", strings.NewReplacer("000000000001", "000000000002", "100001", "100002", "123", "234", "100", "200").Replace(source), ""},
 		{"missing account", strings.Replace(source, "000000000001", "", 1), "12-digit account"},

@@ -20,6 +20,11 @@ type reading struct {
 	History  []reading
 }
 
+type meterInput struct {
+	Credentials credentials
+	Reading     reading
+}
+
 type yamlReading struct {
 	Day      *wholeNumber `yaml:"day"`
 	Night    *wholeNumber `yaml:"night"`
@@ -42,31 +47,39 @@ func (value *wholeNumber) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-func loadReading(path string, now time.Time) (reading, error) {
+func loadInput(path string, now time.Time) (meterInput, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return reading{}, fmt.Errorf("open readings %q: %w", path, err)
+		return meterInput{}, fmt.Errorf("open meters %q: %w", path, err)
 	}
 	defer f.Close()
-	return decodeReading(f, now)
+	info, err := f.Stat()
+	if err != nil {
+		return meterInput{}, fmt.Errorf("stat meters %q: %w", path, err)
+	}
+	if info.Mode().Perm()&0077 != 0 {
+		return meterInput{}, fmt.Errorf("meters %q must be private; run chmod 600 on this file", path)
+	}
+	return decodeInput(f, now)
 }
 
-func decodeReading(source io.Reader, now time.Time) (reading, error) {
+func decodeInput(source io.Reader, now time.Time) (meterInput, error) {
 	var document struct {
+		Bris    credentials            `yaml:"bris"`
 		Uslugi  yaml.Node              `yaml:"uslugi"`
 		Entries map[string]yamlReading `yaml:",inline"`
 	}
 	d := yaml.NewDecoder(source)
 	d.KnownFields(true)
 	if err := d.Decode(&document); err != nil {
-		return reading{}, fmt.Errorf("decode meters.yaml: %w", err)
+		return meterInput{}, fmt.Errorf("decode meters.yaml: %w", err)
 	}
 	if err := d.Decode(new(any)); !errors.Is(err, io.EOF) {
-		return reading{}, fmt.Errorf("meters.yaml must contain exactly one YAML document")
+		return meterInput{}, fmt.Errorf("meters.yaml must contain exactly one YAML document")
 	}
 	entries := document.Entries
 	if len(entries) == 0 {
-		return reading{}, fmt.Errorf("meters.yaml contains no dated readings")
+		return meterInput{}, fmt.Errorf("meters.yaml contains no dated readings")
 	}
 	var readings []reading
 	for key, entry := range entries {
@@ -76,7 +89,7 @@ func decodeReading(source io.Reader, now time.Time) (reading, error) {
 			date, err = time.ParseInLocation("02-01-2006", key, now.Location())
 		}
 		if err != nil {
-			return reading{}, fmt.Errorf("invalid reading date %q; use YYYY-MM-DD", key)
+			return meterInput{}, fmt.Errorf("invalid reading date %q; use YYYY-MM-DD", key)
 		}
 		values := []struct {
 			name  string
@@ -84,10 +97,10 @@ func decodeReading(source io.Reader, now time.Time) (reading, error) {
 		}{{"day", entry.Day}, {"night", entry.Night}, {"water", entry.Water}, {"drinking", entry.Drinking}}
 		for _, v := range values {
 			if v.value == nil {
-				return reading{}, fmt.Errorf("reading %s is missing %s", key, v.name)
+				return meterInput{}, fmt.Errorf("reading %s is missing %s", key, v.name)
 			}
 			if *v.value < 0 {
-				return reading{}, fmt.Errorf("reading %s has negative %s: %d", key, v.name, *v.value)
+				return meterInput{}, fmt.Errorf("reading %s has negative %s: %d", key, v.name, *v.value)
 			}
 		}
 		readings = append(readings, reading{Date: date, Day: int64(*entry.Day), Night: int64(*entry.Night), Water: int64(*entry.Water), Drinking: int64(*entry.Drinking)})
@@ -95,23 +108,23 @@ func decodeReading(source io.Reader, now time.Time) (reading, error) {
 	sort.Slice(readings, func(i, j int) bool { return readings[i].Date.Before(readings[j].Date) })
 	latest := readings[len(readings)-1]
 	if latest.Date.Year() != now.Year() || latest.Date.Month() != now.Month() {
-		return reading{}, fmt.Errorf("latest reading %s must be in the current Moscow month %s", latest.Date.Format(time.DateOnly), now.Format("2006-01"))
+		return meterInput{}, fmt.Errorf("latest reading %s must be in the current Moscow month %s", latest.Date.Format(time.DateOnly), now.Format("2006-01"))
 	}
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	if latest.Date.After(today) {
-		return reading{}, fmt.Errorf("latest reading %s is after today %s", latest.Date.Format(time.DateOnly), today.Format(time.DateOnly))
+		return meterInput{}, fmt.Errorf("latest reading %s is after today %s", latest.Date.Format(time.DateOnly), today.Format(time.DateOnly))
 	}
 	for i := 1; i < len(readings); i++ {
 		previous, current := readings[i-1], readings[i]
 		if previous.Date.Equal(current.Date) {
-			return reading{}, fmt.Errorf("duplicate reading date %s in different date formats", current.Date.Format(time.DateOnly))
+			return meterInput{}, fmt.Errorf("duplicate reading date %s in different date formats", current.Date.Format(time.DateOnly))
 		}
 		if current.Day < previous.Day || current.Night < previous.Night || current.Water < previous.Water || current.Drinking < previous.Drinking {
-			return reading{}, fmt.Errorf("readings on %s decrease from %s", current.Date.Format(time.DateOnly), previous.Date.Format(time.DateOnly))
+			return meterInput{}, fmt.Errorf("readings on %s decrease from %s", current.Date.Format(time.DateOnly), previous.Date.Format(time.DateOnly))
 		}
 	}
 	latest.History = readings
-	return latest, nil
+	return meterInput{Credentials: document.Bris, Reading: latest}, nil
 }
 
 func printHistoricalUsage(out io.Writer, current reading, now time.Time) {

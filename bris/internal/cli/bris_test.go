@@ -33,16 +33,11 @@ func TestSubmissionHTTPContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Date(2030, 10, 19, 21, 0, 0, 0, zone)
-	readings := reading{Date: now, Day: 2060, Night: 320, Water: 102, Drinking: 405}
-	credentialsPath := filepath.Join(t.TempDir(), "credentials.json")
-	if err := os.WriteFile(credentialsPath, []byte(`{
-		"login": "test@example.com", "password": "test-password",
-		"account": "0000000001",
-		"meters": {"water": "0000000000001", "day": "К-000000001-Э", "night": "К-000000001-Э", "drinking": "0000001"}
-	}`), 0o600); err != nil {
+	metersPath := filepath.Join(t.TempDir(), "meters.yaml")
+	if err := os.WriteFile(metersPath, []byte(testBrisConfig+"2030-10-19:\n  day: 2060\n  night: 320\n  water: 102\n  drinking: 405\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	creds, err := readCredentials(credentialsPath)
+	input, err := loadInput(metersPath, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,8 +58,8 @@ func TestSubmissionHTTPContract(t *testing.T) {
 		{name: "saved values with stale month", oldDate: true, wantPosts: 1, wantLogins: 1, wantError: "read-back verification failed"},
 		{name: "unexpected meter", wrongMeter: true, wantLogins: 1, wantError: "expected one meter"},
 		{name: "unexpected account never posts", wrongAccount: true, wantLogins: 1, wantError: "does not match the configured account"},
-		{name: "missing account stops before login", missingAccount: true, wantError: "credentials require nonempty account"},
-		{name: "missing meter stops before login", missingMeter: true, wantError: "credentials require nonempty meters.water"},
+		{name: "missing account stops before login", missingAccount: true, wantError: "bris.account must be nonempty"},
+		{name: "missing meter stops before login", missingMeter: true, wantError: "bris.meters.water must be nonempty"},
 		{name: "lower reading", lowerReading: true, wantLogins: 1, wantError: "below BRIS reading"},
 		{name: "uncertain network result is not replayed", networkFailure: true, wantPosts: 1, wantLogins: 1, wantError: "outcome is unknown"},
 		{name: "rejection is not replayed", reject: true, wantPosts: 1, wantLogins: 1, wantError: "did not confirm acceptance"},
@@ -171,7 +166,7 @@ func TestSubmissionHTTPContract(t *testing.T) {
 			})
 			server := httptest.NewServer(handler)
 			defer server.Close()
-			configured := creds
+			configured := input.Credentials
 			if test.wrongAccount {
 				configured.Account = "0000000002"
 			}
@@ -184,7 +179,7 @@ func TestSubmissionHTTPContract(t *testing.T) {
 			client, err := newBrisClient(server.URL, configured)
 			var output bytes.Buffer
 			if err == nil {
-				err = client.submit(context.Background(), readings, now, test.dryRun, &output)
+				err = client.submit(context.Background(), input.Reading, now, test.dryRun, &output)
 			}
 			if test.wantError != "" {
 				if err == nil || !strings.Contains(err.Error(), test.wantError) {

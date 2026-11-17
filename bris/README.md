@@ -11,12 +11,12 @@ go build .
 ./bris /path/to/private/meters.yaml
 ```
 
-Flags go before the YAML path. Use `--credentials /path/to/private.json` to select
-a credentials file; the default is `credentials.json` in the current directory.
-Copy `credentials.example.json` to `credentials.json`, fill in `login`,
-`password`, `account`, and the four `meters` serial numbers, and run
-`chmod 600 credentials.json`. The credentials file and built
-binary are gitignored. The CLI never logs credentials or saves session cookies.
+Flags go before the YAML path. The same YAML file holds the readings and a
+`bris` section containing `login`, `password`, `account`, and the four `meters`
+serial numbers. See `meters.example.yaml` for the complete synthetic example,
+or run `go run . --help`. Fill in your own configuration and readings, and run
+`chmod 600 /path/to/private/meters.yaml`. No separate credentials file is used.
+The CLI never logs login/password values or saves session cookies.
 
 Each run creates a fresh session and logs in with the saved credentials. If BRIS
 redirects a submission to login, the CLI logs in again, refreshes the form and
@@ -42,7 +42,7 @@ decrease. `drinking` is already in litres in this YAML. `gas` is optional and is
 never sent to BRIS. The input file is never modified.
 The optional `uslugi` routing metadata is ignored by BRIS.
 
-The CLI verifies the account and meter serials from your private configuration,
+The CLI verifies the account and meter serials from the YAML's `bris` section,
 reading BRIS's internal IDs and form fields afresh on every run. Missing account
 or meter configuration stops before login; an unexpected account or meter stops
 before submission. Day and night normally use the same electricity meter serial.
@@ -50,12 +50,12 @@ The tariff mapping is:
 
 | YAML field | Private configuration | Tariff |
 | --- | --- | --- |
-| water | `meters.water` | 1 |
-| day | `meters.day` | 2 |
-| night | `meters.night` | 3 |
-| drinking | `meters.drinking` | 1 |
+| water | `bris.meters.water` | 1 |
+| day | `bris.meters.day` | 2 |
+| night | `bris.meters.night` | 3 |
+| drinking | `bris.meters.drinking` | 1 |
 
-All values in `credentials.example.json` and the test fixtures are synthetic.
+All values in `meters.example.yaml` and the test fixtures are synthetic.
 Keep your real configuration and readings outside version control.
 
 Checks:

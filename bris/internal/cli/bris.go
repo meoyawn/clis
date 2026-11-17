@@ -64,7 +64,7 @@ func newBrisClient(baseURL string, creds credentials) (*brisClient, error) {
 		{"meters.drinking", creds.Meters.Drinking},
 	} {
 		if strings.TrimSpace(field.value) == "" {
-			return nil, fmt.Errorf("credentials require nonempty %s", field.name)
+			return nil, fmt.Errorf("bris.%s must be nonempty in meters.yaml", field.name)
 		}
 	}
 	base, err := url.Parse(baseURL)

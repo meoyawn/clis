@@ -1,8 +1,8 @@
 package cli
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -12,60 +12,74 @@ import (
 	"syscall"
 	"time"
 
+	"go.yaml.in/yaml/v3"
+
 	_ "time/tzdata"
 )
 
 type credentials struct {
-	Login    string       `json:"login"`
-	Password string       `json:"password"`
-	Account  string       `json:"account"`
-	Meters   meterNumbers `json:"meters"`
+	Login    string       `yaml:"login"`
+	Password string       `yaml:"password"`
+	Account  string       `yaml:"account"`
+	Meters   meterNumbers `yaml:"meters"`
 }
 
 type meterNumbers struct {
-	Water    string `json:"water"`
-	Day      string `json:"day"`
-	Night    string `json:"night"`
-	Drinking string `json:"drinking"`
+	Water    string `yaml:"water"`
+	Day      string `yaml:"day"`
+	Night    string `yaml:"night"`
+	Drinking string `yaml:"drinking"`
 }
 
-func readCredentials(path string) (credentials, error) {
-	var result credentials
-	f, err := os.Open(path)
+func (value *credentials) UnmarshalYAML(node *yaml.Node) error {
+	// Decode this block separately so errors cannot expose credential values or keys.
+	type config credentials
+	invalid := fmt.Errorf("invalid bris configuration; see --help for login, password, account and meters")
+	data, err := yaml.Marshal(node)
 	if err != nil {
-		return result, fmt.Errorf("open credentials %q: %w (see credentials.example.json)", path, err)
+		return invalid
 	}
-	defer f.Close()
-	info, err := f.Stat()
-	if err != nil {
-		return result, fmt.Errorf("stat credentials %q: %w", path, err)
+	d := yaml.NewDecoder(bytes.NewReader(data))
+	d.KnownFields(true)
+	if err := d.Decode((*config)(value)); err != nil {
+		return invalid
 	}
-	if info.Mode().Perm()&0077 != 0 {
-		return result, fmt.Errorf("credentials %q must be private; run chmod 600 on this file", path)
-	}
-	d := json.NewDecoder(f)
-	d.DisallowUnknownFields()
-	if err := d.Decode(&result); err != nil {
-		// Decoder errors can contain credential values, so do not print them.
-		return result, fmt.Errorf("credentials %q must contain a valid configuration object; see credentials.example.json", path)
-	}
-	if err := d.Decode(new(any)); !errors.Is(err, io.EOF) {
-		return result, fmt.Errorf("credentials %q must contain exactly one JSON object", path)
-	}
-	if result.Login == "" || result.Password == "" {
-		return result, fmt.Errorf("credentials %q require nonempty login and password", path)
-	}
-	return result, nil
+	return nil
 }
 
 func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	flags := flag.NewFlagSet("bris", flag.ContinueOnError)
 	flags.SetOutput(errOut)
 	dryRun := flags.Bool("dry-run", false, "log in and compare readings without submitting them")
-	credentialsPath := flags.String("credentials", "credentials.json", "private JSON file containing login, password, account and meter serials")
 	flags.Usage = func() {
-		fmt.Fprintln(errOut, "Usage: bris [--dry-run] [--credentials credentials.json] meters.yaml")
+		fmt.Fprintln(errOut, "Usage: bris [--dry-run] meters.yaml")
 		flags.PrintDefaults()
+		fmt.Fprint(errOut, `
+The same meters.yaml contains the BRIS configuration and dated readings:
+
+bris:
+  login: "your-email@example.com"
+  password: "your-password"
+  account: "0000000001"
+  meters:
+    water: "0000000000001"
+    day: "К-000000001-Э"
+    night: "К-000000001-Э"
+    drinking: "0000001"
+YYYY-MM-DD:
+  water: 100
+  day: 2000
+  night: 300
+  drinking: 400
+
+Use your own account and serials; day and night normally share a serial.
+The latest date must be in the current Europe/Moscow month, no later than today.
+Readings are nonnegative whole integers: water in m³, day/night in kWh,
+drinking in litres. Legacy DD-MM-YYYY dates are also accepted.
+The gas readings and uslugi configuration are ignored.
+Make the file private with chmod 600. It is never modified by this CLI.
+Without --dry-run, all four readings are submitted and verified by reading back.
+`)
 	}
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -79,19 +93,15 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		return fmt.Errorf("load Moscow timezone: %w", err)
 	}
 	now := time.Now().In(zone)
-	reading, err := loadReading(flags.Arg(0), now)
+	input, err := loadInput(flags.Arg(0), now)
 	if err != nil {
 		return err
 	}
-	creds, err := readCredentials(*credentialsPath)
+	client, err := newBrisClient("https://lk.bris-cloud.ru", input.Credentials)
 	if err != nil {
 		return err
 	}
-	client, err := newBrisClient("https://lk.bris-cloud.ru", creds)
-	if err != nil {
-		return err
-	}
-	return client.submit(ctx, reading, now, *dryRun, out)
+	return client.submit(ctx, input.Reading, now, *dryRun, out)
 }
 
 // Main runs the command-line application.

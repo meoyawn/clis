@@ -1,0 +1,22 @@
+# Synthetic configuration and readings. Use your own details and current dates.
+bris:
+  login: "your-email@example.com"
+  password: "your-password"
+  account: "0000000001"
+  meters:
+    water: "0000000000001"
+    day: "К-000000001-Э"
+    night: "К-000000001-Э"
+    drinking: "0000001"
+
+2030-08-25:
+  day: 2000
+  night: 300
+  water: 100
+  drinking: 400
+
+2030-10-19:
+  day: 2060
+  night: 320
+  water: 102
+  drinking: 405

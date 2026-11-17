@@ -59,6 +59,7 @@ func loadGasReading(path string, now time.Time) (gasReading, error) {
 }
 
 type meterDocument struct {
+	Bris   yaml.Node `yaml:"bris"`
 	Uslugi struct {
 		Gas  gasAccount  `yaml:"gas"`
 		Main mainAccount `yaml:"main"`

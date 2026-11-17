@@ -36,5 +36,4 @@ id_rsa
 id_ed25519
 
 # Synthetic parser fixtures, never real account state.
-!bris/credentials.example.json
 !ozon/internal/service/testdata/auth.json
