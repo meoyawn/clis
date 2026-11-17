@@ -22,7 +22,7 @@ func Main() {
 	err := run(ctx, os.Args[1:], os.Stdout, os.Stderr)
 	stop()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "planeta:", err)
+		fmt.Fprintln(os.Stderr, "planeta-zdorovo:", err)
 		os.Exit(1)
 	}
 }
@@ -223,7 +223,7 @@ func runAuth(ctx context.Context, args []string, stdout, stderr io.Writer) error
 		}
 		store, err := loadAuth(paths.auth)
 		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("no browser cookies imported; run planeta auth import --browser chrome (or select your browser)")
+			return fmt.Errorf("no browser cookies imported; run planeta-zdorovo auth import --browser chrome (or select your browser)")
 		}
 		if err != nil {
 			return err
@@ -234,7 +234,7 @@ func runAuth(ctx context.Context, args []string, stdout, stderr io.Writer) error
 			if err != nil {
 				return err
 			}
-			result.Warnings = append(result.Warnings, fmt.Sprintf("Saved clearance has expired; run planeta auth import --browser %s", browser.value))
+			result.Warnings = append(result.Warnings, fmt.Sprintf("Saved clearance has expired; run planeta-zdorovo auth import --browser %s", browser.value))
 		}
 		return writeJSON(stdout, result)
 	default:

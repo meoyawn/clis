@@ -22,7 +22,7 @@ const defaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleW
 const maxPageBytes = 16 << 20
 const requestBudget = 2
 
-var errBrowserCheck = errors.New("site verification failed; run planeta auth import --browser chrome (or your browser), then retry the command")
+var errBrowserCheck = errors.New("site verification failed; run planeta-zdorovo auth import --browser chrome (or your browser), then retry the command")
 var citySlug = regexp.MustCompile("^[a-z0-9]+(?:-[a-z0-9]+)*$")
 var validID = regexp.MustCompile("^-?[1-9][0-9]*$")
 

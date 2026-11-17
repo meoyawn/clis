@@ -20,10 +20,10 @@ go build -o invitro .
 
 | Planeta | Invitro |
 | --- | --- |
-| `planeta search <query>` | `invitro search <query>` |
-| `planeta id <id>` | `invitro show <id-or-url>` |
-| `planeta config` | `invitro config` |
-| `planeta config set city <slug>` | `invitro config set city <slug>` |
+| `planeta-zdorovo search <query>` | `invitro search <query>` |
+| `planeta-zdorovo id <id>` | `invitro show <id-or-url>` |
+| `planeta-zdorovo config` | `invitro config` |
+| `planeta-zdorovo config set city <slug>` | `invitro config set city <slug>` |
 
 There is no `invitro id` command. Options can appear before or after positional arguments. A literal `--` ends option parsing. Success writes one JSON object to stdout; errors go to stderr with a nonzero exit status. Help is plain text.
 

@@ -68,7 +68,7 @@ func (e *browserCookieError) reason() string {
 }
 
 func (e *browserCookieError) Error() string {
-	return e.reason() + fmt.Sprintf("Reload %s/ in %s, then run: planeta auth import --browser %s", siteOrigin, e.browser.value, e.browser.value)
+	return e.reason() + fmt.Sprintf("Reload %s/ in %s, then run: planeta-zdorovo auth import --browser %s", siteOrigin, e.browser.value, e.browser.value)
 }
 
 type authSession struct {
@@ -95,7 +95,7 @@ func loadAuthSession(paths appPaths, explicit string) (*authSession, []*http.Coo
 		return nil, nil, err
 	}
 	if !store.hasClearance(time.Now()) {
-		return nil, nil, fmt.Errorf("saved Planeta site-verification cookie has expired; run planeta auth import --browser %s", browser.value)
+		return nil, nil, fmt.Errorf("saved Planeta site-verification cookie has expired; run planeta-zdorovo auth import --browser %s", browser.value)
 	}
 	return session, cookies, err
 }

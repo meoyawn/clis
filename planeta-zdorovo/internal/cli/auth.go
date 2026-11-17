@@ -206,7 +206,7 @@ func loadAuth(path string) (result *authStore, err error) {
 	}
 	var store authStore
 	if len(data) > 64<<10 || json.Unmarshal(data, &store) != nil {
-		return nil, fmt.Errorf("invalid auth store %q; run planeta auth import --browser chrome again", path)
+		return nil, fmt.Errorf("invalid auth store %q; run planeta-zdorovo auth import --browser chrome again", path)
 	}
 	return &store, nil
 }

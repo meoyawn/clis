@@ -153,7 +153,7 @@ func TestCommandsUseConfigWithoutImplicitCity(t *testing.T) {
 	paths := testConfigPaths(t)
 	locatePaths := func() (appPaths, error) { return paths, nil }
 	for _, args := range [][]string{{"search", "query"}, {"id", "1"}} {
-		if err := runWithPaths(t.Context(), args, io.Discard, io.Discard, locatePaths); err == nil || !strings.Contains(err.Error(), "planeta config set city") {
+		if err := runWithPaths(t.Context(), args, io.Discard, io.Discard, locatePaths); err == nil || !strings.Contains(err.Error(), "planeta-zdorovo config set city") {
 			t.Fatalf("missing city did not fail locally: %v", err)
 		}
 	}

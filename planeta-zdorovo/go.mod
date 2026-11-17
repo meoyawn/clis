@@ -1,4 +1,4 @@
-module github.com/meoyawn/clis/planeta
+module github.com/meoyawn/clis/planeta-zdorovo
 
 go 1.27.2
 

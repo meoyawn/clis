@@ -19,7 +19,7 @@ type userConfig struct {
 
 func validateCity(city string) error {
 	if city == "" {
-		return fmt.Errorf("city %q must not be empty; run planeta config set city <slug> or pass --city", city)
+		return fmt.Errorf("city %q must not be empty; run planeta-zdorovo config set city <slug> or pass --city", city)
 	}
 	if len(city) > 256 || !citySlug.MatchString(city) {
 		return fmt.Errorf("invalid city %.100q: expected a lowercase city URL slug of at most 256 bytes", city)
@@ -108,7 +108,7 @@ func runConfig(ctx context.Context, args []string, stdout io.Writer, path string
 		return err
 	}
 	if len(args) != 0 && (len(args) != 3 || args[0] != "set") {
-		return fmt.Errorf("config expects no arguments or: planeta config set city <slug>")
+		return fmt.Errorf("config expects no arguments or: planeta-zdorovo config set city <slug>")
 	}
 	config, err := loadConfig(path)
 	if err != nil {

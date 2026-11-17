@@ -44,7 +44,7 @@ func TestFailedImportReturnsInstructionsWithoutPolling(t *testing.T) {
 	if err == nil || calls != 2 {
 		t.Fatalf("unexpected import result: calls=%d err=%v", calls, err)
 	}
-	for _, expected := range []string{"expired at", "Reload", "planeta auth import --browser chrome"} {
+	for _, expected := range []string{"expired at", "Reload", "planeta-zdorovo auth import --browser chrome"} {
 		if !strings.Contains(err.Error(), expected) {
 			t.Errorf("missing guidance %q: %v", expected, err)
 		}
@@ -71,7 +71,7 @@ func TestExpiredAuthRequiresExplicitImport(t *testing.T) {
 				t.Fatal(err)
 			}
 			session, cookies, err := loadAuthSession(paths, "")
-			if err == nil || session != nil || cookies != nil || !strings.Contains(err.Error(), "planeta auth import --browser "+browser) {
+			if err == nil || session != nil || cookies != nil || !strings.Contains(err.Error(), "planeta-zdorovo auth import --browser "+browser) {
 				t.Fatalf("expired auth did not require explicit import: %v", err)
 			}
 			if strings.Contains(err.Error(), "wait") || strings.Contains(err.Error(), "secret") {
@@ -141,7 +141,7 @@ func TestCookieChallengeStopsWithImportInstructions(t *testing.T) {
 			if !errors.Is(err, errBrowserCheck) || requests != wantRequests || c.requests != wantRequests {
 				t.Fatalf("challenge did not stop immediately: requests=%d err=%v", requests, err)
 			}
-			if !strings.Contains(err.Error(), "planeta auth import --browser chrome") || strings.Contains(err.Error(), "wait") {
+			if !strings.Contains(err.Error(), "planeta-zdorovo auth import --browser chrome") || strings.Contains(err.Error(), "wait") {
 				t.Fatalf("challenge instructions are not actionable: %v", err)
 			}
 		})

@@ -66,14 +66,14 @@ func (p appPaths) lookup(city, id string) (string, error) {
 	}
 	data, err := os.ReadFile(filepath.Join(p.index, city, id+".json")) // #nosec G304 G703 -- City and ID are validated above; p.index is the local CLI cache directory.
 	if errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("no URL saved for product %s in %s; run planeta search first, or use planeta id --url <canonical-product-url> %s", id, city, id)
+		return "", fmt.Errorf("no URL saved for product %s in %s; run planeta-zdorovo search first, or use planeta-zdorovo id --url <canonical-product-url> %s", id, city, id)
 	}
 	if err != nil {
 		return "", fmt.Errorf("read product %s URL: %w", id, err)
 	}
 	var item productLocation
 	if json.Unmarshal(data, &item) != nil || item.ID != id || item.City != city {
-		return "", fmt.Errorf("invalid saved URL for product %s; repeat planeta search to refresh it", id)
+		return "", fmt.Errorf("invalid saved URL for product %s; repeat planeta-zdorovo search to refresh it", id)
 	}
 	base, err := url.Parse(siteOrigin)
 	if err != nil {
