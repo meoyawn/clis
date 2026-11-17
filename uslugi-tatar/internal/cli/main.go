@@ -22,7 +22,13 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
   uslugi-tatar auth import --browser <browser> [--profile <profile>]
   uslugi-tatar auth status
   uslugi-tatar accounts [--yaml] [--account <number>]
-  uslugi-tatar {gas|main} [--dry-run] meters.yaml`)
+  uslugi-tatar {gas|main} [--dry-run] meters.yaml
+
+Portal saved usage uses the site's saved readings and baseline, independently
+of YAML history. Gas reports accounted -> last transmitted usage and the site's
+confirmation delta (proposed - last transmitted). Main reports previous -> saved
+usage and proposed usage. Missing saved readings are reported as unavailable.
+YAML history is labelled separately. --dry-run never submits meter readings.`)
 		if len(args) > 0 {
 			return nil
 		}

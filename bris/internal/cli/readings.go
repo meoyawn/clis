@@ -136,9 +136,9 @@ func printHistoricalUsage(out io.Writer, current reading, now time.Time) {
 		}
 	}
 	if lastIndex < 0 {
-		fmt.Fprintf(out, "Reminder: you forgot to send readings for %s (no entry in meters.yaml).\n", lastMonth.Format("2006-01"))
+		fmt.Fprintf(out, "YAML history: Reminder: you forgot to send readings for %s (no entry in meters.yaml).\n", lastMonth.Format("2006-01"))
 	} else if lastIndex == 0 {
-		fmt.Fprintf(out, "Last month's recorded usage (%s): unavailable (missing reading or baseline).\n", lastMonth.Format("2006-01"))
+		fmt.Fprintf(out, "YAML history: Last month's recorded usage (%s): unavailable (missing reading or baseline).\n", lastMonth.Format("2006-01"))
 	} else {
 		end := current.History[lastIndex]
 		var start reading
@@ -149,13 +149,13 @@ func printHistoricalUsage(out io.Writer, current reading, now time.Time) {
 			}
 		}
 		if start.Date.IsZero() {
-			fmt.Fprintf(out, "Last month's recorded usage (%s): unavailable (missing baseline).\n", lastMonth.Format("2006-01"))
+			fmt.Fprintf(out, "YAML history: Last month's recorded usage (%s): unavailable (missing baseline).\n", lastMonth.Format("2006-01"))
 		} else {
-			printUsageInterval(out, "Last month's recorded usage", start, end)
+			printUsageInterval(out, "YAML history: Last month's recorded usage", start, end)
 		}
 	}
 	if len(current.History) >= 2 {
-		printUsageInterval(out, "Usage since previous reading", current.History[len(current.History)-2], current)
+		printUsageInterval(out, "YAML history: Usage since previous reading", current.History[len(current.History)-2], current)
 	}
 }
 

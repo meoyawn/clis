@@ -22,6 +22,7 @@ type mainCounter struct {
 	Service           domain.MainService
 	Digits            int
 	Previous, Current int64 // Thousandths, matching the portal's three decimal places.
+	HasCurrent        bool
 }
 
 type mainForm struct {
@@ -173,7 +174,8 @@ func (c *portalClient) parseMain(p page, r mainAccount) (mainForm, error) {
 			return mainForm{}, err
 		}
 		current := int64(0)
-		if value := attr(input, "value"); value != "" {
+		value := attr(input, "value")
+		if value != "" {
 			current, err = parseMeterDecimal(value)
 			if err != nil {
 				return mainForm{}, err
@@ -183,7 +185,7 @@ func (c *portalClient) parseMain(p page, r mainAccount) (mainForm, error) {
 		if err != nil {
 			return mainForm{}, err
 		}
-		result.Counters = append(result.Counters, mainCounter{Name: name, Service: service, Serial: textContent(cells[1]), Digits: digits, Previous: previous, Current: current})
+		result.Counters = append(result.Counters, mainCounter{Name: name, Service: service, Serial: textContent(cells[1]), Digits: digits, Previous: previous, Current: current, HasCurrent: value != ""})
 	}
 	return result, nil
 }
@@ -232,7 +234,16 @@ func (c *portalClient) submitMain(ctx context.Context, r mainReading, dryRun boo
 			changed++
 		}
 		snapshot.form.fields.Set(counter.Name, formatMeterDecimal(value))
-		fmt.Fprintf(out, "%s (meter %s): previous %s; current %s -> %s; usage %s %s\n", target.Label, counter.Serial, formatMeterDecimal(counter.Previous), formatMeterDecimal(counter.Current), formatMeterDecimal(value), formatMeterDecimal(value-counter.Previous), target.Unit)
+		savedValue := "not supplied"
+		if counter.HasCurrent {
+			savedValue = formatMeterDecimal(counter.Current)
+		}
+		fmt.Fprintf(out, "Portal %s (meter %s): previous %s; saved %s -> proposed %s; proposed usage %s %s\n", target.Label, counter.Serial, formatMeterDecimal(counter.Previous), savedValue, formatMeterDecimal(value), formatMeterDecimal(value-counter.Previous), target.Unit)
+	}
+	if dryRun || changed == 0 {
+		if err := printMainSiteUsage(out, snapshot, r); err != nil {
+			return err
+		}
 	}
 	if dryRun {
 		fmt.Fprintf(out, "Dry run: %d changed main readings; no electricity or water readings submitted.\n", changed)
@@ -266,7 +277,25 @@ func (c *portalClient) submitMain(ctx context.Context, r mainReading, dryRun boo
 			return fmt.Errorf("main read-back mismatch for %s: expected meter %s value %d, got meter %s value %s", target.Label, before.Serial, target.Value, after.Serial, formatMeterDecimal(after.Current))
 		}
 	}
+	if err := printMainSiteUsage(out, verified, r); err != nil {
+		return err
+	}
 	fmt.Fprintln(out, "Electricity and water submitted and verified for all 3 main meters.")
+	return nil
+}
+
+func printMainSiteUsage(out io.Writer, snapshot mainForm, r mainReading) error {
+	for _, target := range mainTargets(r) {
+		counter, err := matchingMainCounter(snapshot, target.Service)
+		if err != nil {
+			return err
+		}
+		if !counter.HasCurrent {
+			fmt.Fprintf(out, "Portal %s saved usage: unavailable (no saved reading)\n", target.Label)
+			continue
+		}
+		fmt.Fprintf(out, "Portal %s saved usage: %s %s (%s -> %s)\n", target.Label, formatMeterDecimal(counter.Current-counter.Previous), target.Unit, formatMeterDecimal(counter.Previous), formatMeterDecimal(counter.Current))
+	}
 	return nil
 }
 

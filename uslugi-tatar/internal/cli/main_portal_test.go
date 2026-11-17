@@ -28,11 +28,13 @@ func TestMainHTTPWorkflow(t *testing.T) {
 	for _, test := range []struct {
 		name                                                                                                  string
 		changed, dry, wrongAccount, wrongFlat, wrongService, decrease, fraction, dropWrite, network, renumber bool
+		blankCurrent                                                                                          bool
 		wantSelections, wantPosts                                                                             int
 		wantError                                                                                             string
 	}{
 		{name: "unchanged normal run skips submission", wantSelections: 1},
 		{name: "unchanged dry run", dry: true, wantSelections: 1},
+		{name: "missing saved reading has no site consumption", dry: true, blankCurrent: true, wantSelections: 1},
 		{name: "changed dry run", changed: true, dry: true, wantSelections: 1},
 		{name: "submit all values and preserve hidden metadata", changed: true, wantSelections: 1, wantPosts: 1},
 		{name: "fresh dynamic meter IDs", changed: true, renumber: true, wantSelections: 1, wantPosts: 1},
@@ -46,6 +48,7 @@ func TestMainHTTPWorkflow(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			r := mainReading{Routing: mainAccount{Account: "0000000001", Flat: "1", Address: "ул ПРИМЕРНАЯ, дом 1", Informer: "00000000-0000-4000-8000-000000000001"}, Date: time.Date(2000, 10, 18, 0, 0, 0, 0, time.UTC), Electricity: 1100, Hot: 110, Cold: 200}
+			r.History = []mainReading{{Date: r.Date.AddDate(0, -1, 0), Electricity: 1090, Hot: 105, Cold: 199}, r}
 			if test.changed {
 				r.Electricity = 1101
 				r.Hot = 111
@@ -69,6 +72,9 @@ func TestMainHTTPWorkflow(t *testing.T) {
 				ids = []string{"999000003", "999000001", "999000002"}
 			}
 			current := map[string]string{ids[0]: "1100.000", ids[1]: "110.000", ids[2]: "200.000"}
+			if test.blankCurrent {
+				current[ids[0]] = ""
+			}
 			if test.fraction {
 				current[ids[0]] = "1100.125"
 			}
@@ -187,6 +193,16 @@ func TestMainHTTPWorkflow(t *testing.T) {
 			}
 			if test.changed && !test.dry && (readsAfterPost < 2 || !strings.Contains(out.String(), "submitted and verified")) {
 				t.Errorf("missing independent read-back verification: %s", &out)
+			}
+			wantUsage := "Portal electricity saved usage: 100.000 kWh (1000.000 -> 1100.000)"
+			if test.changed && !test.dry {
+				wantUsage = "Portal electricity saved usage: 101.000 kWh (1000.000 -> 1101.000)"
+			}
+			if test.blankCurrent {
+				wantUsage = "Portal electricity saved usage: unavailable (no saved reading)"
+			}
+			if !strings.Contains(out.String(), wantUsage) || !strings.Contains(out.String(), "YAML history: Usage since previous reading") {
+				t.Errorf("site usage and YAML history were not reported separately: %s", &out)
 			}
 		})
 	}

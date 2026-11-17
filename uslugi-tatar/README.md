@@ -148,7 +148,14 @@ Readings must be nonnegative whole YAML integers. Cumulative readings cannot
 decrease against either local history or live portal values. Gas values must
 fit six digits; main meter capacities are obtained from the portal.
 
-Both commands report consumption since the preceding recorded reading. Missing
+Both commands report saved consumption using the portal's readings and baseline.
+For gas, saved usage is last transmitted minus accounted, while the site's
+confirmation delta is proposed minus last transmitted; these can differ.
+For main meters, saved usage is current minus previous; missing current readings
+are reported as unavailable. After submission, saved usage comes from the verified
+read-back. Proposed usage and local `YAML history` are labelled separately.
+
+YAML history reports consumption since the preceding recorded reading. Missing
 months produce a reminder and the consumption across the entire recorded gap,
 including its date range and duration. Input files are never modified.
 

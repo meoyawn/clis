@@ -79,6 +79,9 @@ drinking in litres. Legacy DD-MM-YYYY dates are also accepted.
 The gas readings and uslugi configuration are ignored.
 Make the file private with chmod 600. It is never modified by this CLI.
 Without --dry-run, all four readings are submitted and verified by reading back.
+BRIS reported usage comes from the site's history table (matched by meter,
+tariff, reading and date). Missing or ambiguous history is reported as unavailable.
+The proposed delta uses the latest BRIS reading; YAML history is labelled separately.
 `)
 	}
 	if err := flags.Parse(args); err != nil {

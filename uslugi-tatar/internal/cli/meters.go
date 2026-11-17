@@ -141,7 +141,7 @@ func printGasHistory(out io.Writer, r gasReading) {
 	previous := r.History[len(r.History)-2]
 	firstOfMonth := time.Date(r.Date.Year(), r.Date.Month(), 1, 0, 0, 0, 0, r.Date.Location())
 	for month := time.Date(previous.Date.Year(), previous.Date.Month(), 1, 0, 0, 0, 0, r.Date.Location()).AddDate(0, 1, 0); month.Before(firstOfMonth); month = month.AddDate(0, 1, 0) {
-		fmt.Fprintf(out, "Reminder: you forgot to send readings for %s (no entry in meters.yaml).\n", month.Format("2006-01"))
+		fmt.Fprintf(out, "YAML history: Reminder: you forgot to send readings for %s (no entry in meters.yaml).\n", month.Format("2006-01"))
 	}
-	fmt.Fprintf(out, "Usage since previous reading (%s -> %s; %d days): %d m³\n", previous.Date.Format(time.DateOnly), r.Date.Format(time.DateOnly), int(r.Date.Sub(previous.Date).Hours()/24), r.Value-previous.Value)
+	fmt.Fprintf(out, "YAML history: Usage since previous reading (%s -> %s; %d days): %d m³\n", previous.Date.Format(time.DateOnly), r.Date.Format(time.DateOnly), int(r.Date.Sub(previous.Date).Hours()/24), r.Value-previous.Value)
 }

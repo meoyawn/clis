@@ -34,7 +34,7 @@ func TestSubmissionHTTPContract(t *testing.T) {
 	}
 	now := time.Date(2030, 10, 19, 21, 0, 0, 0, zone)
 	metersPath := filepath.Join(t.TempDir(), "meters.yaml")
-	if err := os.WriteFile(metersPath, []byte(testBrisConfig+"2030-10-19:\n  day: 2060\n  night: 320\n  water: 102\n  drinking: 405\n"), 0o600); err != nil {
+	if err := os.WriteFile(metersPath, []byte(testBrisConfig+"2030-08-25:\n  day: 2000\n  night: 300\n  water: 100\n  drinking: 400\n2030-10-19:\n  day: 2060\n  night: 320\n  water: 102\n  drinking: 405\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	input, err := loadInput(metersPath, now)
@@ -47,11 +47,14 @@ func TestSubmissionHTTPContract(t *testing.T) {
 		wrongMeter, lowerReading, oldDate           bool
 		wrongAccount, missingAccount, missingMeter  bool
 		networkFailure, reject                      bool
+		alreadySaved, missingUsage                  bool
 		wantPosts, wantLogins                       int
 		wantError                                   string
 	}{
 		{name: "submit and read back", wantPosts: 1, wantLogins: 1},
 		{name: "dry run never posts readings", dryRun: true, wantLogins: 1},
+		{name: "saved site usage survives an unchanged dry run", alreadySaved: true, dryRun: true, wantLogins: 1},
+		{name: "missing site usage never falls back to YAML", missingUsage: true, dryRun: true, wantLogins: 1},
 		{name: "expired POST refreshes login and IDs", expireOnce: true, wantPosts: 2, wantLogins: 2},
 		{name: "repeated expiry stops", expireAlways: true, wantPosts: 2, wantLogins: 2, wantError: "session expired twice"},
 		{name: "success banner without persistence", dropWrite: true, wantPosts: 1, wantLogins: 1, wantError: "read-back verification failed"},
@@ -67,6 +70,9 @@ func TestSubmissionHTTPContract(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			logins, posts, readsAfterWrite := 0, 0, 0
 			stored := map[string]string{}
+			if test.alreadySaved {
+				stored = map[string]string{"0": "102", "1": "2060", "2": "320", "3": "405"}
+			}
 			var session string
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -140,6 +146,9 @@ func TestSubmissionHTTPContract(t *testing.T) {
 					return
 				}
 				body := string(fixture)
+				if test.missingUsage {
+					body = strings.Replace(body, `<td data-title="Расход">7</td>`, "", 1)
+				}
 				if logins > 1 {
 					body = strings.ReplaceAll(body, `value="100001"`, `value="101001"`)
 				}
@@ -196,6 +205,15 @@ func TestSubmissionHTTPContract(t *testing.T) {
 			}
 			if test.dryRun && !strings.Contains(output.String(), "Dry run: no meter readings submitted") {
 				t.Errorf("missing dry-run result: %s", &output)
+			}
+			if test.wantError == "" {
+				want := "BRIS reported usage: water 7 m³"
+				if test.missingUsage {
+					want = "BRIS reported usage: water unavailable"
+				}
+				if !strings.Contains(output.String(), want) || !strings.Contains(output.String(), "BRIS reported usage: day 111,5 kWh") || !strings.Contains(output.String(), "BRIS reported usage: night 22 kWh") || !strings.Contains(output.String(), "YAML history: Usage since previous reading") {
+					t.Errorf("site consumption and YAML history were not reported separately: %s", &output)
+				}
 			}
 		})
 	}

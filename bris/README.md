@@ -23,9 +23,12 @@ redirects a submission to login, the CLI logs in again, refreshes the form and
 retries once. An uncertain network failure is never automatically replayed.
 
 `--dry-run` logs in and displays the live previous values, proposed values and
-usage, without posting the meter form. It also prints historical consumption
-from the YAML, so submitting the same readings again does not erase the usage
-report. Last month's recorded usage includes its actual interval dates. A
+proposed deltas, without posting the meter form. `BRIS reported usage` reads the
+site's history table, matching the meter, tariff, reading and date; it preserves
+the site's reported consumption even when the proposed delta is zero. Missing
+or ambiguous history is reported as unavailable. After submission this report
+comes from the verified saved page. Historical consumption from the YAML is
+labelled `YAML history` separately. Last month's recorded usage includes its actual interval dates. A
 missing previous month produces a reminder that you forgot to send readings;
 the change across the entire recorded gap is shown with both dates and days.
 A normal run submits all four values,

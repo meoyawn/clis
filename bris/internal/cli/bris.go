@@ -49,6 +49,7 @@ type counterPage struct {
 
 type plannedReading struct {
 	Label   string
+	Unit    string
 	Value   int64
 	Counter counter
 }
@@ -258,14 +259,14 @@ func parseCounters(p page, zone *time.Location, accountNumber string) (counterPa
 
 func planReadings(p counterPage, r reading, meters meterNumbers) ([]plannedReading, url.Values, error) {
 	targets := []struct {
-		label, number string
-		zone          int
-		value         int64
+		label, number, unit string
+		zone                int
+		value               int64
 	}{
-		{"water", meters.Water, 1, r.Water},
-		{"day", meters.Day, 2, r.Day},
-		{"night", meters.Night, 3, r.Night},
-		{"drinking", meters.Drinking, 1, r.Drinking},
+		{"water", meters.Water, "m³", 1, r.Water},
+		{"day", meters.Day, "kWh", 2, r.Day},
+		{"night", meters.Night, "kWh", 3, r.Night},
+		{"drinking", meters.Drinking, "L", 1, r.Drinking},
 	}
 	fields := url.Values{}
 	for name, values := range p.Shared {
@@ -295,7 +296,7 @@ func planReadings(p counterPage, r reading, meters meterNumbers) ([]plannedReadi
 			}
 		}
 		fields.Set(counter.Name, strconv.FormatInt(target.value, 10))
-		plan = append(plan, plannedReading{target.label, target.value, counter})
+		plan = append(plan, plannedReading{Label: target.label, Unit: target.unit, Value: target.value, Counter: counter})
 	}
 	return plan, fields, nil
 }
@@ -318,10 +319,11 @@ func (c *brisClient) submit(ctx context.Context, reading reading, now time.Time,
 		}
 		if attempt == 0 {
 			for _, item := range plan {
-				fmt.Fprintf(out, "%s: %d -> %d (usage %d)\n", item.Label, item.Counter.Previous, item.Value, item.Value-item.Counter.Previous)
+				fmt.Fprintf(out, "BRIS proposed delta: %s %d %s (%d dated %s -> %d)\n", item.Label, item.Value-item.Counter.Previous, item.Unit, item.Counter.Previous, item.Counter.Date.Format(time.DateOnly), item.Value)
 			}
 		}
 		if dryRun {
+			printReportedUsage(out, p, plan)
 			fmt.Fprintln(out, "Dry run: no meter readings submitted. Gas is handled separately on Госуслуги РТ.")
 			return nil
 		}
@@ -364,6 +366,7 @@ func (c *brisClient) submit(ctx context.Context, reading reading, now time.Time,
 				return fmt.Errorf("read-back verification failed for %s: BRIS shows %d dated %s, expected %d in %s", item.Label, item.Counter.Previous, item.Counter.Date.Format(time.DateOnly), item.Value, now.Format("2006-01"))
 			}
 		}
+		printReportedUsage(out, saved, checked)
 		fmt.Fprintln(out, "BRIS accepted and verified all 4 readings. Gas was not submitted.")
 		return nil
 	}

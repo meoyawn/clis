@@ -256,9 +256,11 @@ func (c *portalClient) gas(ctx context.Context, r gasReading, dryRun bool, out i
 	if r.Value < gas.previous || r.Value < gas.current {
 		return fmt.Errorf("gas reading %d is below portal accounted/transmitted values %d/%d", r.Value, gas.previous, gas.current)
 	}
-	fmt.Fprintf(out, "Gas account %s; meter %s; reading date %s\nAccounted %d -> %d m³ (usage %d m³); latest transmitted %d\n", r.Routing.Account, r.Routing.Meter, r.Date.Format(timeDateOnly), gas.previous, r.Value, r.Value-gas.previous, gas.current)
+	fmt.Fprintf(out, "Gas account %s; meter %s; reading date %s\nPortal gas proposed usage: %d m³ (accounted %d -> proposed %d); latest transmitted %d\n", r.Routing.Account, r.Routing.Meter, r.Date.Format(timeDateOnly), r.Value-gas.previous, gas.previous, r.Value, gas.current)
+	fmt.Fprintf(out, "Portal gas confirmation delta: %d m³ (%d -> %d)\n", r.Value-gas.current, gas.current, r.Value)
 	printGasHistory(out, r)
 	if dryRun {
+		printGasSiteUsage(out, gas)
 		fmt.Fprintln(out, "Dry run: no gas readings submitted.")
 		return nil
 	}
@@ -290,8 +292,13 @@ func (c *portalClient) gas(ctx context.Context, r gasReading, dryRun bool, out i
 	if verified.current != r.Value {
 		return fmt.Errorf("gas read-back mismatch: portal transmitted %d, expected %d", verified.current, r.Value)
 	}
+	printGasSiteUsage(out, verified)
 	fmt.Fprintf(out, "Gas accepted and verified: account %s, meter %s, value %d m³.\n", r.Routing.Account, r.Routing.Meter, r.Value)
 	return nil
+}
+
+func printGasSiteUsage(out io.Writer, gas gasForm) {
+	fmt.Fprintf(out, "Portal gas saved usage: %d m³ (accounted %d -> transmitted %d)\n", gas.current-gas.previous, gas.previous, gas.current)
 }
 
 const timeDateOnly = "2006-01-02"

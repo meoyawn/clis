@@ -27,12 +27,16 @@ func TestGasHTTPWorkflow(t *testing.T) {
 	for _, test := range []struct {
 		name                                                                           string
 		alternate, dry, wrongAccount, wrongMeter, decrease, dropWrite, reject, network bool
+		transmitted, alreadySaved                                                      bool
 		wantPosts                                                                      int
 		wantError                                                                      string
+		wantDelta                                                                      string
 	}{
 		{name: "primary account", wantPosts: 1},
 		{name: "alternate account overrides default account", alternate: true, wantPosts: 1},
 		{name: "dry run", dry: true},
+		{name: "site confirmation uses latest transmitted reading", transmitted: true, wantPosts: 1, wantDelta: "Portal gas confirmation delta: 13 m³ (110 -> 123)"},
+		{name: "saved site usage remains visible on dry run", alreadySaved: true, dry: true, wantDelta: "Portal gas saved usage: 23 m³ (accounted 100 -> transmitted 123)"},
 		{name: "wrong account", wrongAccount: true, wantError: "different gas account"},
 		{name: "wrong meter", wrongMeter: true, wantError: "differs from configured"},
 		{name: "lower than transmitted", decrease: true, wantError: "below portal"},
@@ -53,6 +57,13 @@ func TestGasHTTPWorkflow(t *testing.T) {
 			if test.decrease {
 				current = r.Value + 1
 			}
+			if test.transmitted {
+				current = 110
+			}
+			if test.alreadySaved {
+				current = r.Value
+			}
+			r.History = []gasReading{{Date: r.Date.AddDate(0, -1, 0), Value: 90}, r}
 			posts, selections, readsAfterPost := 0, 0, 0
 			handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -149,6 +160,12 @@ func TestGasHTTPWorkflow(t *testing.T) {
 			}
 			if test.wantError == "" && !test.dry && (readsAfterPost == 0 || !strings.Contains(output.String(), "Gas accepted and verified")) {
 				t.Fatalf("missing persisted read-back: %s", &output)
+			}
+			if test.wantError == "" && (!strings.Contains(output.String(), "Portal gas saved usage:") || !strings.Contains(output.String(), "Portal gas confirmation delta:") || !strings.Contains(output.String(), "YAML history: Usage since previous reading")) {
+				t.Errorf("missing portal usage or separately labelled YAML history: %s", &output)
+			}
+			if test.wantDelta != "" && !strings.Contains(output.String(), test.wantDelta) {
+				t.Errorf("missing site delta %q: %s", test.wantDelta, &output)
 			}
 		})
 	}
