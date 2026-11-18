@@ -378,12 +378,18 @@ changed contracts; perform account actions and verification through the CLI.
 
 `go run . experience link <profile> --position-id ID --url URL` previews
 replacing all media on one owned experience entry with a single native link
-card. `--apply` performs the explicitly requested replacement and checks that
-the saved entry contains exactly one direct external link. It preserves the
+card. Use `--append` to keep the current cards and `--title` for a readable
+caption. `--apply` checks the new link and all retained cards, including links
+under “Show all media.” It preserves the
 description, skills, dates and profile intro, keeps notifications off, saves
 a private backup and never retries an uncertain save. `--save-response NEW_FILE`
 captures the native URL preview privately. A failed URL preview stops before
 any profile write; HTTP and HTTPS previews may differ in LinkedIn's cache.
+
+Use `profile education-cards --help` to edit an education entry’s named links
+and description. Use `profile project-update --help` to update a project's
+description and optionally attach a link. Both read the owner's exact entry
+and verify the saved links on the profile.
 
 ## Private analytics
 

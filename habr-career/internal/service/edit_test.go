@@ -18,7 +18,7 @@ import (
 )
 
 func TestExperienceDescriptionNativeFormPreservationAndReadback(t *testing.T) {
-	for _, scenario := range []string{"preview", "apply", "wrong-owner", "unknown-field", "wrong-form", "missing-date-state", "missing-skills-state", "metadata-drift", "other-job-drift", "missing-print", "rate-limit"} {
+	for _, scenario := range []string{"preview", "apply", "unclassified-job", "fill-classification", "unknown-classification", "wrong-owner", "unknown-field", "wrong-form", "missing-date-state", "missing-skills-state", "metadata-drift", "other-job-drift", "missing-print", "rate-limit"} {
 		t.Run(scenario, func(t *testing.T) {
 			const alias = "synthetic-user"
 			const newDescription = "<p>Built end-to-end tests.</p><p>Implemented system-wide observability.</p>\n"
@@ -29,6 +29,19 @@ func TestExperienceDescriptionNativeFormPreservationAndReadback(t *testing.T) {
 				"experience[experience_skills_ids][]": {"", "101", "537"},
 				"experience[start_date(1i)]":          {"2020"}, "experience[start_date(2i)]": {"10"}, "experience[start_date(3i)]": {"1"},
 				"experience[end_date(1i)]": {""}, "experience[end_date(2i)]": {""}, "experience[end_date(3i)]": {"1"},
+			}
+			if scenario == "unclassified-job" {
+				originalMetadata["experience[specialization_id]"] = []string{""}
+			}
+			var classification service.ExperienceClassification
+			classifying := scenario == "fill-classification" || scenario == "unknown-classification"
+			if classifying {
+				originalMetadata["experience[specialization_id]"] = []string{""}
+				originalMetadata.Set("experience[qualification_id]", "")
+				classification = service.ExperienceClassification{SpecializationID: 5, QualificationID: 4}
+				if scenario == "unknown-classification" {
+					classification.QualificationID = 77
+				}
 			}
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
@@ -47,6 +60,12 @@ func TestExperienceDescriptionNativeFormPreservationAndReadback(t *testing.T) {
 					if scenario == "missing-date-state" {
 						delete(state, "startDate")
 					}
+					if originalMetadata.Get("experience[specialization_id]") == "" {
+						state["selectedCategories"] = []any{nil}
+					} else if classifying {
+						state["selectedCategories"] = []any{5}
+					}
+					state["groups"] = []any{service.Object{"children": []any{service.Object{"id": 5, "hidden": false}}}}
 					if scenario == "missing-skills-state" {
 						delete(state, "selectedSkills")
 					}
@@ -67,11 +86,11 @@ func TestExperienceDescriptionNativeFormPreservationAndReadback(t *testing.T) {
 							fmt.Fprintf(w, `<input type="hidden" name="%s" value="%s">`, html.EscapeString(key), html.EscapeString(value))
 						}
 					}
-					qualification := "5"
+					qualification := originalMetadata.Get("experience[qualification_id]")
 					if posts > 0 && scenario == "metadata-drift" {
 						qualification = "6"
 					}
-					fmt.Fprintf(w, `<select name="experience[qualification_id]"><option value="1">Junior</option><option value="%s" selected>Senior</option></select><input type="radio" name="experience[specialization_id]" value="UNSELECTED"><input name="unrelated" disabled><textarea name="experience[description]">%s</textarea>`, qualification, html.EscapeString(description))
+					fmt.Fprintf(w, `<select name="experience[qualification_id]"><option value="4">Middle</option><option value="%s" selected>Current selection</option></select><input type="radio" name="experience[specialization_id]" value="UNSELECTED"><input name="unrelated" disabled><textarea name="experience[description]">%s</textarea>`, qualification, html.EscapeString(description))
 					if scenario == "unknown-field" {
 						fmt.Fprint(w, `<input name="experience[visibility]" value="public">`)
 					}
@@ -88,6 +107,14 @@ func TestExperienceDescriptionNativeFormPreservationAndReadback(t *testing.T) {
 						t.Error("description bytes changed in transport")
 					}
 					delete(r.PostForm, "experience[description]")
+					if classifying {
+						if !reflect.DeepEqual(r.PostForm["experience[specialization_id]"], []string{"", "5"}) || r.PostForm.Get("experience[qualification_id]") != "4" {
+							t.Fatal("imported role did not post the selected native radio and grade")
+						}
+						originalMetadata["experience[specialization_id]"] = []string{"5", "5"}
+						originalMetadata.Set("experience[qualification_id]", "4")
+						r.PostForm["experience[specialization_id]"] = []string{"5", "5"}
+					}
 					if !reflect.DeepEqual(r.PostForm, originalMetadata) {
 						t.Errorf("native repeated fields or unrelated values changed: %v", r.PostForm)
 					}
@@ -126,14 +153,14 @@ func TestExperienceDescriptionNativeFormPreservationAndReadback(t *testing.T) {
 			resume, _ := domain.NewResumeIDFromValue(alias)
 			experience, _ := domain.NewExperienceIDFromValue("123")
 			dir := t.TempDir()
-			result, err := client.UpdateExperience(t.Context(), resume, experience, newDescription, scenario != "preview", dir)
+			result, err := client.UpdateExperience(t.Context(), resume, experience, newDescription, classification, scenario != "preview", dir)
 			if scenario == "preview" {
 				if err != nil || posts != 0 || result["after"] != newDescription || result["applied"] != false {
 					t.Fatalf("preview wrote or changed the package: %v %v", result, err)
 				}
 				return
 			}
-			if scenario == "apply" {
+			if scenario == "apply" || scenario == "unclassified-job" || scenario == "fill-classification" {
 				if err != nil || posts != 1 || result["verified"] != true || result["applied"] != true {
 					t.Fatalf("profile update not verified: %v %v posts=%d", result, err, posts)
 				}
@@ -151,7 +178,7 @@ func TestExperienceDescriptionNativeFormPreservationAndReadback(t *testing.T) {
 				t.Fatalf("unsafe or unverified profile update reported success: %v %v", result, err)
 			}
 			wantPosts := 1
-			if scenario == "wrong-owner" || scenario == "unknown-field" || scenario == "wrong-form" || scenario == "missing-date-state" || scenario == "missing-skills-state" {
+			if scenario == "wrong-owner" || scenario == "unknown-field" || scenario == "wrong-form" || scenario == "missing-date-state" || scenario == "missing-skills-state" || scenario == "unknown-classification" {
 				wantPosts = 0
 			}
 			if posts != wantPosts {

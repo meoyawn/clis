@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -167,6 +169,50 @@ type Experience struct {
 	Metadata        url.Values `json:"metadata"`
 	csrf            string
 	fields          url.Values
+	form            *html.Node
+	categoryGroups  []any
+}
+
+type ExperienceClassification struct {
+	SpecializationID int
+	QualificationID  int
+}
+
+const specializationField = "experience[specialization_id]"
+const qualificationField = "experience[qualification_id]"
+
+func (e *Experience) fillClassification(selection ExperienceClassification) (url.Values, error) {
+	expected := maps.Clone(e.Metadata)
+	if selection == (ExperienceClassification{}) {
+		return expected, nil
+	}
+	category := strconv.Itoa(selection.SpecializationID)
+	grade := strconv.Itoa(selection.QualificationID)
+	if e.Metadata.Get(specializationField) != "" || e.Metadata.Get(qualificationField) != "" {
+		return nil, fmt.Errorf("experience %s already has a specialization or qualification; use the saved classification", e.ID)
+	}
+	categoryFound := false
+	for _, group := range e.categoryGroups {
+		children, _ := object(group)["children"].([]any)
+		for _, child := range children {
+			option := object(child)
+			if number(option["id"]) == category && option["hidden"] != true {
+				categoryFound = true
+			}
+		}
+	}
+	gradeSelect := find(e.form, func(n *html.Node) bool { return n.Data == "select" && attr(n, "name") == qualificationField })
+	if !categoryFound || gradeSelect == nil || find(gradeSelect, func(n *html.Node) bool {
+		return n.Data == "option" && attr(n, "value") == grade && !hasAttr(n, "disabled")
+	}) == nil {
+		return nil, fmt.Errorf("experience %s has no selectable specialization %d or qualification %d", e.ID, selection.SpecializationID, selection.QualificationID)
+	}
+	// The edit form posts its original hidden category followed by the checked radio.
+	e.fields[specializationField] = []string{"", category}
+	e.fields.Set(qualificationField, grade)
+	expected[specializationField] = []string{category, category}
+	expected.Set(qualificationField, grade)
+	return expected, nil
 }
 
 var experienceFields = map[string]bool{
@@ -252,7 +298,7 @@ func hydrateExperienceFields(fields url.Values, state Object) error {
 	}
 	category := number(categories[0])
 	current := fields["experience[specialization_id]"]
-	if category == "" || len(current) < 1 || len(current) > 2 {
+	if len(current) < 1 || len(current) > 2 || category == "" && (categories[0] != nil || len(current) != 1) {
 		return fmt.Errorf("native experience specialization controls are incomplete; no write attempted")
 	}
 	for _, value := range current {
@@ -260,8 +306,10 @@ func hydrateExperienceFields(fields url.Values, state Object) error {
 			return fmt.Errorf("native experience specialization control and widget state disagree; no write attempted")
 		}
 	}
-	// The native widget adds its selected category beside the Rails hidden field.
-	fields["experience[specialization_id]"] = []string{category, category}
+	// With no selection the widget leaves only the empty Rails hidden field.
+	if category != "" {
+		fields["experience[specialization_id]"] = []string{category, category}
+	}
 	for key, value := range map[string]any{"start_date": state["startDate"], "end_date": end} {
 		year, month := "", ""
 		if key != "end_date" || !present {
@@ -319,7 +367,8 @@ func (c *Client) Experience(ctx context.Context, resumeID domain.ResumeID, id do
 			metadata[key] = append([]string(nil), values...)
 		}
 	}
-	return &Experience{ID: id.String(), ResumeID: resumeID.String(), Company: fields.Get("experience[company_name]"), Position: fields.Get("experience[position]"), DescriptionHTML: fields.Get("experience[description]"), Metadata: metadata, csrf: p.csrf, fields: fields}, nil
+	groups, _ := p.state["groups"].([]any)
+	return &Experience{ID: id.String(), ResumeID: resumeID.String(), Company: fields.Get("experience[company_name]"), Position: fields.Get("experience[position]"), DescriptionHTML: fields.Get("experience[description]"), Metadata: metadata, csrf: p.csrf, fields: fields, form: form, categoryGroups: groups}, nil
 }
 
 func profileExceptExperience(r *Resume, company, position string) (Object, error) {
@@ -374,7 +423,7 @@ func (c *Client) VerifyExperience(ctx context.Context, resumeID domain.ResumeID,
 	return Object{"resume_id": resumeID.String(), "experience_id": id.String(), "company": current.Company, "position": current.Position, "description_html": current.DescriptionHTML, "view_url": view.ViewURL, "verified": true}, nil
 }
 
-func (c *Client) UpdateExperience(ctx context.Context, resumeID domain.ResumeID, id domain.ExperienceID, description string, apply bool, backupDir string) (Object, error) {
+func (c *Client) UpdateExperience(ctx context.Context, resumeID domain.ResumeID, id domain.ExperienceID, description string, classification ExperienceClassification, apply bool, backupDir string) (Object, error) {
 	if err := validDescription(description); err != nil {
 		return nil, err
 	}
@@ -383,6 +432,13 @@ func (c *Client) UpdateExperience(ctx context.Context, resumeID domain.ResumeID,
 		return nil, err
 	}
 	result := Object{"resume_id": resumeID.String(), "experience_id": id.String(), "company": before.Company, "position": before.Position, "before": before.DescriptionHTML, "after": description, "applied": false}
+	expected, err := before.fillClassification(classification)
+	if err != nil {
+		return nil, err
+	}
+	if classification != (ExperienceClassification{}) {
+		result["specialization_id"], result["qualification_id"] = classification.SpecializationID, classification.QualificationID
+	}
 	if !apply {
 		return result, nil
 	}
@@ -406,8 +462,8 @@ func (c *Client) UpdateExperience(ctx context.Context, resumeID domain.ResumeID,
 	if err != nil {
 		return nil, fmt.Errorf("experience %s update sent but form readback failed: %w; backup %q; do not repeat", id.String(), err, backup)
 	}
-	if !reflect.DeepEqual(before.Metadata, after.Metadata) {
-		return nil, fmt.Errorf("experience %s non-description metadata changed; backup %q; inspect before retrying", id.String(), backup)
+	if !reflect.DeepEqual(expected, after.Metadata) {
+		return nil, fmt.Errorf("experience %s saved metadata differs from the requested fields; backup %q; inspect before retrying", id.String(), backup)
 	}
 	verified, err := c.VerifyExperience(ctx, resumeID, id, description)
 	if err != nil {

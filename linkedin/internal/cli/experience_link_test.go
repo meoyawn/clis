@@ -44,7 +44,7 @@ func TestExperienceLinkSerializesOneReplacementAndPreservesPositionFields(t *tes
 			if scenario == "inconsistent-ingestion" {
 				preview = `0:{"modelStates":[{"key":{"key":{"value":{"id":"new-card-mediaTitle"}}},"value":{"$case":"stringValue","stringValue":"Example product"}}],"actions":[{"$type":"proto.sdui.actions.core.AddToStringList","value":{"newString":"99","key":{"key":{"value":{"id":"ingested"}}}}},{"$type":"proto.sdui.actions.core.AddToStringList","value":{"newString":"88:new-card","key":{"key":{"value":{"id":"bindings"}}}}}]}`
 			}
-			title, err := prepareExperienceLink(form, action, []byte(preview))
+			title, err := prepareExperienceLink(form, action, []byte(preview), []any{}, "")
 			if scenario != "replace" {
 				if err == nil {
 					t.Fatal("unconfirmed preview was accepted for a profile write")
@@ -108,7 +108,8 @@ func TestExperienceLinkReadbackRequiresOneDirectDestinationOnTheExactPosition(t 
 			if tc.name == "https-upgrade" || tc.name == "foreign-https-upgrade" {
 				expected = "http://example.org/"
 			}
-			if err := verifyExperienceLink(profile, "42", expected); (err == nil) != tc.valid {
+			links, _ := positionMediaLinks(profile, "42")
+			if err := verifyPositionCards(links, "42", nil, expected, ""); (err == nil) != tc.valid {
 				t.Fatalf("direct link verification valid=%v, got %v", tc.valid, err)
 			}
 		})

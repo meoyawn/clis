@@ -191,7 +191,7 @@ func (c *Client) Complete(ctx context.Context, id ResumeID, metadata CloneMetada
 			visibleFields[key] = value
 		}
 	}
-	if err := verifyView(afterView, visibleFields); err != nil {
+	if err := verifyView(afterView, visibleFields, selected.Fields); err != nil {
 		return nil, err
 	}
 	plan.Verified, plan.PrintText = true, afterView.Text

@@ -161,7 +161,7 @@ func skillStateWithoutRequestedLevels(fields Object, names map[string]bool) Obje
 func sameSkillLevelState(before, after Object, names map[string]bool) bool {
 	oldState := skillStateWithoutRequestedLevels(before, names)
 	newState := skillStateWithoutRequestedLevels(after, names)
-	if !sameSkillInventory(oldState["resumeApplicantSkills"], newState["resumeApplicantSkills"], nil) {
+	if !sameSkillInventory(oldState["resumeApplicantSkills"], newState["resumeApplicantSkills"], skillInventoryChanges{}) {
 		return false
 	}
 	delete(oldState, "resumeApplicantSkills")

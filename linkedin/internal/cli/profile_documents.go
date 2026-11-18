@@ -164,6 +164,9 @@ func parseProfileDocument(doc profileDocument, name string) ([]profileSection, e
 			switch n.Data {
 			case "h1", "h2", "h3", "h4", "p", "a":
 				text = profileText(n)
+				if n.Data == "a" && text == "" {
+					text = mediaAnchorTitle(n)
+				}
 			}
 			if n.Data == "h1" && text == name {
 				return
@@ -197,7 +200,11 @@ func parseProfileDocument(doc profileDocument, name string) ([]profileSection, e
 							}
 						}
 						if err == nil && u.User == nil && (u.Scheme == "https" || u.Scheme == "http") {
-							block.Links = append(block.Links, profileLink{Text: profileText(a), URL: u.String()})
+							label := profileText(a)
+							if label == "" {
+								label = mediaAnchorTitle(a)
+							}
+							block.Links = append(block.Links, profileLink{Text: label, URL: u.String()})
 						}
 					}
 				}
@@ -226,6 +233,17 @@ func parseProfileDocument(doc profileDocument, name string) ([]profileSection, e
 		return nil, fmt.Errorf("profile document %q returned no readable primary profile content", doc.URL)
 	}
 	return nonempty, nil
+}
+
+func mediaAnchorTitle(anchor *html.Node) string {
+	for child := range anchor.Descendants() {
+		label, ok := strings.CutPrefix(attr(child, "aria-label"), "Thumbnail for ")
+		if ok {
+			title, _, _ := strings.Cut(label, " • ")
+			return strings.TrimSpace(title)
+		}
+	}
+	return ""
 }
 
 func profileNodeHidden(n *html.Node) bool {

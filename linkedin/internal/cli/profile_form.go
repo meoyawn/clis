@@ -26,7 +26,7 @@ const uploadProjectMedia = "com.linkedin.sdui.impl.profile.components.forms.uplo
 const saveProject = "com.linkedin.sdui.requests.profile.saveProfileProjectForm"
 
 type profileFormSpec struct {
-	path, screen, initialRequest, saveRequest, fieldRequest, entityID string
+	path, screen, initialRequest, saveRequest, fieldRequest, entityID, entityIDField string
 }
 
 type profileFormResult struct {
@@ -318,8 +318,12 @@ func (c *linkedinClient) saveProfileForm(ctx context.Context, form postEditPlan,
 			})
 		}
 	}
-	if spec.entityID != "" && jsonStringAt(action, "requestedArguments", "payload", "positionId") != spec.entityID {
-		return fmt.Errorf("native save does not bind position %q", spec.entityID)
+	field := spec.entityIDField
+	if field == "" {
+		field = "positionId"
+	}
+	if spec.entityID != "" && jsonStringAt(action, "requestedArguments", "payload", field) != spec.entityID {
+		return fmt.Errorf("native save does not bind %s %q", field, spec.entityID)
 	}
 	data, err := c.sendProfileAction(ctx, form, action, spec.screen)
 	if err != nil {

@@ -17,10 +17,11 @@ Usage: habr-career COMMAND [OPTIONS]
   profile specialization get
       Read the single profile's headline and language selections. GET only.
   profile specialization update --patch FILE [--apply] [--backup-dir DIR]
-      Preview or change only headline/languages, preserving all other form fields.
+      Update headline/languages or append native skills by exact catalog name.
       --apply saves a private backup, writes once, then verifies the native form,
       public profile and employer print view. Requires the user's authorization.
       Patch: {"headline":"Exact title","languages":[{"language_id":71,"grade_id":7}]}.
+      Optional add_skills: ["Docker","Kubernetes"]. Existing skills keep their order.
       Omitted keys are preserved; languages replaces the whole nonempty list.
       IDs/grades come from the existing profile; grade 7 is native, 5 C1, 6 C2.
       No unrelated specialization, salary, location, skills or contacts change.
@@ -33,13 +34,20 @@ Usage: habr-career COMMAND [OPTIONS]
       No default resume, numeric list index or title-based selection.
   resume experiences ALIAS
       List the account's native numeric experience IDs and exact edit URLs.
+  resume about ALIAS --description-file FILE [--apply] [--backup-dir DIR]
+      Preview or update the About section from native HTML. Preserve personal
+      fields and verify the edit form, public profile and employer print view.
+  resume verify-about ALIAS --description-file FILE
+      Read back an About edit without sending another update.
   resume experience ALIAS --experience ID
       Read one exact native employment form: company, position, HTML description
       and current metadata. GET only; retains repeated skill/select form fields.
   resume update ALIAS --experience ID --description-file FILE [--apply] [--backup-dir DIR]
-      Preview or replace only that existing employment description (native HTML).
+      Preview or replace that existing employment description (native HTML).
+      For an imported job with both required classifications empty, specify its
+      --specialization-id ID and --qualification-id ID from the native form.
       --apply requires the user's instruction, saves a private backup, posts the
-      fresh native form once, preserves metadata, and verifies saved fields,
+      fresh native form once, preserves other metadata, and verifies saved fields,
       employer print text and unchanged profile/other employment passages.
       Does not change contact details, salary, skills, dates, title or visibility.
   resume verify ALIAS --experience ID --description-file FILE
@@ -114,7 +122,7 @@ All account network commands take one exclusive lock; run one at a time.
 No automatic retries. Stop on redirects, login/protection/CAPTCHA/checkpoints,
 429 (honor Retry-After), restrictions or unsupported contracts. No CAPTCHA solving.
 Only application submit with both sending flags and update/delete commands with
---apply write. Profile edits support headline/languages or one employment description;
+--apply write. Profile edits support About, headline/languages or one employment description;
 no uploads, salary/contact changes, paid services or separate messages are performed.
 Backups default to $XDG_STATE_HOME/habr-career/backups or ~/.local/state/habr-career/backups.
 stdout contains successful JSON only; bounded, redacted HTTP errors go to stderr.

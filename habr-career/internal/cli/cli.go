@@ -38,7 +38,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 		optionStart = 3
 	}
 	switch command {
-	case "auth import", "auth status", "profile get", "profile specialization get", "profile specialization update", "profile specialization verify", "resume get", "resume view", "resume experiences", "resume experience", "resume update", "resume verify", "vacancy get", "vacancy response-options", "applications list", "application get", "application letter", "application prepare", "application submit", "application verify", "application update", "application delete", "har inspect":
+	case "auth import", "auth status", "profile get", "profile specialization get", "profile specialization update", "profile specialization verify", "resume get", "resume view", "resume experiences", "resume experience", "resume update", "resume verify", "resume about", "resume verify-about", "vacancy get", "vacancy response-options", "applications list", "application get", "application letter", "application prepare", "application submit", "application verify", "application update", "application delete", "har inspect":
 	default:
 		return fmt.Errorf("unknown command %q; run --help", command)
 	}
@@ -49,6 +49,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	timeout := fs.Duration("timeout", 90*time.Second, "whole-command deadline")
 	var profile, cookies, resume, textFile, draftFile, approved, experience, descriptionFile, backupDir, patchFile string
 	var send, apply bool
+	var classification service.ExperienceClassification
 	if command == "auth import" {
 		fs.StringVar(&profile, "browser-profile", "Default", "Chrome profile")
 		fs.StringVar(&cookies, "cookies-file", "", "SweetCookie inline cookie file")
@@ -62,10 +63,15 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	if command == "resume experience" || command == "resume update" || command == "resume verify" {
 		fs.StringVar(&experience, "experience", "", "explicit native numeric experience ID")
 	}
-	if command == "resume update" || command == "resume verify" {
-		fs.StringVar(&descriptionFile, "description-file", "", "exact native HTML experience description")
+	if command == "resume update" {
+		fs.IntVar(&classification.SpecializationID, "specialization-id", 0, "native specialization for an unclassified job")
+		fs.IntVar(&classification.QualificationID, "qualification-id", 0, "native qualification for an unclassified job")
 	}
-	if command == "resume update" || command == "application update" || command == "application delete" || command == "profile specialization update" {
+	needsDescription := command == "resume update" || command == "resume verify" || command == "resume about" || command == "resume verify-about"
+	if needsDescription {
+		fs.StringVar(&descriptionFile, "description-file", "", "exact native HTML description")
+	}
+	if command == "resume update" || command == "resume about" || command == "application update" || command == "application delete" || command == "profile specialization update" {
 		fs.BoolVar(&apply, "apply", false, "apply an authorized update to an existing record")
 		fs.StringVar(&backupDir, "backup-dir", "", "private before-state backup directory")
 	}
@@ -144,7 +150,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 			return err
 		}
 	}
-	if command == "resume update" || command == "resume verify" {
+	if needsDescription {
 		if descriptionFile == "" {
 			return fmt.Errorf("%s requires --description-file FILE", command)
 		}
@@ -242,9 +248,13 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	case "resume experience":
 		result, err = client.Experience(ctx, resumeID, experienceID)
 	case "resume update":
-		result, err = client.UpdateExperience(ctx, resumeID, experienceID, description, apply, backupDir)
+		result, err = client.UpdateExperience(ctx, resumeID, experienceID, description, classification, apply, backupDir)
 	case "resume verify":
 		result, err = client.VerifyExperience(ctx, resumeID, experienceID, description)
+	case "resume about":
+		result, err = client.UpdateAbout(ctx, resumeID, description, apply, backupDir)
+	case "resume verify-about":
+		result, err = client.VerifyAbout(ctx, resumeID, description)
 	case "vacancy get", "vacancy response-options":
 		result, err = client.Vacancy(ctx, vacancyID)
 	case "application get", "application letter":

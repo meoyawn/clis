@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -14,6 +16,8 @@ import (
 	"github.com/meoyawn/clis/habr-career/internal/domain"
 	"golang.org/x/net/html"
 )
+
+const profileSkillsField = "user[user_skills_ids][]"
 
 const languageIDField = "user[foreign_languages][][language_id]"
 const languageGradeField = "user[foreign_languages][][grade_id]"
@@ -28,15 +32,29 @@ type specialization struct {
 	csrf      string
 }
 
-// NormalizeSpecializationPatch limits this shared form to the two supported
+// NormalizeSpecializationPatch limits this shared form to explicitly supported
 // edits. All other successful controls are reconstructed from fresh form/SSR data.
 func NormalizeSpecializationPatch(patch Object) (Object, error) {
 	if len(patch) == 0 {
-		return nil, fmt.Errorf("specialization patch must contain headline or languages")
+		return nil, fmt.Errorf("specialization patch must contain headline, languages or add_skills")
 	}
 	out := Object{}
 	for key, value := range patch {
 		switch key {
+		case "add_skills":
+			names, ok := value.([]any)
+			if !ok || len(names) == 0 || len(names) > 30 {
+				return nil, fmt.Errorf("add_skills requires 1–30 skill names")
+			}
+			seen := map[string]bool{}
+			for _, item := range names {
+				name, ok := item.(string)
+				if !ok || name == "" || name != strings.TrimSpace(name) || seen[name] {
+					return nil, fmt.Errorf("add_skills requires unique, nonempty skill names")
+				}
+				seen[name] = true
+			}
+			out[key] = names
 		case "headline":
 			text, ok := value.(string)
 			if !ok || !utf8.ValidString(text) || strings.TrimSpace(text) == "" || utf8.RuneCountInString(text) > 255 {
@@ -61,7 +79,7 @@ func NormalizeSpecializationPatch(patch Object) (Object, error) {
 			}
 			out[key] = clean
 		default:
-			return nil, fmt.Errorf("unsupported specialization patch field %q; only headline and languages may change", key)
+			return nil, fmt.Errorf("unsupported specialization patch field %q; expected headline, languages or add_skills", key)
 		}
 	}
 	return out, nil
@@ -187,6 +205,71 @@ func sameSpecializationLanguages(a, b []any) bool {
 	return true
 }
 
+func (c *Client) appendProfileSkills(ctx context.Context, fields url.Values, names []any) error {
+	for _, requested := range names {
+		name := requested.(string)
+		body, err := c.request(ctx, http.MethodGet, "/api/frontend/suggestions/skills?term="+url.QueryEscape(name), "", nil)
+		if err != nil {
+			return err
+		}
+		var results struct {
+			List []struct {
+				Title string
+				Value int
+			}
+		}
+		if err := json.Unmarshal(body, &results); err != nil {
+			return fmt.Errorf("skill suggestions: %w", err)
+		}
+		id := ""
+		for _, skill := range results.List {
+			if strings.EqualFold(skill.Title, name) && skill.Value > 0 {
+				if id != "" {
+					return fmt.Errorf("ambiguous native skill %q", name)
+				}
+				id = fmt.Sprint(skill.Value)
+			}
+		}
+		if id == "" {
+			return fmt.Errorf("no exact native skill %q", name)
+		}
+		if !slices.Contains(fields[profileSkillsField], id) {
+			fields.Add(profileSkillsField, id)
+		}
+	}
+	if len(fields[profileSkillsField]) > 31 {
+		return fmt.Errorf("profile can select at most 30 skills")
+	}
+	return nil
+}
+
+func verifyProfileSkillNames(r *Resume, ids []string, requested []any) error {
+	rows, _ := r.User["skills"].([]any)
+	if len(ids) != len(rows)+1 {
+		return fmt.Errorf("public skills differ from specialization form")
+	}
+	_, section, ok := strings.Cut(r.Text, "Профессиональные навыки\n")
+	line, _, _ := strings.Cut(section, "\n")
+	titles := make([]string, 0, len(rows))
+	for i, row := range rows {
+		skill := object(row)
+		title, _ := skill["title"].(string)
+		if number(skill["id"]) != ids[i+1] || title == "" {
+			return fmt.Errorf("public skill %d differs from specialization form", i)
+		}
+		titles = append(titles, title)
+	}
+	if !ok || !slices.Equal(titles, strings.Split(line, " • ")) {
+		return fmt.Errorf("printed skills differ from public skills")
+	}
+	for _, item := range requested {
+		if !slices.ContainsFunc(titles, func(title string) bool { return strings.EqualFold(title, item.(string)) }) {
+			return fmt.Errorf("public skill %q missing", item)
+		}
+	}
+	return nil
+}
+
 func (c *Client) VerifySpecialization(ctx context.Context, patch Object) (Object, error) {
 	patch, err := NormalizeSpecializationPatch(patch)
 	if err != nil {
@@ -205,6 +288,11 @@ func (c *Client) VerifySpecialization(ctx context.Context, patch Object) (Object
 	r, err := c.Resume(ctx, s.id)
 	if err != nil {
 		return nil, err
+	}
+	if names, ok := patch["add_skills"].([]any); ok {
+		if err := verifyProfileSkillNames(r, s.fields[profileSkillsField], names); err != nil {
+			return nil, err
+		}
 	}
 	if object(r.User["specialization"])["title"] != s.headline || !strings.Contains(r.Text, s.headline) {
 		return nil, fmt.Errorf("headline missing from public profile or employer print view")
@@ -249,6 +337,17 @@ func (c *Client) UpdateSpecialization(ctx context.Context, patch Object, apply b
 		want[key] = value
 	}
 	result := Object{"alias": before.id.String(), "before": Object{"headline": before.headline, "languages": before.languages}, "after": want, "applied": false}
+	fields := before.metadata()
+	names, skillsRequested := patch["add_skills"].([]any)
+	if skillsRequested {
+		if err := c.appendProfileSkills(ctx, fields, names); err != nil {
+			return nil, err
+		}
+		result["skill_ids"] = fields[profileSkillsField][1:]
+		if len(patch) == 1 && slices.Equal(fields[profileSkillsField], before.fields[profileSkillsField]) {
+			return c.VerifySpecialization(ctx, patch)
+		}
+	}
 	if !apply {
 		return result, nil
 	}
@@ -262,7 +361,6 @@ func (c *Client) UpdateSpecialization(ctx context.Context, patch Object, apply b
 	}
 	// Rails parses [] object rows by field order. url.Values.Encode would group
 	// all grade IDs before all language IDs and silently pair the wrong rows.
-	fields := before.metadata()
 	fields.Set("user[resume_headline]", want["headline"].(string))
 	body := fields.Encode()
 	keys := []string{languageIDField, languageGradeField}
@@ -281,7 +379,9 @@ func (c *Client) UpdateSpecialization(ctx context.Context, patch Object, apply b
 	if err != nil {
 		return nil, fmt.Errorf("update sent but form readback failed: %w; backup %q; do not repeat", err, backup)
 	}
-	if before.id != after.id || !reflect.DeepEqual(before.metadata(), after.metadata()) {
+	expectedMetadata := before.metadata()
+	expectedMetadata[profileSkillsField] = fields[profileSkillsField]
+	if before.id != after.id || !reflect.DeepEqual(expectedMetadata, after.metadata()) {
 		return nil, fmt.Errorf("unrequested specialization fields changed; backup %q; inspect before retrying", backup)
 	}
 	verified, err := c.VerifySpecialization(ctx, want)
@@ -292,7 +392,12 @@ func (c *Client) UpdateSpecialization(ctx context.Context, patch Object, apply b
 	if err != nil {
 		return nil, err
 	}
-	if !reflect.DeepEqual(specializationResumeContent(r), specializationResumeContent(current)) {
+	oldContent, newContent := specializationResumeContent(r), specializationResumeContent(current)
+	if skillsRequested {
+		delete(object(oldContent["user"]), "skills")
+		delete(object(newContent["user"]), "skills")
+	}
+	if !reflect.DeepEqual(oldContent, newContent) {
 		return nil, fmt.Errorf("unrequested profile content changed; backup %q; inspect before retrying", backup)
 	}
 	verified["applied"], verified["backup_path"] = true, backup

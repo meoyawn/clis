@@ -35,6 +35,8 @@ func runExperienceLink(ctx context.Context, args []string, store authStore, out,
 	fs.SetOutput(stderr)
 	position := fs.String("position-id", "", "exact existing position ID")
 	link := fs.String("url", "", "single external media link")
+	appendCard := fs.Bool("append", false, "retain existing media when adding a link")
+	title := fs.String("title", "", "display title for the external link card")
 	capture := fs.String("save-response", "", "new private preview capture")
 	apply := fs.Bool("apply", false, "replace the exact position's media with the requested link")
 	positionals, err := parseFlags(fs, args)
@@ -60,14 +62,19 @@ func runExperienceLink(ctx context.Context, args []string, store authStore, out,
 	if err != nil {
 		return err
 	}
-	result, err := c.replaceExperienceLink(ctx, ref, *position, *link, *capture, *apply, profileBackupDir(store))
+	if *title != "" {
+		if err := validateProfileText("card title", *title, 200); err != nil {
+			return err
+		}
+	}
+	result, err := c.editExperienceLink(ctx, ref, *position, *link, *title, *capture, *apply, *appendCard, profileBackupDir(store))
 	if err != nil {
 		return err
 	}
 	return writeJSON(out, result)
 }
 
-func (c *linkedinClient) replaceExperienceLink(ctx context.Context, ref profileRef, position, link, capture string, apply bool, backupDir string) (experienceLinkResult, error) {
+func (c *linkedinClient) editExperienceLink(ctx context.Context, ref profileRef, position, link, title, capture string, apply, appendCard bool, backupDir string) (experienceLinkResult, error) {
 	result := experienceLinkResult{PositionID: position, URL: link}
 	self, err := c.mailbox(ctx)
 	if err != nil {
@@ -114,6 +121,37 @@ func (c *linkedinClient) replaceExperienceLink(ctx context.Context, ref profileR
 		key := jsonStringAt(m, "title", "value", "key")
 		result.Before = append(result.Before, map[string]any{"media_id": m["mediaId"], "title": profileStateValue(form, key)})
 	}
+	var existing []profileLink
+	retained := []any{}
+	if appendCard {
+		profile, _, err := c.fullProfile(ctx, ref)
+		if err != nil {
+			return result, err
+		}
+		existing, err = c.allPositionMediaLinks(ctx, profile, position)
+		if err != nil {
+			return result, err
+		}
+		if len(existing) != len(media) {
+			return result, fmt.Errorf("rendered position media differs from its native form")
+		}
+		for _, item := range media {
+			id := jsonStringAt(item, "mediaId")
+			if !digits.MatchString(id) {
+				return result, fmt.Errorf("position has an invalid media ID")
+			}
+			retained = append(retained, id)
+		}
+		for _, card := range existing {
+			if sameLinkTarget(card.URL, link) {
+				if title != "" && card.Text != title {
+					return result, fmt.Errorf("position already has this URL with title %q", card.Text)
+				}
+				result.Title, result.Verified = card.Text, true
+				return result, nil
+			}
+		}
+	}
 	data, err := c.experienceLinkPreview(ctx, form, link)
 	if err != nil {
 		return result, err
@@ -128,7 +166,7 @@ func (c *linkedinClient) replaceExperienceLink(ctx context.Context, ref profileR
 			return result, err
 		}
 	}
-	result.Title, err = prepareExperienceLink(form, initial, data)
+	result.Title, err = prepareExperienceLink(form, initial, data, retained, title)
 	if err != nil {
 		return result, err
 	}
@@ -167,7 +205,11 @@ func (c *linkedinClient) replaceExperienceLink(ctx context.Context, ref profileR
 	if !reflect.DeepEqual(owner.person, after.person) || owner.Summary != after.Summary {
 		return result, fmt.Errorf("experience link saved but other profile content changed; inspect %q", result.RecordPath)
 	}
-	if err := verifyExperienceLink(after, position, link); err != nil {
+	cards, err := c.allPositionMediaLinks(ctx, after, position)
+	if err != nil {
+		return result, err
+	}
+	if err := verifyPositionCards(cards, position, existing, link, title); err != nil {
 		return result, err
 	}
 	afterDocument, err := c.profileDocument(ctx, owner.URL+path)
@@ -203,18 +245,37 @@ func (c *linkedinClient) replaceExperienceLink(ctx context.Context, ref profileR
 	return result, nil
 }
 
-func prepareExperienceLink(form postEditPlan, initial map[string]any, response []byte) (string, error) {
-	preview, err := profileFormData(readFlightData(string(response)))
+type ingestedProfileLink struct{ id, binding, title string }
+
+func prepareExperienceLink(form postEditPlan, initial map[string]any, response []byte, retained []any, title string) (string, error) {
+	link, err := ingestProfileLink(form, initial, response)
 	if err != nil {
 		return "", err
+	}
+	if title != "" {
+		if err := setProfileState(form, link.binding+"-mediaTitle", title); err != nil {
+			return "", err
+		}
+	} else {
+		title = link.title
+	}
+	order := append(append([]any{}, retained...), link.binding)
+	err = setProfileMedia(form, initial, retained, []any{link.id}, []any{link.id + ":" + link.binding}, order)
+	return title, err
+}
+
+func ingestProfileLink(form postEditPlan, initial map[string]any, response []byte) (ingestedProfileLink, error) {
+	preview, err := profileFormData(readFlightData(string(response)))
+	if err != nil {
+		return ingestedProfileLink{}, err
 	}
 	ingestedKey, err := profileFieldKey(initial, "ingestedContentIds")
 	if err != nil {
-		return "", err
+		return ingestedProfileLink{}, err
 	}
 	mapKey, err := profileFieldKey(initial, "ingestedMediaIdToBindingIdMap")
 	if err != nil {
-		return "", err
+		return ingestedProfileLink{}, err
 	}
 	additions := map[string]map[string]bool{}
 	for _, row := range preview.data {
@@ -230,7 +291,7 @@ func prepareExperienceLink(form postEditPlan, initial map[string]any, response [
 		})
 	}
 	if len(additions[ingestedKey]) != 1 || len(additions[mapKey]) != 1 {
-		return "", fmt.Errorf("native URL preview did not produce one attachable link; no profile write attempted")
+		return ingestedProfileLink{}, fmt.Errorf("native URL preview did not produce one attachable link; no profile write attempted")
 	}
 	var id, binding string
 	for value := range additions[ingestedKey] {
@@ -239,13 +300,13 @@ func prepareExperienceLink(form postEditPlan, initial map[string]any, response [
 	for value := range additions[mapKey] {
 		prefix, suffix, ok := strings.Cut(value, ":")
 		if !ok || prefix != id || suffix == "" {
-			return "", fmt.Errorf("native URL preview link binding does not match ingested content %q", id)
+			return ingestedProfileLink{}, fmt.Errorf("native URL preview link binding does not match ingested content %q", id)
 		}
 		binding = suffix
 	}
 	title, _ := profileStateValue(preview, binding+"-mediaTitle").(string)
 	if title == "" {
-		return "", fmt.Errorf("native URL preview returned an empty title; no profile write attempted")
+		return ingestedProfileLink{}, fmt.Errorf("native URL preview returned an empty title; no profile write attempted")
 	}
 	for key, state := range preview.states {
 		if form.states[key] == nil {
@@ -256,16 +317,21 @@ func prepareExperienceLink(form postEditPlan, initial map[string]any, response [
 			form.states[key] = cloned
 		}
 	}
-	allKey, err := profileFieldKey(initial, "allMediaIds")
-	if err != nil {
-		return "", err
-	}
-	for key, values := range map[string][]any{allKey: {}, ingestedKey: {id}, mapKey: {id + ":" + binding}} {
+	return ingestedProfileLink{id: id, binding: binding, title: title}, nil
+}
+
+func setProfileMedia(form postEditPlan, initial map[string]any, retained, ingested, bindings, order []any) error {
+	lists := map[string][]any{"allMediaIds": retained, "ingestedContentIds": ingested, "ingestedMediaIdToBindingIdMap": bindings}
+	for field, values := range lists {
+		key, err := profileFieldKey(initial, field)
+		if err != nil {
+			return err
+		}
 		form.states[key] = map[string]any{"value": map[string]any{"$case": "stringListValue", "stringListValue": map[string]any{"stringValues": values}}}
 	}
 	sortedKey, err := profileFieldKey(initial, "sortedMediaIds")
 	if err != nil {
-		return "", err
+		return err
 	}
 	// The browser derives this expression from the edited media collection.
 	// Keep its native type and substitute only that collection's item keys.
@@ -275,29 +341,35 @@ func prepareExperienceLink(form postEditPlan, initial map[string]any, response [
 		form.data.walk(row, func(m map[string]any) {
 			if m["collectionId"] == collection && collection != "" {
 				if _, ok := m["initialItems"].([]any); ok {
-					m["initialItems"] = []any{map[string]any{"key": binding}}
+					items := make([]any, 0, len(order))
+					for _, key := range order {
+						items = append(items, map[string]any{"key": key})
+					}
+					m["initialItems"] = items
 					changed = true
 				}
 			}
 		})
 	}
 	if !changed {
-		return "", fmt.Errorf("native position media collection %q is missing", collection)
+		return fmt.Errorf("native profile media collection %q is missing", collection)
 	}
-	return title, nil
+	return nil
 }
 
-func verifyExperienceLink(profile fullProfileResult, position, link string) error {
+func positionMediaLinks(profile fullProfileResult, position string) ([]profileLink, bool) {
+	const editPath = "/details/experience/edit/forms/"
 	var links []profileLink
 	found := false
 	for _, section := range profile.Sections {
 		if section.Title != "Experience" {
 			continue
 		}
+
 		active := false
 		for _, block := range section.Blocks {
 			for _, candidate := range block.Links {
-				if strings.Contains(candidate.URL, "/details/experience/edit/forms/") {
+				if strings.Contains(candidate.URL, editPath) {
 					active = strings.HasSuffix(strings.TrimSuffix(candidate.URL, "/"), "/"+position)
 					found = found || active
 				}
@@ -306,21 +378,46 @@ func verifyExperienceLink(profile fullProfileResult, position, link string) erro
 				continue
 			}
 			for _, candidate := range block.Links {
-				if strings.Contains(candidate.URL, "/details/experience/edit/forms/") || strings.Contains(candidate.URL, "/skill-associations-details/") {
+				if strings.Contains(candidate.URL, editPath) || strings.Contains(candidate.URL, "/skill-associations-details/") {
 					continue
 				}
 				links = append(links, candidate)
 			}
 		}
 	}
-	if found && len(links) == 1 {
-		actual := strings.TrimSuffix(links[0].URL, "/")
-		expected := strings.TrimSuffix(link, "/")
-		if actual == expected || (strings.HasPrefix(expected, "http://") && actual == "https://"+strings.TrimPrefix(expected, "http://")) {
-			return nil
-		}
+	return links, found
+}
+
+func sameLinkTarget(actual, requested string) bool {
+	actual = strings.TrimSuffix(actual, "/")
+	requested = strings.TrimSuffix(requested, "/")
+	return actual == requested || strings.HasPrefix(requested, "http://") && actual == "https://"+strings.TrimPrefix(requested, "http://")
+}
+
+func verifyPositionCards(links []profileLink, position string, existing []profileLink, link, title string) error {
+	if len(links) != len(existing)+1 {
+		return fmt.Errorf("saved position %s has %d rendered cards, expected %d", position, len(links), len(existing)+1)
 	}
-	return fmt.Errorf("saved position %s did not show exactly one direct link to %q; inspect before retrying", position, link)
+	old := map[profileLink]int{}
+	for _, card := range existing {
+		old[card]++
+	}
+	added := 0
+	for _, card := range links {
+		if old[card] > 0 {
+			old[card]--
+			continue
+		}
+		if sameLinkTarget(card.URL, link) && (title == "" || title == card.Text) {
+			added++
+			continue
+		}
+		return fmt.Errorf("unexpected saved position card %q at %q", card.Text, card.URL)
+	}
+	if added != 1 {
+		return fmt.Errorf("saved position %s does not show the requested link %q", position, link)
+	}
+	return nil
 }
 
 func profileDataObject(data documentData, field, value string) (map[string]any, error) {
@@ -400,14 +497,15 @@ func (c *linkedinClient) experienceLinkPreview(ctx context.Context, form postEdi
 	return c.profileDataRequest(ctx, linkForm, preview, positionLinkPreview, "/flagship-web/rsc-action/actions/component?componentId="+positionLinkPreview+"&sduiid="+positionLinkPreview, false)
 }
 
-const experienceLinkHelp = `Replace all media on one experience entry with a single external link.
+const experienceLinkHelp = `Add a native link card to an owned experience entry.
 
 Usage:
-  linkedin experience link <profile> --position-id ID --url URL [--apply] [--save-response NEW_FILE]
+  linkedin experience link <profile> --position-id ID --url URL [--append] [--title TITLE] [--apply] [--save-response NEW_FILE]
 
 Preview reads the signed-in owner's exact native form and URL preview.
---apply requires the human's instruction to replace this position's attachments.
-It replaces every existing media card with one native external-link card, saves
+--append keeps existing cards and skips an already matching card. Without --append
+the requested card replaces the entire media list. --title sets its visible caption.
+--apply saves
 a private backup, keeps network notifications off, and verifies the exact direct
 link, remaining position fields and profile intro. No automatic retries.
 `

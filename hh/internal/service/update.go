@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -149,18 +150,24 @@ func isolatedState(fields Object) Object {
 	return state
 }
 
+type skillInventoryChanges struct {
+	mayAppear, mayDisappear map[string]bool
+}
+
 // HH exposes the union of skills currently selected by any resume. Removing
 // the last use hides the inventory row, but reselecting it restores its saved
 // rating (verified against the live account on 2026-10-28). Only such unused
 // SKILL rows may disappear; retained ratings and language rows must not change.
-func unusedSkillNames(before *Resume, patch Object, others map[string]Object) map[string]bool {
+func expectedSkillChanges(before *Resume, patch Object, others map[string]Object) skillInventoryChanges {
 	selected, changed := patch["keySkills"].([]any)
 	if !changed {
-		return nil
+		return skillInventoryChanges{}
 	}
+	added := map[string]bool{}
 	used := map[string]bool{}
 	for _, value := range selected {
 		used[fmt.Sprint(value)] = true
+		added[fmt.Sprint(value)] = true
 	}
 	for _, other := range others {
 		values, _ := other["keySkills"].([]any)
@@ -176,14 +183,15 @@ func unusedSkillNames(before *Resume, patch Object, others map[string]Object) ma
 			continue
 		}
 		name, _ := item["name"].(string)
+		delete(added, name)
 		if name != "" && !used[name] {
 			unused[name] = true
 		}
 	}
-	return unused
+	return skillInventoryChanges{mayAppear: added, mayDisappear: unused}
 }
 
-func sameSkillInventory(before, after any, mayDisappear map[string]bool) bool {
+func sameSkillInventory(before, after any, changes skillInventoryChanges) bool {
 	if reflect.DeepEqual(before, after) {
 		return true
 	}
@@ -212,7 +220,7 @@ func sameSkillInventory(before, after any, mayDisappear map[string]bool) bool {
 		name, _ := item["name"].(string)
 		current, exists := remaining[name]
 		if !exists {
-			if !mayDisappear[name] {
+			if !changes.mayDisappear[name] {
 				return false
 			}
 		} else if !reflect.DeepEqual(row, current) {
@@ -220,12 +228,18 @@ func sameSkillInventory(before, after any, mayDisappear map[string]bool) bool {
 		}
 		delete(remaining, name)
 	}
-	return len(remaining) == 0
+	for name, row := range remaining {
+		item := row.(map[string]any)
+		if !changes.mayAppear[name] || item["category"] != "SKILL" {
+			return false
+		}
+	}
+	return true
 }
 
-func sameIsolatedState(before Object, after *Resume, mayDisappear map[string]bool) bool {
+func sameIsolatedState(before Object, after *Resume, changes skillInventoryChanges) bool {
 	current := isolatedState(after.Fields)
-	if !sameSkillInventory(before["resumeApplicantSkills"], current["resumeApplicantSkills"], mayDisappear) {
+	if !sameSkillInventory(before["resumeApplicantSkills"], current["resumeApplicantSkills"], changes) {
 		return false
 	}
 	current["resumeApplicantSkills"] = before["resumeApplicantSkills"]
@@ -314,7 +328,7 @@ func (c *Client) Update(ctx context.Context, id ResumeID, patch Object, apply bo
 	if !found {
 		return nil, fmt.Errorf("selected resume %s is not in this account's resume list; no write attempted", id)
 	}
-	unusedSkills := unusedSkillNames(before, patch, others)
+	inventoryChanges := expectedSkillChanges(before, patch, others)
 	if backupDir == "" {
 		return nil, fmt.Errorf("backup directory is empty; no write attempted")
 	}
@@ -363,7 +377,7 @@ func (c *Client) Update(ctx context.Context, id ResumeID, patch Object, apply bo
 	// survive. HH's derived status/interval metadata is excluded by Editable.
 	afterFields := Editable(after.Fields)
 	beforeFields := Editable(before.Fields)
-	if !sameSkillInventory(before.Fields["resumeApplicantSkills"], after.Fields["resumeApplicantSkills"], unusedSkills) {
+	if !sameSkillInventory(before.Fields["resumeApplicantSkills"], after.Fields["resumeApplicantSkills"], inventoryChanges) {
 		return nil, fmt.Errorf("profile proficiency levels changed unexpectedly; stop; backup: %s", plan.BackupPath)
 	}
 	for key, value := range beforeFields {
@@ -377,7 +391,7 @@ func (c *Client) Update(ctx context.Context, id ResumeID, patch Object, apply bo
 		if err != nil {
 			return nil, fmt.Errorf("write completed but other-resume verification failed: %w", err)
 		}
-		if !sameIsolatedState(old, res, unusedSkills) {
+		if !sameIsolatedState(old, res, inventoryChanges) {
 			return nil, fmt.Errorf("ISOLATION FAILURE: non-target resume %s changed; stop; backup: %s", hash, plan.BackupPath)
 		}
 		plan.OtherResumesUnchanged = append(plan.OtherResumesUnchanged, hash)
@@ -387,7 +401,7 @@ func (c *Client) Update(ctx context.Context, id ResumeID, patch Object, apply bo
 	if err != nil {
 		return nil, fmt.Errorf("write read back successfully but print-view verification failed: %w", err)
 	}
-	if err := verifyView(view, changed); err != nil {
+	if err := verifyView(view, changed, after.Fields); err != nil {
 		return nil, fmt.Errorf("%w; backup: %s", err, plan.BackupPath)
 	}
 	plan.Verified = true
@@ -413,13 +427,30 @@ func (c *Client) Verify(ctx context.Context, id ResumeID, patch Object) (*Plan, 
 	if err != nil {
 		return nil, err
 	}
-	if err := verifyView(view, patch); err != nil {
+	if err := verifyView(view, patch, resume.Fields); err != nil {
 		return nil, err
 	}
 	return &Plan{ID: id.String(), ViewURL: view.URL, Verified: true, Changes: map[string]Change{}, PrintText: view.Text}, nil
 }
 
-func verifyView(view *View, changed Object) error {
+func verifyView(view *View, changed, saved Object) error {
+	// The editor returns both employmentForms and its legacy employment values.
+	// Some print views expose only the latter. Match them to the verified edit
+	// response instead of guessing a translation between the two enums.
+	if _, requested := changed["employmentForms"]; requested && view.Fields["employmentForms"] == nil {
+		legacy, ok := saved["employment"].([]any)
+		if !ok || len(legacy) == 0 || !reflect.DeepEqual(legacy, view.Fields["employment"]) {
+			return fmt.Errorf("print view employment differs from saved edit data")
+		}
+		for _, item := range legacy {
+			row, _ := item.(map[string]any)
+			if value, _ := row["string"].(string); value == "" {
+				return fmt.Errorf("invalid legacy employment value in print view")
+			}
+		}
+		changed = maps.Clone(changed)
+		delete(changed, "employmentForms")
+	}
 	if err := VerifyPatch(view.Fields, changed); err != nil {
 		return fmt.Errorf("print view differs from saved edit data: %w", err)
 	}

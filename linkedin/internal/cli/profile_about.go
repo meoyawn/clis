@@ -20,8 +20,14 @@ func runProfile(ctx context.Context, args []string, store authStore, out, errOut
 	if args[0] == "headline" {
 		return runHeadline(ctx, args, store, out, errOut)
 	}
+	if args[0] == "project-update" {
+		return runProjectUpdate(ctx, args[1:], store, out, errOut)
+	}
 	if args[0] == "project" {
 		return runProfileProject(ctx, args[1:], store, out, errOut)
+	}
+	if args[0] == "education-cards" {
+		return runEducationCards(ctx, args[1:], store, out, errOut)
 	}
 	if args[0] == "skill" {
 		return runProfileSkill(ctx, args[1:], store, out, errOut)

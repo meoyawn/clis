@@ -277,6 +277,59 @@ func TestInvalidPatchNeverMakesARequest(t *testing.T) {
 	}
 }
 
+func TestVerifyEmploymentFormsAgainstLegacyPrintEmployment(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		printed     []any
+		printModern string
+		wantOK      bool
+	}{
+		{name: "matching legacy value", printed: []any{hh.Object{"string": "full"}}, wantOK: true},
+		{name: "stale print still offers side jobs", printed: []any{hh.Object{"string": "full"}, hh.Object{"string": "part"}}},
+		{name: "missing legacy field"},
+		{name: "modern value takes precedence", printed: []any{hh.Object{"string": "full"}}, printModern: "PART_TIME"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			hash := hashes[0]
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					t.Errorf("unexpected request: %s", r.Method)
+				}
+				switch r.URL.Path {
+				case "/applicant/resume":
+					_ = json.NewEncoder(w).Encode(hh.Object{
+						"_attributes":     hh.Object{"hash": hash},
+						"employmentForms": []any{hh.Object{"string": "FULL"}},
+						"employment":      []any{hh.Object{"string": "full"}},
+					})
+				case "/resume/" + hash:
+					resume := hh.Object{"hash": hash}
+					if tt.printed != nil {
+						resume["employment"] = hh.Object{"value": tt.printed}
+					}
+					if tt.printModern != "" {
+						resume["employmentForms"] = hh.Object{"value": []any{hh.Object{"string": tt.printModern}}}
+					}
+					state, _ := json.Marshal(hh.Object{"resume": resume})
+					fmt.Fprintf(w, `<div id="HH-React-Root">Employment</div><template id="HH-Lux-InitialState">%s</template>`, html.EscapeString(string(state)))
+				default:
+					t.Errorf("unexpected path: %s", r.URL.Path)
+				}
+			}))
+			defer server.Close()
+			base, _ := url.Parse(server.URL)
+			id, _ := hh.NewResumeIDFromValue(hash)
+			plan, err := hh.NewClient(server.Client(), base).Verify(context.Background(), id, hh.Object{"employmentForms": []any{"FULL"}})
+			if tt.wantOK && (err != nil || !plan.Verified) {
+				t.Fatalf("expected verified print view: %v", err)
+			}
+			if !tt.wantOK && (err == nil || !strings.Contains(err.Error(), "print view")) {
+				t.Fatalf("expected print verification failure, got %v", err)
+			}
+		})
+	}
+}
+
 func TestPrintViewKeepsReadableLinkBoundaries(t *testing.T) {
 	text, err := hh.PrintText([]byte(`<div id="HH-React-Root"><div><span>Казань</span><a href="https://example.com">example.com</a></div><p>Go &amp; TypeScript</p><script>private-script-token</script></div><template id="HH-Lux-InitialState">hidden-state</template>`))
 	if err != nil {

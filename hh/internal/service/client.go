@@ -278,7 +278,7 @@ func (c *Client) View(ctx context.Context, id ResumeID) (*View, error) {
 	u, _ := c.URLs(id)
 	fields := make(Object)
 	for key, value := range resume {
-		if !stringFields[key] && !objectFields[key] {
+		if !stringFields[key] && !objectFields[key] && key != "employment" {
 			continue
 		}
 		wrapped, ok := value.(map[string]any)
