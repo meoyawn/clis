@@ -8,12 +8,15 @@ import (
 
 func TestParseVacancySearch(t *testing.T) {
 	const text = `DESCRIPTION:(Go OR Golang) NOT intern`
-	search, output, err := parseVacancySearch([]string{"--text", text, "--skill", "Go", "--skill", "Golang", "--remote", "--area", "1", "--area", "2", "--page", "2", "--per-page", "50", "--output", "results.json"})
+	search, output, err := parseVacancySearch([]string{"--text", text, "--skill", "Go", "--skill", "Golang", "--remote", "--area", "1", "--area", "2", "--employer", "201", "--employer", "202", "--professional-area", "11", "--page", "2", "--per-page", "50", "--output", "results.json"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if search.Text != text || !reflect.DeepEqual(search.Skills, []string{"Go", "Golang"}) || !reflect.DeepEqual(search.Areas, []string{"1", "2"}) || !search.Remote || search.Page != 2 || search.PerPage != 50 || output != "results.json" {
 		t.Fatalf("search options lost: %+v, output=%q", search, output)
+	}
+	if !reflect.DeepEqual(search.Employers, []string{"201", "202"}) || search.ProfessionalArea != "11" {
+		t.Fatalf("employer/category options lost: %+v", search)
 	}
 	for _, test := range []struct {
 		name string
@@ -23,6 +26,8 @@ func TestParseVacancySearch(t *testing.T) {
 		{"no-query", nil, "--text QUERY or --skill NAME"},
 		{"empty-skill", []string{"--skill", " "}, `invalid skill " "`},
 		{"bad-area", []string{"--text", "Go", "--area", "Kazan"}, `invalid area "Kazan"`},
+		{"bad-employer", []string{"--employer", "company"}, `invalid employer "company"`},
+		{"bad-professional-area", []string{"--employer", "201", "--professional-area", "IT"}, `invalid professional-area "IT"`},
 		{"negative-page", []string{"--text", "Go", "--page", "-1"}, "invalid page -1"},
 		{"past-window", []string{"--text", "Go", "--page", "100"}, "invalid page 100"},
 		{"zero-size", []string{"--text", "Go", "--per-page", "0"}, "invalid per-page 0"},

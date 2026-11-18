@@ -15,8 +15,9 @@ import (
 )
 
 func TestAboutUpdatesOnlyTheOwnedBiographyAndChecksEmployerView(t *testing.T) {
-	for _, missingPrint := range []bool{false, true} {
-		t.Run(fmt.Sprintf("missing-print-%t", missingPrint), func(t *testing.T) {
+	for _, scenario := range []string{"saved", "missing-print", "job-drift"} {
+		t.Run(scenario, func(t *testing.T) {
+			missingPrint := scenario == "missing-print"
 			const alias = "synthetic-user"
 			const newText = "<p>Authors publish once.</p>"
 			current := "<p>Old text</p>"
@@ -43,7 +44,13 @@ func TestAboutUpdatesOnlyTheOwnedBiographyAndChecksEmployerView(t *testing.T) {
 					w.WriteHeader(http.StatusSeeOther)
 				case "/" + alias:
 					school := service.Object{"title": "Synthetic University", "users": service.Object{"href": "/resumes?university_ids=1", "title": fmt.Sprintf("%d alumni", 123+writes)}}
-					writePage(w, service.Object{"user": service.Object{"id": alias, "title": "Synthetic", "isOwner": true, "shouldDisplayInfo": true, "print": service.Object{"html": service.Origin + "/" + alias + "/print"}}, "resume": service.Object{"about": service.Object{"value": current}, "education": service.Object{"items": []any{school}}}})
+					// The employer card's blog counter moves on its own; the job passage must not.
+					passage := "<p>Unchanged job</p>"
+					if scenario == "job-drift" && writes > 0 {
+						passage = "<p>Unintended edit</p>"
+					}
+					employer := service.Object{"title": "Synthetic Employer", "habrahabr_info": service.Object{"postsCount": 1606 + writes}, "positions": []any{service.Object{"title": "Engineer", "message": passage}}}
+					writePage(w, service.Object{"user": service.Object{"id": alias, "title": "Synthetic", "isOwner": true, "shouldDisplayInfo": true, "print": service.Object{"html": service.Origin + "/" + alias + "/print"}}, "resume": service.Object{"about": service.Object{"value": current}, "companies": service.Object{"items": []any{employer}}, "education": service.Object{"items": []any{school}}}})
 				case "/" + alias + "/print":
 					printed := current
 					if missingPrint {
@@ -61,7 +68,7 @@ func TestAboutUpdatesOnlyTheOwnedBiographyAndChecksEmployerView(t *testing.T) {
 			httpClient.Transport = routeTransport{target: target, transport: httpClient.Transport}
 			id, _ := domain.NewResumeIDFromValue(alias)
 			result, err := service.NewClient(httpClient).UpdateAbout(t.Context(), id, newText, true, t.TempDir())
-			if writes != 1 || missingPrint != (err != nil) || !missingPrint && result["verified"] != true {
+			if writes != 1 || (scenario != "saved") != (err != nil) || scenario == "saved" && result["verified"] != true {
 				t.Fatalf("writes=%d result=%v err=%v", writes, result, err)
 			}
 		})

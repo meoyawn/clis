@@ -26,16 +26,29 @@ func (c *Client) SearchVacancies(ctx context.Context, options domain.VacancySear
 	for _, area := range options.Areas {
 		query.Add("area", area)
 	}
+	for _, employer := range options.Employers {
+		query.Add("employer_id", employer)
+	}
 	if options.Remote {
 		query.Set("work_format", "REMOTE")
 	}
-	body, err := c.request(ctx, http.MethodGet, "/search/vacancy", query, nil, true)
+	state, err := c.readVacancySearch(ctx, query)
 	if err != nil {
 		return nil, err
 	}
-	state, err := DecodeState(body)
-	if err != nil {
-		return nil, err
+	var professionalArea *domain.SearchProfessionalArea
+	if options.ProfessionalArea != "" {
+		professionalArea, err = searchProfessionalArea(state, options.ProfessionalArea)
+		if err != nil {
+			return nil, err
+		}
+		for _, role := range professionalArea.RoleIDs {
+			query.Add("professional_role", role)
+		}
+		state, err = c.readVacancySearch(ctx, query)
+		if err != nil {
+			return nil, err
+		}
 	}
 	list, _ := state["vacancySearchResult"].(map[string]any)
 	criteria, _ := list["criteria"].(map[string]any)
@@ -44,6 +57,12 @@ func (c *Client) SearchVacancies(ctx context.Context, options domain.VacancySear
 	}
 	if !searchSameValues(criteria["area"], options.Areas) {
 		return nil, fmt.Errorf("HH search area criteria %v do not match requested areas %v; stopped", criteria["area"], options.Areas)
+	}
+	if len(options.Employers) > 0 && !searchSameIDs(criteria["employer_id"], options.Employers) {
+		return nil, fmt.Errorf("HH search employer criteria %v do not match requested employers %v; stopped", criteria["employer_id"], options.Employers)
+	}
+	if professionalArea != nil && !searchSameIDs(criteria["professional_role"], professionalArea.RoleIDs) {
+		return nil, fmt.Errorf("HH search professional roles %v do not match category %s; stopped", criteria["professional_role"], professionalArea.ID)
 	}
 	var formats []string
 	if options.Remote {
@@ -63,7 +82,8 @@ func (c *Client) SearchVacancies(ctx context.Context, options domain.VacancySear
 	result := &domain.VacancySearchResult{
 		URL:             c.base.ResolveReference(&url.URL{Path: "/search/vacancy", RawQuery: query.Encode()}).String(),
 		TotalCandidates: total, Page: options.Page, ScannedCandidates: len(rows),
-		Vacancies: []domain.VacancySearchItem{},
+		Vacancies:        []domain.VacancySearchItem{},
+		ProfessionalArea: professionalArea,
 	}
 	paging, _ := list["paging"].(map[string]any)
 	next, _ := paging["next"].(map[string]any)
@@ -91,6 +111,9 @@ func (c *Client) SearchVacancies(ctx context.Context, options domain.VacancySear
 		if err != nil {
 			return nil, err
 		}
+		if len(options.Employers) > 0 && !slices.Contains(options.Employers, item.Employer.ID) {
+			return nil, fmt.Errorf("HH search vacancy %s belongs to unrequested employer %q; stopped", item.ID, item.Employer.ID)
+		}
 		if seen[item.ID] {
 			return nil, fmt.Errorf("HH search page %d repeats vacancy %s", options.Page, item.ID)
 		}
@@ -110,6 +133,59 @@ func (c *Client) SearchVacancies(ctx context.Context, options domain.VacancySear
 		result.Vacancies = append(result.Vacancies, item)
 	}
 	return result, nil
+}
+
+func (c *Client) readVacancySearch(ctx context.Context, query url.Values) (Object, error) {
+	body, err := c.request(ctx, http.MethodGet, "/search/vacancy", query, nil, true)
+	if err != nil {
+		return nil, err
+	}
+	return DecodeState(body)
+}
+
+// The native role tree and numeric criteria arrays were captured from Chrome
+// employer searches on 18 Nov 2026. Category membership is read anew, not pinned.
+func searchProfessionalArea(state Object, id string) (*domain.SearchProfessionalArea, error) {
+	tree, _ := state["professionalRoleTree"].(map[string]any)
+	categories, _ := tree["items"].([]any)
+	for _, value := range categories {
+		category, _ := value.(map[string]any)
+		if category["id"] != "category-"+id {
+			continue
+		}
+		name, _ := category["text"].(string)
+		roles, _ := category["items"].([]any)
+		if name == "" || len(roles) == 0 {
+			break
+		}
+		area := &domain.SearchProfessionalArea{ID: id, Name: name}
+		for _, value := range roles {
+			role, _ := value.(map[string]any)
+			roleID := nativeID(role["id"])
+			parsed, err := strconv.ParseUint(roleID, 10, 64)
+			if err != nil || parsed == 0 || slices.Contains(area.RoleIDs, roleID) {
+				return nil, fmt.Errorf("HH professional category %s has invalid or duplicate role %q", id, roleID)
+			}
+			area.RoleIDs = append(area.RoleIDs, roleID)
+		}
+		return area, nil
+	}
+	return nil, fmt.Errorf("HH professional category %q is missing or incomplete; stopped", id)
+}
+
+func searchSameIDs(value any, expected []string) bool {
+	items, ok := value.([]any)
+	if !ok {
+		return false
+	}
+	ids := make([]string, len(items))
+	for i, item := range items {
+		ids[i] = nativeID(item)
+	}
+	want := slices.Clone(expected)
+	slices.Sort(ids)
+	slices.Sort(want)
+	return slices.Equal(ids, want)
 }
 
 func (c *Client) searchSkillItem(ctx context.Context, item *domain.VacancySearchItem, options domain.VacancySearchOptions) (bool, error) {

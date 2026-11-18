@@ -16,7 +16,7 @@ import (
 )
 
 func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
-	for _, scenario := range []string{"send", "single-choice", "checkbox-choice", "changed-choice-mode", "changed-choice", "invalid-choice", "changed-question", "tampered-answer", "choice-question", "extra-hidden", "unknown-answer"} {
+	for _, scenario := range []string{"send", "single-choice", "checkbox-choice", "changed-choice-mode", "changed-choice", "invalid-choice", "changed-question", "tampered-answer", "choice-question", "extra-hidden", "unknown-answer", "open-choice", "open-choice-text"} {
 		t.Run(scenario, func(t *testing.T) {
 			posts, requests, nonce := 0, 0, 0
 			submitted, changed := false, false
@@ -73,6 +73,11 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 							"candidateSolutions": []any{hh.Object{"id": "703", "text": label}, hh.Object{"id": "704", "text": "No"}}})
 						form += fmt.Sprintf(`<input type="%s" name="task_702" value="703"><input type="%s" name="task_702" value="704">`, inputType, inputType)
 					}
+					if strings.HasPrefix(scenario, "open-choice") {
+						tasks = append(tasks, hh.Object{"id": 705, "description": "Other interviews? If yes, which?", "open": "true", "multiple": "false",
+							"candidateSolutions": []any{hh.Object{"id": "706", "text": "No"}}})
+						form += `<input type="radio" name="task_705" value="706"><input type="radio" name="task_705" value="open"><textarea name="task_705_text"></textarea>`
+					}
 					if scenario == "extra-hidden" {
 						form += `<input type="hidden" name="unexpected_challenge" value="unknown">`
 					}
@@ -101,6 +106,12 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 					}
 					if (scenario == "single-choice" || scenario == "checkbox-choice") && (r.FormValue("task_702") != "703" || r.FormValue("task_702_text") != "") {
 						t.Error("selected answer did not use the native task field and choice ID")
+					}
+					if scenario == "open-choice" && (r.FormValue("task_705") != "706" || r.FormValue("task_705_text") != "" || r.MultipartForm.Value["task_705_text"] == nil) {
+						t.Error("listed answer to an open question did not match Chrome's radio and empty textarea fields")
+					}
+					if scenario == "open-choice-text" && (r.FormValue("task_705") != "open" || r.FormValue("task_705_text") != "Yes, a synthetic bank") {
+						t.Error("free-text answer did not use the native open radio and textarea fields")
 					}
 					if nonce != 2 || r.Header.Get("X-Xsrftoken") != "fixture-token" {
 						t.Error("submission did not use a fresh form and CSRF protection")
@@ -134,6 +145,12 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 				if scenario == "invalid-choice" {
 					answers["702"] = "705"
 				}
+			}
+			switch scenario {
+			case "open-choice":
+				answers["705"] = "706"
+			case "open-choice-text":
+				answers["705"] = "Yes, a synthetic bank"
 			}
 			draft, err := client.PrepareApplication(context.Background(), vacancy, resume, "Reviewed letter", answers)
 			if scenario == "choice-question" || scenario == "invalid-choice" || scenario == "extra-hidden" || scenario == "unknown-answer" {

@@ -34,6 +34,15 @@ func applicationDigest(draft ApplicationDraft) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func isChoice(question ApplicationQuestion, answer string) bool {
+	for _, choice := range question.Choices {
+		if answer == choice.ID {
+			return true
+		}
+	}
+	return false
+}
+
 func hasNativeID(value any, id string) bool {
 	items, _ := value.([]any)
 	for _, item := range items {
@@ -103,7 +112,7 @@ func (c *Client) PrepareApplication(ctx context.Context, vacancyID VacancyID, re
 						break
 					}
 				}
-				if !matched {
+				if !matched && !question.OpenText {
 					return nil, fmt.Errorf("question %s requires one of its listed choice IDs; stopped", question.ID)
 				}
 			}
@@ -186,10 +195,20 @@ func (c *Client) PrepareApplication(ctx context.Context, vacancyID VacancyID, re
 	if questionnaire != nil {
 		for _, question := range questionnaire.Questions {
 			key := "task_" + question.ID
-			if len(question.Choices) == 0 {
-				key += "_text"
+			switch {
+			case question.OpenText:
+				// Chrome sends the radio value and the (possibly empty) textarea.
+				draft.Request[key+"_text"] = ""
+				draft.Request[key] = question.Answer
+				if !isChoice(question, question.Answer) {
+					draft.Request[key] = openChoiceValue
+					draft.Request[key+"_text"] = question.Answer
+				}
+			case len(question.Choices) == 0:
+				draft.Request[key+"_text"] = question.Answer
+			default:
+				draft.Request[key] = question.Answer
 			}
-			draft.Request[key] = question.Answer
 		}
 	}
 	draft.ReviewSHA256 = applicationDigest(*draft)

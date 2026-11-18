@@ -18,7 +18,14 @@ type ApplicationQuestion struct {
 	Answer   string              `json:"answer"`
 	Choices  []ApplicationChoice `json:"choices,omitempty"`
 	Multiple bool                `json:"multiple,omitempty"`
+	// OpenText marks an open question that also offers listed choices. The
+	// answer is either one listed choice ID or free text sent as the native
+	// "open" radio value with task_ID_text.
+	OpenText bool `json:"open_text,omitempty"`
 }
+
+// openChoiceValue is the native radio value that selects the free-text answer.
+const openChoiceValue = "open"
 
 type ApplicationChoice struct {
 	ID   string `json:"id"`
@@ -88,28 +95,21 @@ func (c *Client) ApplicationQuestions(ctx context.Context, id VacancyID) (*Appli
 		switch task["open"] {
 		case "true":
 			if len(choices) != 0 {
-				return nil, fmt.Errorf("open-text question %s unexpectedly contains choices; stopped", questionID)
+				if task["multiple"] != "false" {
+					return nil, fmt.Errorf("open-text question %s has choices with an unsupported selection mode; stopped", questionID)
+				}
+				if question.Choices, err = questionChoices(questionID, choices); err != nil {
+					return nil, err
+				}
+				question.OpenText = true
 			}
 		case "false":
 			if task["multiple"] != "false" && task["multiple"] != "true" || len(choices) == 0 {
 				return nil, fmt.Errorf("question %s has an unknown choice format or no choices; stopped", questionID)
 			}
 			question.Multiple = task["multiple"] == "true"
-			seenChoices := map[string]bool{}
-			for _, item := range choices {
-				choice, _ := item.(map[string]any)
-				choiceID := nativeID(choice["id"])
-				number, numberErr := strconv.ParseUint(choiceID, 10, 64)
-				if numberErr != nil || number == 0 || seenChoices[choiceID] {
-					return nil, fmt.Errorf("question %s has an invalid or duplicate choice ID %q; stopped", questionID, choiceID)
-				}
-				textHTML, _ := choice["text"].(string)
-				text, err := PrintText([]byte(`<div id="HH-React-Root">` + textHTML + `</div>`))
-				if err != nil || strings.TrimSpace(text) == "" {
-					return nil, fmt.Errorf("question %s choice %s has no readable text; stopped", questionID, choiceID)
-				}
-				seenChoices[choiceID] = true
-				question.Choices = append(question.Choices, ApplicationChoice{ID: choiceID, Text: text})
+			if question.Choices, err = questionChoices(questionID, choices); err != nil {
+				return nil, err
 			}
 		default:
 			return nil, fmt.Errorf("question %s has an unknown response format; stopped", questionID)
@@ -132,6 +132,27 @@ func (c *Client) ApplicationQuestions(ctx context.Context, id VacancyID) (*Appli
 		return nil, fmt.Errorf("questionnaire requirement differs between form and state; stopped")
 	}
 	return q, nil
+}
+
+func questionChoices(questionID string, choices []any) ([]ApplicationChoice, error) {
+	var out []ApplicationChoice
+	seen := map[string]bool{}
+	for _, item := range choices {
+		choice, _ := item.(map[string]any)
+		choiceID := nativeID(choice["id"])
+		number, numberErr := strconv.ParseUint(choiceID, 10, 64)
+		if numberErr != nil || number == 0 || seen[choiceID] {
+			return nil, fmt.Errorf("question %s has an invalid or duplicate choice ID %q; stopped", questionID, choiceID)
+		}
+		textHTML, _ := choice["text"].(string)
+		text, err := PrintText([]byte(`<div id="HH-React-Root">` + textHTML + `</div>`))
+		if err != nil || strings.TrimSpace(text) == "" {
+			return nil, fmt.Errorf("question %s choice %s has no readable text; stopped", questionID, choiceID)
+		}
+		seen[choiceID] = true
+		out = append(out, ApplicationChoice{ID: choiceID, Text: text})
+	}
+	return out, nil
 }
 
 func questionnaireFields(body []byte) (Object, error) {

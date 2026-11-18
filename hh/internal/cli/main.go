@@ -51,6 +51,7 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
   resumes list
       List every resume, including its stable public ID and print-view URL.
   vacancies search [--text QUERY] [--skill NAME ...] [--remote] [--area ID ...]
+                   [--employer ID ...] [--professional-area ID]
                    [--page N] [--per-page N] [--output FILE]
       Search one candidate page through GET only. Omit --area for all locations,
       including on kazan.hh.ru; returned criteria must confirm the requested areas.
@@ -63,6 +64,11 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       broader --text query to expand discovery; only exact tags qualify results.
       total_candidates and next_page refer to discovery, not skill-filtered matches.
       --page is zero-based (default 0); --per-page is 1..100 (default 20).
+      --employer limits exact HH employer IDs and can be used without text.
+      --professional-area resolves the category's current professional-role IDs
+      from HH's native dictionary before searching; 11 is Information Technology.
+      The returned criteria and every result's employer are verified. Category
+      searches add one dictionary GET per page; all requests remain sequential.
       HH exposes at most the first 2000 candidates. Results include salary amounts,
       currencyCode, gross flag and HH pay-period mode when supplied by the employer.
       --text is sent unchanged using HH's query language (article/25295):
@@ -132,6 +138,7 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
   application questions VACANCY [--output FILE]
       Read the full native questionnaire, without sending or choosing a resume.
       Open text and one selected ID per radio/checkbox question are supported.
+      An open question with listed choices takes a choice ID or free text.
       Multiple selections and access challenges stop.
   application prepare VACANCY --resume HASH --text-file FILE [--answers-file FILE] [--output FILE]
       Prepare an exact local application package using GET requests only.

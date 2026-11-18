@@ -29,6 +29,8 @@ func parseVacancySearch(args []string) (domain.VacancySearchOptions, string, err
 	options.Var((*searchValues)(&search.Skills), "skill", "exact key-skill tag; repeat to match any requested tag")
 	options.BoolVar(&search.Remote, "remote", false, "require REMOTE work format")
 	options.Var((*searchValues)(&search.Areas), "area", "HH area ID; repeat for multiple areas, omit for all locations")
+	options.Var((*searchValues)(&search.Employers), "employer", "HH employer ID; repeat for multiple employers")
+	options.StringVar(&search.ProfessionalArea, "professional-area", "", "HH professional category ID; resolve its current roles from the native search dictionary")
 	options.IntVar(&search.Page, "page", 0, "zero-based candidate page")
 	options.IntVar(&search.PerPage, "per-page", 20, "candidate page size, 1 to 100")
 	output := options.String("output", "", "JSON output file")

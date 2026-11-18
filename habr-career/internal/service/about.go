@@ -146,7 +146,22 @@ func (c *Client) VerifyAbout(ctx context.Context, id domain.ResumeID, descriptio
 
 func otherAboutContent(r *Resume) Object {
 	f := object(r.Fields)
-	return Object{"user": resumeContent(r).User, "companies": f["companies"], "education": educationWithoutAlumniCounts(f["education"]), "additionalEducation": f["additionalEducation"]}
+	return Object{"user": resumeContent(r).User, "companies": employmentContent(f["companies"]), "education": educationWithoutAlumniCounts(f["education"]), "additionalEducation": f["additionalEducation"]}
+}
+
+// employmentContent keeps the applicant's own employment rows. Employer cards
+// also carry live Habr counters, such as a company blog's post count.
+func employmentContent(section any) any {
+	items, ok := object(section)["items"].([]any)
+	if !ok {
+		return section
+	}
+	rows := make([]any, len(items))
+	for i, item := range items {
+		row := object(item)
+		rows[i] = Object{"title": row["title"], "positions": row["positions"]}
+	}
+	return rows
 }
 
 func educationWithoutAlumniCounts(section any) any {
