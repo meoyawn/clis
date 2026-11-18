@@ -42,17 +42,19 @@ Usage: habr-career COMMAND [OPTIONS]
   resume experience ALIAS --experience ID
       Read one exact native employment form: company, position, HTML description
       and current metadata. GET only; retains repeated skill/select form fields.
-  resume update ALIAS --experience ID --description-file FILE [--apply] [--backup-dir DIR]
-      Preview or replace that existing employment description (native HTML).
+  resume update ALIAS --experience ID [--description-file FILE] [--position TEXT]
+                [--apply] [--backup-dir DIR]
+      Preview or replace that existing employment description (native HTML),
+      its free-text position title, or both. An omitted one keeps its saved value.
       For an imported job with both required classifications empty, specify its
       --specialization-id ID and --qualification-id ID from the native form.
       --apply requires the user's instruction, saves a private backup, posts the
       fresh native form once, preserves other metadata, and verifies saved fields,
       employer print text and unchanged profile/other employment passages.
-      Does not change contact details, salary, skills, dates, title or visibility.
-  resume verify ALIAS --experience ID --description-file FILE
-      GET-only description/form and employer print verification after an uncertain
-      update. Never replay a write. Use the exact description file from the update.
+      Does not change contact details, salary, skills, dates or visibility.
+  resume verify ALIAS --experience ID [--description-file FILE] [--position TEXT]
+      GET-only description/position/form and employer print verification after an
+      uncertain update. Never replay a write. Use the exact values from the update.
   vacancy get ID
   vacancy response-options ID
       Read the live role and native response preflight: employer pay, location,

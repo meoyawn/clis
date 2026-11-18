@@ -47,7 +47,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	sessionFile := fs.String("session-file", "", "saved cookie jar")
 	output := fs.String("output", "", "private JSON output")
 	timeout := fs.Duration("timeout", 90*time.Second, "whole-command deadline")
-	var profile, cookies, resume, textFile, draftFile, approved, experience, descriptionFile, backupDir, patchFile string
+	var profile, cookies, resume, textFile, draftFile, approved, experience, descriptionFile, position, backupDir, patchFile string
 	var send, apply bool
 	var classification service.ExperienceClassification
 	if command == "auth import" {
@@ -67,7 +67,11 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 		fs.IntVar(&classification.SpecializationID, "specialization-id", 0, "native specialization for an unclassified job")
 		fs.IntVar(&classification.QualificationID, "qualification-id", 0, "native qualification for an unclassified job")
 	}
-	needsDescription := command == "resume update" || command == "resume verify" || command == "resume about" || command == "resume verify-about"
+	editsExperience := command == "resume update" || command == "resume verify"
+	if editsExperience {
+		fs.StringVar(&position, "position", "", "exact position title of that employment row")
+	}
+	needsDescription := editsExperience || command == "resume about" || command == "resume verify-about"
 	if needsDescription {
 		fs.StringVar(&descriptionFile, "description-file", "", "exact native HTML description")
 	}
@@ -150,7 +154,11 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 			return err
 		}
 	}
-	if needsDescription {
+	if editsExperience && descriptionFile == "" && position == "" {
+		return fmt.Errorf("%s requires --description-file FILE or --position TEXT", command)
+	}
+	// A position-only experience edit keeps the saved description.
+	if needsDescription && (descriptionFile != "" || !editsExperience) {
 		if descriptionFile == "" {
 			return fmt.Errorf("%s requires --description-file FILE", command)
 		}
@@ -159,6 +167,9 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 			return err
 		}
 		description = string(data)
+		if editsExperience && description == "" {
+			return fmt.Errorf("%s --description-file is empty; omit it to keep the saved description", command)
+		}
 	}
 	if command == "application prepare" || command == "application update" {
 		if textFile == "" {
@@ -248,9 +259,9 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	case "resume experience":
 		result, err = client.Experience(ctx, resumeID, experienceID)
 	case "resume update":
-		result, err = client.UpdateExperience(ctx, resumeID, experienceID, description, classification, apply, backupDir)
+		result, err = client.UpdateExperience(ctx, resumeID, experienceID, description, position, classification, apply, backupDir)
 	case "resume verify":
-		result, err = client.VerifyExperience(ctx, resumeID, experienceID, description)
+		result, err = client.VerifyExperience(ctx, resumeID, experienceID, description, position)
 	case "resume about":
 		result, err = client.UpdateAbout(ctx, resumeID, description, apply, backupDir)
 	case "resume verify-about":

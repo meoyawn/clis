@@ -18,10 +18,13 @@ import (
 )
 
 func TestExperienceDescriptionNativeFormPreservationAndReadback(t *testing.T) {
-	for _, scenario := range []string{"preview", "apply", "unclassified-job", "fill-classification", "unknown-classification", "wrong-owner", "unknown-field", "wrong-form", "missing-date-state", "missing-skills-state", "metadata-drift", "other-job-drift", "missing-print", "rate-limit"} {
+	for _, scenario := range []string{"preview", "apply", "unclassified-job", "fill-classification", "unknown-classification", "wrong-owner", "unknown-field", "wrong-form", "missing-date-state", "missing-skills-state", "metadata-drift", "other-job-drift", "missing-print", "rate-limit", "position-preview", "position", "position-drift"} {
 		t.Run(scenario, func(t *testing.T) {
 			const alias = "synthetic-user"
 			const newDescription = "<p>Built end-to-end tests.</p><p>Implemented system-wide observability.</p>\n"
+			const newPosition = "Staff Engineer"
+			// Position scenarios omit the description, which must keep the saved passage.
+			changingPosition := strings.HasPrefix(scenario, "position")
 			description, posts := "<p>Previous description</p>", 0
 			originalMetadata := url.Values{
 				"_method": {"patch"}, "experience[company_name]": {"Synthetic Product"}, "experience[position]": {"Engineer"},
@@ -103,10 +106,20 @@ func TestExperienceDescriptionNativeFormPreservationAndReadback(t *testing.T) {
 					if err := r.ParseForm(); err != nil {
 						t.Error(err)
 					}
-					if r.PostForm.Get("experience[description]") != newDescription {
+					wantDescription := newDescription
+					if changingPosition {
+						wantDescription = description
+					}
+					if r.PostForm.Get("experience[description]") != wantDescription {
 						t.Error("description bytes changed in transport")
 					}
 					delete(r.PostForm, "experience[description]")
+					if changingPosition {
+						if r.PostForm.Get("experience[position]") != newPosition {
+							t.Error("requested position was not posted")
+						}
+						r.PostForm.Set("experience[position]", originalMetadata.Get("experience[position]"))
+					}
 					if classifying {
 						if !reflect.DeepEqual(r.PostForm["experience[specialization_id]"], []string{"", "5"}) || r.PostForm.Get("experience[qualification_id]") != "4" {
 							t.Fatal("imported role did not post the selected native radio and grade")
@@ -123,7 +136,10 @@ func TestExperienceDescriptionNativeFormPreservationAndReadback(t *testing.T) {
 						w.WriteHeader(429)
 						return
 					}
-					description = strings.TrimRight(newDescription, "\r\n")
+					if changingPosition && scenario != "position-drift" {
+						originalMetadata.Set("experience[position]", newPosition)
+					}
+					description = strings.TrimRight(wantDescription, "\r\n")
 					fmt.Fprint(w, `window.location = "/profile/experiences";`)
 				case "/" + alias:
 					other := "Unchanged previous job"
@@ -131,7 +147,7 @@ func TestExperienceDescriptionNativeFormPreservationAndReadback(t *testing.T) {
 						other = "Unintended edit"
 					}
 					writePage(w, service.Object{"placeholder": nil, "user": service.Object{"id": alias, "title": "Synthetic Applicant", "isOwner": true, "shouldDisplayInfo": true, "print": service.Object{"html": service.Origin + "/" + alias + "/print"}}, "resume": service.Object{"about": service.Object{"value": "Unchanged summary"}, "companies": service.Object{"items": []any{
-						service.Object{"title": "Synthetic Product", "positions": []any{service.Object{"title": "Engineer", "duration": "2020–present", "message": description}}},
+						service.Object{"title": "Synthetic Product", "positions": []any{service.Object{"title": originalMetadata.Get("experience[position]"), "duration": "2020–present", "message": description}}},
 						service.Object{"title": "Previous Employer", "positions": []any{service.Object{"title": "Engineer", "message": other}}},
 					}}}})
 				case "/" + alias + "/print":
@@ -139,7 +155,7 @@ func TestExperienceDescriptionNativeFormPreservationAndReadback(t *testing.T) {
 					if posts > 0 && scenario == "missing-print" {
 						content = "Previous description only"
 					}
-					fmt.Fprintf(w, `<div class="content"><h1 class="full_name">Synthetic Applicant</h1><a href="%s/%s">Profile</a>%s</div>`, service.Origin, alias, content)
+					fmt.Fprintf(w, `<div class="content"><h1 class="full_name">Synthetic Applicant</h1><a href="%s/%s">Profile</a><p>%s</p>%s</div>`, service.Origin, alias, html.EscapeString(originalMetadata.Get("experience[position]")), content)
 				default:
 					t.Errorf("unexpected profile request %s %s", r.Method, r.URL)
 					http.NotFound(w, r)
@@ -153,16 +169,29 @@ func TestExperienceDescriptionNativeFormPreservationAndReadback(t *testing.T) {
 			resume, _ := domain.NewResumeIDFromValue(alias)
 			experience, _ := domain.NewExperienceIDFromValue("123")
 			dir := t.TempDir()
-			result, err := client.UpdateExperience(t.Context(), resume, experience, newDescription, classification, scenario != "preview", dir)
+			requestedDescription, requestedPosition := newDescription, ""
+			if changingPosition {
+				requestedDescription, requestedPosition = "", newPosition
+			}
+			result, err := client.UpdateExperience(t.Context(), resume, experience, requestedDescription, requestedPosition, classification, scenario != "preview" && scenario != "position-preview", dir)
 			if scenario == "preview" {
 				if err != nil || posts != 0 || result["after"] != newDescription || result["applied"] != false {
 					t.Fatalf("preview wrote or changed the package: %v %v", result, err)
 				}
 				return
 			}
-			if scenario == "apply" || scenario == "unclassified-job" || scenario == "fill-classification" {
+			if scenario == "position-preview" {
+				if err != nil || posts != 0 || result["position"] != "Engineer" || result["position_after"] != newPosition || result["after"] != description || result["applied"] != false {
+					t.Fatalf("position preview wrote or changed the package: %v %v", result, err)
+				}
+				return
+			}
+			if scenario == "apply" || scenario == "unclassified-job" || scenario == "fill-classification" || scenario == "position" {
 				if err != nil || posts != 1 || result["verified"] != true || result["applied"] != true {
 					t.Fatalf("profile update not verified: %v %v posts=%d", result, err, posts)
+				}
+				if scenario == "position" && (result["position"] != newPosition || result["description_html"] != "<p>Previous description</p>") {
+					t.Fatalf("position update changed the wrong fields: %v", result)
 				}
 				info, err := os.Stat(result["backup_path"].(string))
 				if err != nil || info.Mode().Perm() != 0600 {

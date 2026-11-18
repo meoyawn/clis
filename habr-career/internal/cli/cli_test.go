@@ -32,6 +32,8 @@ func TestOfflineCommandsAndInvalidArgumentsNeedNoSession(t *testing.T) {
 		{"resume", "delete", "synthetic"},
 		{"resumes", "list"},
 		{"profile", "specialization", "update"},
+		{"resume", "update", "synthetic", "--experience", "123"},
+		{"resume", "verify", "synthetic", "--experience", "123"},
 	} {
 		var stdout bytes.Buffer
 		if err := cli.Run(t.Context(), args, &stdout, &bytes.Buffer{}); err == nil || stdout.Len() != 0 {

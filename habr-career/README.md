@@ -40,7 +40,8 @@ verifies the form, public profile and employer print view. Omitted patch keys
 stay unchanged. `profile specialization verify --patch FILE` is read-only recovery.
 `resume experiences` lists native row IDs; `resume experience` exports one
 exact edit form. `resume update --experience ID --description-file FILE` previews
-an HTML description replacement; `--apply` backs up and writes the fresh native
+an HTML description replacement and `--position TEXT` a new position title; either
+may be given alone. `--apply` backs up and writes the fresh native
 form, preserving repeated fields and checking the saved form, employer print
 view and unrelated profile/employment content. `resume verify` is GET-only.
 Date, current-employment, specialization and skill widgets are reconstructed

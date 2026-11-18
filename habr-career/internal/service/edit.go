@@ -45,6 +45,13 @@ func validDescription(text string) error {
 	return nil
 }
 
+func validPosition(text string) error {
+	if !utf8.ValidString(text) || strings.TrimSpace(text) != text || strings.ContainsAny(text, "\r\n\t") {
+		return fmt.Errorf("position must be single-line valid UTF-8 without surrounding whitespace; no write attempted")
+	}
+	return nil
+}
+
 func (c *Client) UpdateApplication(ctx context.Context, vacancyID domain.VacancyID, resumeID domain.ResumeID, letter string, apply bool, backupDir string) (Object, error) {
 	if err := validDescription(letter); err != nil {
 		return nil, err
@@ -387,12 +394,13 @@ func profileExceptExperience(r *Resume, company, position string) (Object, error
 		}
 		for _, value := range entries {
 			p := object(value)
-			message := p["message"]
-			if row["title"] == company && p["title"] == position {
-				message = nil
+			title, message := p["title"], p["message"]
+			if row["title"] == company && title == position {
+				// The edited row's title and passage are verified separately.
+				title, message = nil, nil
 				matches++
 			}
-			positions = append(positions, Object{"title": p["title"], "duration": p["duration"], "message": message})
+			positions = append(positions, Object{"title": title, "duration": p["duration"], "message": message})
 		}
 		jobs = append(jobs, Object{"company": row["title"], "positions": positions})
 	}
@@ -402,13 +410,24 @@ func profileExceptExperience(r *Resume, company, position string) (Object, error
 	return Object{"user": resumeContent(r).User, "about": object(object(r.Fields)["about"])["value"], "jobs": jobs}, nil
 }
 
-func (c *Client) VerifyExperience(ctx context.Context, resumeID domain.ResumeID, id domain.ExperienceID, description string) (Object, error) {
+// VerifyExperience checks the saved form and employer print view. An empty
+// description or position means that field was not part of the request.
+func (c *Client) VerifyExperience(ctx context.Context, resumeID domain.ResumeID, id domain.ExperienceID, description, position string) (Object, error) {
+	if description == "" && position == "" {
+		return nil, fmt.Errorf("experience %s verification needs a description or a position", id.String())
+	}
 	current, err := c.Experience(ctx, resumeID, id)
 	if err != nil {
 		return nil, err
 	}
+	if description == "" {
+		description = current.DescriptionHTML
+	}
 	if strings.TrimRight(current.DescriptionHTML, "\r\n") != strings.TrimRight(description, "\r\n") {
 		return nil, fmt.Errorf("experience %s saved description differs from the requested content; inspect before retrying", id.String())
+	}
+	if position != "" && current.Position != position {
+		return nil, fmt.Errorf("experience %s saved position differs from the requested title; inspect before retrying", id.String())
 	}
 	view, err := c.Resume(ctx, resumeID)
 	if err != nil {
@@ -420,21 +439,46 @@ func (c *Client) VerifyExperience(ctx context.Context, resumeID domain.ResumeID,
 			return nil, fmt.Errorf("experience %s description is missing from the native employer print view; stopped", id.String())
 		}
 	}
+	if position != "" && !strings.Contains(printText, strings.Join(strings.Fields(position), " ")) {
+		return nil, fmt.Errorf("experience %s position is missing from the native employer print view; stopped", id.String())
+	}
 	return Object{"resume_id": resumeID.String(), "experience_id": id.String(), "company": current.Company, "position": current.Position, "description_html": current.DescriptionHTML, "view_url": view.ViewURL, "verified": true}, nil
 }
 
-func (c *Client) UpdateExperience(ctx context.Context, resumeID domain.ResumeID, id domain.ExperienceID, description string, classification ExperienceClassification, apply bool, backupDir string) (Object, error) {
-	if err := validDescription(description); err != nil {
-		return nil, err
+// UpdateExperience replaces the description, the position title, or both.
+// An empty description or position keeps the saved value.
+func (c *Client) UpdateExperience(ctx context.Context, resumeID domain.ResumeID, id domain.ExperienceID, description, position string, classification ExperienceClassification, apply bool, backupDir string) (Object, error) {
+	if description == "" && position == "" {
+		return nil, fmt.Errorf("experience %s update needs a description or a position; no write attempted", id.String())
+	}
+	if description != "" {
+		if err := validDescription(description); err != nil {
+			return nil, err
+		}
+	}
+	if position != "" {
+		if err := validPosition(position); err != nil {
+			return nil, err
+		}
 	}
 	before, err := c.Experience(ctx, resumeID, id)
 	if err != nil {
 		return nil, err
 	}
+	if description == "" {
+		description = before.DescriptionHTML
+	}
+	if position == "" {
+		position = before.Position
+	}
 	result := Object{"resume_id": resumeID.String(), "experience_id": id.String(), "company": before.Company, "position": before.Position, "before": before.DescriptionHTML, "after": description, "applied": false}
 	expected, err := before.fillClassification(classification)
 	if err != nil {
 		return nil, err
+	}
+	if position != before.Position {
+		result["position_after"] = position
+		expected.Set("experience[position]", position)
 	}
 	if classification != (ExperienceClassification{}) {
 		result["specialization_id"], result["qualification_id"] = classification.SpecializationID, classification.QualificationID
@@ -455,6 +499,7 @@ func (c *Client) UpdateExperience(ctx context.Context, resumeID domain.ResumeID,
 		return nil, err
 	}
 	before.fields.Set("experience[description]", description)
+	before.fields.Set("experience[position]", position)
 	if _, err := c.requestForm(ctx, "/profile/experiences/"+id.String(), before.csrf, before.fields); err != nil {
 		return nil, fmt.Errorf("experience %s update may be uncertain: %w; backup %q; use resume verify before retrying", id.String(), err, backup)
 	}
@@ -465,7 +510,7 @@ func (c *Client) UpdateExperience(ctx context.Context, resumeID domain.ResumeID,
 	if !reflect.DeepEqual(expected, after.Metadata) {
 		return nil, fmt.Errorf("experience %s saved metadata differs from the requested fields; backup %q; inspect before retrying", id.String(), backup)
 	}
-	verified, err := c.VerifyExperience(ctx, resumeID, id, description)
+	verified, err := c.VerifyExperience(ctx, resumeID, id, description, position)
 	if err != nil {
 		return nil, fmt.Errorf("experience %s update sent but verification failed: %w; backup %q; do not repeat", id.String(), err, backup)
 	}
@@ -473,7 +518,7 @@ func (c *Client) UpdateExperience(ctx context.Context, resumeID domain.ResumeID,
 	if err != nil {
 		return nil, err
 	}
-	current, err := profileExceptExperience(resumeAfter, before.Company, before.Position)
+	current, err := profileExceptExperience(resumeAfter, before.Company, position)
 	if err != nil {
 		return nil, err
 	}
