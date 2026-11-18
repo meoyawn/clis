@@ -155,7 +155,7 @@ func TestLiveCoverLetterReadbackBindsChatMessageAndApplication(t *testing.T) {
 					if err == nil || status.Messages != nil {
 						t.Fatalf("foreign chat message accepted: %v %v", status.Messages, err)
 					}
-					if deletedMode && !strings.Contains(err.Error(), "deleted topic") {
+					if deletedMode && !strings.Contains(err.Error(), "retained topic") {
 						t.Fatalf("deleted-topic binding failed for an unrelated reason: %v", err)
 					}
 					return

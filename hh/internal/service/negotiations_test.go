@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -230,6 +231,87 @@ func TestExistingApplicationAndRecordedLetterEvidence(t *testing.T) {
 			encoded, _ := json.Marshal(status)
 			if strings.Contains(string(encoded), "must-not-appear") {
 				t.Fatal("HAR verification exposed credentials")
+			}
+		})
+	}
+}
+
+// HH answers an employer-restricted vacancy with a signed-in 403 page. Only that
+// exact page may fall back to the retained topic, which still needs chat binding.
+func TestRestrictedVacancyKeepsRetainedTopicForChatBinding(t *testing.T) {
+	for _, scenario := range []string{"restricted", "captcha", "other-vacancy", "additional-check"} {
+		t.Run(scenario, func(t *testing.T) {
+			row := existingTopic("501", "102", true)
+			row["lastState"] = "DISCARD"
+			page := hh.Object{"forbidden": true, "additionalCheck": false,
+				"errorPage":           hh.Object{"isError": true, "errorMessage": "Вам недоступна эта вакансия."},
+				"vacancyInternalInfo": hh.Object{"vacancyId": 135582813}}
+			switch scenario {
+			case "captcha":
+				page["hhcaptcha"] = hh.Object{"isBot": true}
+			case "other-vacancy":
+				page["vacancyInternalInfo"] = hh.Object{"vacancyId": 135582814}
+			case "additional-check":
+				page["additionalCheck"] = true
+			}
+			linked := hh.Object{"NEGOTIATION_TOPIC": []any{"501"}, "VACANCY": []any{"135582813"}, "RESUME": []any{"102"}}
+			chatState := hh.Object{"chatData": hh.Object{
+				"chat": hh.Object{"id": "888", "type": "NEGOTIATION", "currentParticipantId": "777", "resources": linked,
+					"ownerEmployerInfo": hh.Object{"id": "125"},
+					"messages": hh.Object{"hasMore": false, "items": []any{hh.Object{"id": "1000", "chatId": "888", "participantId": "778",
+						"hidden": false, "type": "SIMPLE", "text": "Отказ", "workflowTransition": hh.Object{"topicId": "501", "applicantState": "DISCARD"}}}}},
+				"resources": hh.Object{"negotiation_topics": hh.Object{"501": hh.Object{"topicId": "501", "vacancyId": "135582813", "resumeId": "102", "currentApplicantState": "DISCARD"}},
+					"resumeHashById": hh.Object{"102": hashes[1]}}}}
+			vacancyReads := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					t.Errorf("read command attempted a mutation: %s %s", r.Method, r.URL)
+					w.WriteHeader(500)
+					return
+				}
+				switch r.URL.Path {
+				case "/applicant/negotiations":
+					_ = json.NewEncoder(w).Encode(hh.Object{
+						"applicantNegotiations": hh.Object{"filterInUse": domain.ActiveNegotiations().String(), "pageCount": "1", "total": 1, "topicList": []any{row}},
+						"vacanciesShort":        hh.Object{"vacanciesList": []any{hh.Object{"vacancyId": 135582813, "name": "Restricted role", "company": hh.Object{"id": 125, "name": "Employer"}}}}})
+				case "/vacancy/135582813":
+					vacancyReads++
+					data, _ := json.Marshal(page)
+					w.WriteHeader(http.StatusForbidden)
+					fmt.Fprintf(w, `<html><body><template id="HH-Lux-InitialState">%s</template></body></html>`, html.EscapeString(string(data)))
+				case "/chat/888":
+					data, _ := json.Marshal(chatState)
+					fmt.Fprintf(w, `<template style="display:none" class="Chatik-InitialState">%s</template>`, html.EscapeString(string(data)))
+				default:
+					t.Errorf("unexpected request: %s", r.URL)
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+			base, _ := url.Parse(server.URL)
+			client := hh.NewClient(server.Client(), base)
+			result, err := client.ApplicationsFiltered(context.Background(), domain.ActiveNegotiations(), true)
+			if vacancyReads != 1 {
+				t.Fatalf("vacancy read repeated or missing: %d", vacancyReads)
+			}
+			if scenario != "restricted" {
+				if err == nil || result != nil || !strings.Contains(err.Error(), `"status":403`) {
+					t.Fatalf("non-restriction 403 accepted as a retained topic: %v %v", result, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			status := result["applications"].([]*hh.ApplicationStatus)[0]
+			if status.Verified || status.VacancyHTTP != http.StatusForbidden || status.Archived || status.ApplicantState != "SHOW" || status.State != "DISCARD" || status.Title != "Restricted role" {
+				t.Fatalf("restricted topic lost its retained state or was verified early: %+v", status)
+			}
+			if err := client.ReadApplicationMessages(context.Background(), status); err != nil {
+				t.Fatal(err)
+			}
+			if !status.Verified || status.ResumeID != hashes[1] {
+				t.Fatalf("retained chat did not bind the restricted topic: %+v", status)
 			}
 		})
 	}

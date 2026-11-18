@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -28,6 +29,25 @@ type Vacancy struct {
 type vacancyPage struct {
 	data          Object
 	responseState Object
+}
+
+// restrictedVacancy recognizes HH's signed-in "vacancy unavailable to you"
+// page for this exact vacancy. CAPTCHA, extra checks and other 403s stay errors.
+func restrictedVacancy(err error, id VacancyID) bool {
+	var httpErr *HTTPError
+	if !errors.As(err, &httpErr) || httpErr.Status != http.StatusForbidden || httpErr.Method != http.MethodGet {
+		return false
+	}
+	state, decodeErr := DecodeState(httpErr.body)
+	if decodeErr != nil {
+		return false
+	}
+	if _, captcha := state["hhcaptcha"]; captcha {
+		return false
+	}
+	page, _ := state["errorPage"].(map[string]any)
+	info, _ := state["vacancyInternalInfo"].(map[string]any)
+	return state["forbidden"] == true && state["additionalCheck"] == false && page["isError"] == true && nativeID(info["vacancyId"]) == id.String()
 }
 
 func (c *Client) readVacancyPage(ctx context.Context, id VacancyID) (*vacancyPage, error) {

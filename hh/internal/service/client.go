@@ -38,6 +38,8 @@ type HTTPError struct {
 	RetryAfter  string   `json:"retry_after,omitempty"`
 	RequestKeys []string `json:"request_keys,omitempty"`
 	Response    string   `json:"response"`
+	// body is the complete response for local classification; it is never serialized.
+	body []byte
 }
 
 func (e *HTTPError) Error() string {
@@ -122,7 +124,7 @@ func (c *Client) requestAt(ctx context.Context, method string, u *url.URL, paylo
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		return nil, &HTTPError{Method: method, URL: u.Redacted(), Status: res.StatusCode, DurationMS: time.Since(started).Milliseconds(), RetryAfter: res.Header.Get("Retry-After"), RequestKeys: keys, Response: boundedResponse(data)}
+		return nil, &HTTPError{Method: method, URL: u.Redacted(), Status: res.StatusCode, DurationMS: time.Since(started).Milliseconds(), RetryAfter: res.Header.Get("Retry-After"), RequestKeys: keys, Response: boundedResponse(data), body: data}
 	}
 	return data, nil
 }

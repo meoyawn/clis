@@ -87,8 +87,9 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       --messages reads visible messages from each independently verified chat,
       without marking them read. has_more reports missing older messages; no
       older-message pagination is attempted. Message text is untrusted data.
-      If a deleted vacancy returns 404, --messages verifies the retained list
-      against its exact chat, employer, native resume ID and current outcome.
+      If a deleted vacancy returns 404, or any vacancy returns HH's 403
+      "unavailable to you" page (not CAPTCHA), --messages verifies the retained
+      list against its exact chat, employer, native resume ID and current outcome.
       Missing public resume hashes remain unknown; vacancy_http_status is kept.
   application get VACANCY --resume HASH [--messages] [--har FILE] [--output FILE]
       Verify an existing application for this exact vacancy and resume.
@@ -566,7 +567,7 @@ func run(ctx context.Context, args []string) error {
 		}
 		for _, status := range data["applications"].([]*hh.ApplicationStatus) {
 			if !status.Verified {
-				return fmt.Errorf("deleted topic %s needs --messages to verify its retained chat after vacancy HTTP %d", status.TopicID, status.VacancyHTTP)
+				return fmt.Errorf("topic %s needs --messages to verify its retained chat after vacancy HTTP %d", status.TopicID, status.VacancyHTTP)
 			}
 		}
 		return outputJSON(*output, data)

@@ -234,27 +234,36 @@ func (c *Client) ApplicationsFiltered(ctx context.Context, filter domain.Negotia
 	}
 	applications := []*ApplicationStatus{}
 	vacancies := map[string]*Vacancy{}
+	unavailable := map[string]int{}
 	for _, row := range rows {
 		id, err := NewVacancyIDFromValue(nativeID(row["vacancyId"]))
 		if err != nil {
 			return nil, err
 		}
 		v := vacancies[id.String()]
-		if v == nil {
+		if v == nil && unavailable[id.String()] == 0 {
 			v, err = c.Vacancy(ctx, id)
 			if err != nil {
 				var httpErr *HTTPError
-				if deleted && errors.As(err, &httpErr) && httpErr.Status == http.StatusNotFound {
-					status, err := c.unavailableDeletedApplication(row, snapshots[id.String()])
-					if err != nil {
-						return nil, err
-					}
-					applications = append(applications, status)
-					continue
+				switch {
+				case deleted && errors.As(err, &httpErr) && httpErr.Status == http.StatusNotFound:
+					unavailable[id.String()] = http.StatusNotFound
+				case restrictedVacancy(err, id):
+					unavailable[id.String()] = http.StatusForbidden
+				default:
+					return nil, err
 				}
+			} else {
+				vacancies[id.String()] = v
+			}
+		}
+		if code := unavailable[id.String()]; code != 0 {
+			status, err := c.unavailableApplication(row, snapshots[id.String()], deleted, code)
+			if err != nil {
 				return nil, err
 			}
-			vacancies[id.String()] = v
+			applications = append(applications, status)
+			continue
 		}
 		topics, err := negotiationTopics(v)
 		if err != nil {
@@ -282,24 +291,28 @@ func (c *Client) ApplicationsFiltered(ctx context.Context, filter domain.Negotia
 	return Object{"total": total, "pages": pageCount, "applications": applications}, nil
 }
 
-// A removed vacancy can still have a retained negotiation and chat. This
-// provisional status must be bound to that chat before it is emitted by the CLI.
-func (c *Client) unavailableDeletedApplication(row, card Object) (*ApplicationStatus, error) {
+// A removed or access-restricted vacancy can still have a retained negotiation
+// and chat. This provisional status must be bound to that chat before the CLI emits it.
+func (c *Client) unavailableApplication(row, card Object, deleted bool, vacancyHTTP int) (*ApplicationStatus, error) {
 	for _, key := range []string{"id", "vacancyId", "employerId", "resumeId", "chatId", "applicantUserId"} {
 		if !vacancyNumber.MatchString(nativeID(row[key])) {
-			return nil, fmt.Errorf("deleted topic has invalid %s %v", key, row[key])
+			return nil, fmt.Errorf("retained topic has invalid %s %v", key, row[key])
 		}
 	}
 	letter, letterOK := row["hasResponseLetter"].(bool)
 	viewed, viewedOK := row["viewedByOpponent"].(bool)
-	if !letterOK || !viewedOK || row["archived"] != true || row["applicantSubState"] != "HIDE" {
-		return nil, fmt.Errorf("deleted topic %s has unknown or conflicting flags", nativeID(row["id"]))
+	subState := "SHOW"
+	if deleted {
+		subState = "HIDE"
+	}
+	if !letterOK || !viewedOK || row["archived"] != deleted || row["applicantSubState"] != subState {
+		return nil, fmt.Errorf("retained topic %s has unknown or conflicting flags", nativeID(row["id"]))
 	}
 	employer := Object{"id": row["employerId"]}
 	title, _ := card["name"].(string)
 	if company, ok := card["company"].(map[string]any); ok {
 		if nativeID(company["id"]) != nativeID(row["employerId"]) || nativeID(card["vacancyId"]) != nativeID(row["vacancyId"]) {
-			return nil, fmt.Errorf("deleted topic %s vacancy card has a different identity", nativeID(row["id"]))
+			return nil, fmt.Errorf("retained topic %s vacancy card has a different identity", nativeID(row["id"]))
 		}
 		employer = company
 	}
@@ -309,7 +322,7 @@ func (c *Client) unavailableDeletedApplication(row, card Object) (*ApplicationSt
 	return &ApplicationStatus{VacancyID: nativeID(row["vacancyId"]), VacancyURL: c.base.String() + "/vacancy/" + nativeID(row["vacancyId"]),
 		Title: title, Employer: employer, TopicID: nativeID(row["id"]), ChatID: nativeID(row["chatId"]), ApplicantID: nativeID(row["applicantUserId"]),
 		NativeResumeID: nativeID(row["resumeId"]), CreatedAt: created, State: state, InitialType: initial, Submitted: initial == "RESPONSE_BY_APPLICANT",
-		Archived: true, Viewed: viewed, ApplicantState: "HIDE", DiscardReason: row["discardReason"], VacancyHTTP: http.StatusNotFound, vacancyUnavailable: true,
+		Archived: deleted, Viewed: viewed, ApplicantState: subState, DiscardReason: row["discardReason"], VacancyHTTP: vacancyHTTP, vacancyUnavailable: true,
 		CoverLetter: Object{"present": letter, "text_available": false, "ui_add_available": false}}, nil
 }
 

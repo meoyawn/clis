@@ -85,7 +85,7 @@ func (c *Client) readApplicationChat(ctx context.Context, status *ApplicationSta
 	if status.vacancyUnavailable {
 		owner, _ := chat["ownerEmployerInfo"].(map[string]any)
 		if resume != status.NativeResumeID || nativeID(owner["id"]) != nativeID(status.Employer["id"]) || topic["currentApplicantState"] != status.State {
-			return nil, fmt.Errorf("chat %s does not confirm the deleted topic's resume, employer and outcome", status.ChatID)
+			return nil, fmt.Errorf("chat %s does not confirm the retained topic's resume, employer and outcome", status.ChatID)
 		}
 		if hash, ok := hashes[resume].(string); ok && hash != "" {
 			id, err := NewResumeIDFromValue(hash)
