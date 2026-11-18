@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"syscall"
 
 	"github.com/meoyawn/clis/getmatch/internal/domain"
@@ -26,22 +27,53 @@ func (v *searchValues) Set(value string) error {
 
 func parseVacancySearch(args []string) (domain.VacancySearchOptions, string, error) {
 	var search domain.VacancySearchOptions
-	var levels searchValues
+	var levels, locations, skills searchValues
 	f := flag.NewFlagSet("vacancies search", flag.ContinueOnError)
 	f.SetOutput(io.Discard)
 	f.Var((*searchValues)(&search.Specializations), "specialization", "native specialization slug; repeat for multiple fields")
-	f.Var((*searchValues)(&search.Skills), "skill", "exact key-skill tag; repeat to match any requested tag")
+	f.Var(&skills, "skill", "exact key-skill tag; repeat to match any requested tag")
 	f.Var(&levels, "level", "junior, middle, senior, lead or c_level; repeat for multiple levels")
-	f.BoolVar(&search.Remote, "remote", false, "require an included remote work location")
+	f.Var(&locations, "location", "moscow, saints_p, regions_ru, relocate or remote; repeat for any of them")
+	remote := f.Bool("remote", false, "shorthand for --location remote")
 	f.IntVar(&search.Salary, "salary", 0, "native monthly RUB threshold: 0, 150000, 200000, 250000 or 350000")
+	f.StringVar(&search.Period, "period", "", "published within: all, 1d, 3d, 7d or 30d")
 	f.IntVar(&search.Page, "page", 0, "zero-based candidate page")
 	f.IntVar(&search.PerPage, "per-page", 20, "candidate page size, 1 to 100")
+	searchURL := f.String("url", "", "native getmatch.ru/vacancies URL with filters")
 	output := f.String("output", "", "new private JSON output file")
 	if err := f.Parse(args); err != nil {
 		return search, "", err
 	}
 	if f.NArg() != 0 {
 		return search, "", fmt.Errorf("unexpected search arguments %q", f.Args())
+	}
+	if *searchURL != "" {
+		var conflicts []string
+		f.Visit(func(fl *flag.Flag) {
+			switch fl.Name {
+			case "url", "skill", "per-page", "output":
+			default:
+				conflicts = append(conflicts, "--"+fl.Name)
+			}
+		})
+		if len(conflicts) != 0 {
+			return search, "", fmt.Errorf("--url already sets filters and page; drop %v", conflicts)
+		}
+		parsed, err := domain.ParseVacancySearchURL(*searchURL)
+		if err != nil {
+			return search, "", err
+		}
+		parsed.PerPage = search.PerPage
+		search = parsed
+	}
+	search.Skills = skills
+	if *remote {
+		locations = append(locations, "remote")
+	}
+	for _, location := range locations {
+		if !slices.Contains(search.Locations, location) {
+			search.Locations = append(search.Locations, location)
+		}
 	}
 	for _, value := range levels {
 		level, err := domain.NewLevelFromValue(value)

@@ -58,6 +58,12 @@ func (c *Client) SearchVacancies(ctx context.Context, options domain.VacancySear
 		"sa":     {"any"},
 		"pa":     {"all"},
 	}
+	if options.Period != "" {
+		query.Set("pa", options.Period)
+	}
+	if options.S != "" {
+		query.Set("s", options.S)
+	}
 	if options.Salary != 0 {
 		query.Set("sa", strconv.Itoa(options.Salary))
 	}
@@ -67,8 +73,8 @@ func (c *Client) SearchVacancies(ctx context.Context, options domain.VacancySear
 	for _, level := range options.Levels {
 		query.Add("se", level.String())
 	}
-	if options.Remote {
-		query.Set("l", "remote")
+	for _, location := range options.Locations {
+		query.Add("l", location)
 	}
 	var page searchPage
 	if err := c.get(ctx, "/api/offers", query, &page); err != nil {
@@ -103,6 +109,7 @@ func (c *Client) SearchVacancies(ctx context.Context, options domain.VacancySear
 		result.NextPage = &next
 	}
 	seen := make(map[string]bool, len(page.Offers))
+	remoteOnly := options.RemoteOnly()
 	for _, offer := range page.Offers {
 		item, active, err := searchItem(offer)
 		if err != nil {
@@ -112,7 +119,7 @@ func (c *Client) SearchVacancies(ctx context.Context, options domain.VacancySear
 			return nil, fmt.Errorf("search page %d repeats vacancy %s; stopped", options.Page, item.ID)
 		}
 		seen[item.ID] = true
-		if options.Remote && !hasRemoteLocation(item.Locations) {
+		if remoteOnly && !hasRemoteLocation(item.Locations) {
 			return nil, fmt.Errorf("remote search returned vacancy %s without an included remote location; stopped", item.ID)
 		}
 		if active && (len(options.Skills) == 0 || matchesSearchSkills(item.KeySkills, options.Skills)) {

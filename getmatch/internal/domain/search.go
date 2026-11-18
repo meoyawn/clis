@@ -2,17 +2,101 @@ package domain
 
 import (
 	"fmt"
+	"net/url"
+	"slices"
+	"strconv"
 	"strings"
 )
 
 type VacancySearchOptions struct {
 	Specializations []string
 	Skills          []string
-	Remote          bool
-	Salary          int
-	Levels          []Level
-	Page            int
-	PerPage         int
+	// Locations are native l values; Getmatch returns their union.
+	Locations []string
+	Salary    int
+	// Period is the native pa value; empty means all.
+	Period  string
+	Levels  []Level
+	Page    int
+	PerPage int
+	// S is the native s value, forwarded verbatim from a pasted search URL.
+	S string
+}
+
+var (
+	SearchLocations = []string{"moscow", "saints_p", "regions_ru", "relocate", "remote"}
+	SearchPeriods   = []string{"all", "1d", "3d", "7d", "30d"}
+)
+
+// RemoteOnly reports whether every returned vacancy must offer remote work.
+func (o VacancySearchOptions) RemoteOnly() bool {
+	return len(o.Locations) > 0 && !slices.ContainsFunc(o.Locations, func(l string) bool { return l != "remote" })
+}
+
+// ParseVacancySearchURL maps a getmatch.ru/vacancies URL onto search options.
+// Unknown parameters are rejected rather than silently dropped.
+func ParseVacancySearchURL(raw string) (VacancySearchOptions, error) {
+	options := VacancySearchOptions{PerPage: 20}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.Host != "getmatch.ru" && u.Host != "www.getmatch.ru" || strings.TrimSuffix(u.Path, "/") != "/vacancies" || u.User != nil {
+		return options, fmt.Errorf("invalid search URL %q: expected a https://getmatch.ru/vacancies search URL", raw)
+	}
+	query, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return options, fmt.Errorf("invalid search URL query: %w", err)
+	}
+	for key, values := range query {
+		single := func() (string, error) {
+			if len(values) != 1 {
+				return "", fmt.Errorf("search URL repeats %q", key)
+			}
+			return values[0], nil
+		}
+		var value string
+		switch key {
+		case "sp":
+			options.Specializations = values
+		case "l":
+			options.Locations = values
+		case "se":
+			for _, v := range values {
+				level, err := NewLevelFromValue(v)
+				if err != nil {
+					return options, err
+				}
+				options.Levels = append(options.Levels, level)
+			}
+		case "p":
+			if value, err = single(); err != nil {
+				return options, err
+			}
+			page, err := strconv.Atoi(value)
+			if err != nil || page < 1 {
+				return options, fmt.Errorf("invalid search URL p=%q: expected a positive page", value)
+			}
+			options.Page = page - 1
+		case "sa":
+			if value, err = single(); err != nil {
+				return options, err
+			}
+			if value != "any" {
+				if options.Salary, err = strconv.Atoi(value); err != nil {
+					return options, fmt.Errorf("invalid search URL sa=%q", value)
+				}
+			}
+		case "pa":
+			if options.Period, err = single(); err != nil {
+				return options, err
+			}
+		case "s":
+			if options.S, err = single(); err != nil {
+				return options, err
+			}
+		default:
+			return options, fmt.Errorf("unsupported search URL parameter %q", key)
+		}
+	}
+	return options, options.Validate()
 }
 
 func (o VacancySearchOptions) Validate() error {
@@ -33,6 +117,14 @@ func (o VacancySearchOptions) Validate() error {
 		if level == AllLevels() {
 			return fmt.Errorf("invalid search level %q: omit --level to search all levels", level.String())
 		}
+	}
+	for _, location := range o.Locations {
+		if !slices.Contains(SearchLocations, location) {
+			return fmt.Errorf("invalid location %q, allowed values: %v", location, SearchLocations)
+		}
+	}
+	if o.Period != "" && !slices.Contains(SearchPeriods, o.Period) {
+		return fmt.Errorf("invalid period %q, allowed values: %v", o.Period, SearchPeriods)
 	}
 	switch o.Salary {
 	case 0, 150000, 200000, 250000, 350000:

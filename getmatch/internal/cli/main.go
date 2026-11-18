@@ -47,20 +47,31 @@ Usage: getmatch [--anonymous] COMMAND [OPTIONS]
       from that same session; otherwise derive UA from installed macOS Chrome.
   auth status
       Local cookie presence/expiry metadata only; never print credentials.
-  vacancies search [--specialization SLUG ...] [--skill NAME ...] [--remote]
-                   [--salary NUMBER] [--level LEVEL ...]
+  vacancies search [--specialization SLUG ...] [--skill NAME ...]
+                   [--location LOC ...] [--remote] [--salary NUMBER]
+                   [--period PERIOD] [--level LEVEL ...]
                    [--page N] [--per-page N] [--output FILE]
+  vacancies search --url URL [--skill NAME ...] [--per-page N] [--output FILE]
       Read one native candidate page through GET only. Omit --specialization
       for all fields; slugs come from the live catalog (e.g. golang, python).
+      --url takes a https://getmatch.ru/vacancies?... search URL and maps
+      p, sa, pa, l, sp, se onto the flags below; s is forwarded verbatim
+      (no observed effect on results).
+      Other URL parameters are rejected. It excludes the flags it replaces.
       --skill matches ANY requested actual skill tag, ignoring case and outer
       spaces, never title/description text. Matching happens within this page.
-      --remote requires an included remote location; geographic restrictions
-      and exclusions remain in locations. It does not imply work from anywhere.
+      --location: moscow, saints_p, regions_ru (other Russian cities),
+      relocate, remote; repeat for vacancies matching ANY of them. Office and
+      hybrid roles in a city match its location. --remote is --location
+      remote. When remote is the only location, every result must have an
+      included remote location; geographic restrictions and exclusions remain
+      in locations. Remote does not imply work from anywhere.
       --salary uses Getmatch's monthly RUB thresholds: 0 (any, default),
       150000, 200000, 250000 or 350000. Native results can include hidden
       salaries: a threshold does not establish a disclosed employer budget.
       Compensation preserves the source currency, taxes (gross/net), total
       compensation and estimate flags; amounts are monthly and not converted.
+      --period: published within all (default), 1d, 3d, 7d or 30d.
       --level: junior, middle, senior, lead, c_level; omit for all levels.
       --page is zero-based (default 0), mapped to native p=page+1;
       --per-page is 1..100 (default 20). total_candidates, scanned_candidates
@@ -70,6 +81,7 @@ Usage: getmatch [--anonymous] COMMAND [OPTIONS]
       private file (0600). No account changes, automatic paging or retries.
       Example: vacancies search --specialization golang --remote --salary 350000
       Example: vacancies search --skill Go --skill Golang --remote --per-page 100
+      Example: vacancies search --url 'https://getmatch.ru/vacancies?p=1&sa=250000&l=regions_ru&l=remote&sp=golang'
   vacancies get --id ID
       Read the exact live vacancy; accepts a canonical Getmatch vacancy URL.
   profile get --output FILE
@@ -81,6 +93,8 @@ Usage: getmatch [--anonymous] COMMAND [OPTIONS]
       Preview or update the shared profile through native editing endpoints.
       Supported fields: first_name, last_name, phone, summary, skills, languages, links,
       experience. Arrays replace their section. Export before editing IDs.
+      Summaries render as Markdown: single newlines collapse within a paragraph;
+      separate paragraphs with a blank line and write lists as "- item" lines.
       --apply saves a private backup and checks changed and preserved fields.
   applications list [--all | --offset N] [--output FILE]
       Read application IDs, vacancies, current status, dates, cover letters

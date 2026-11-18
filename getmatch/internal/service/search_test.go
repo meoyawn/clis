@@ -59,8 +59,9 @@ func TestSearchVacanciesNativeFiltersAndExactTags(t *testing.T) {
 	client := NewClient(&http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		calls++
 		want := url.Values{
-			"p": {"1"}, "offset": {"0"}, "limit": {"6"}, "pa": {"all"}, "sa": {"350000"},
-			"l": {"remote"}, "sp": {"golang", "python"}, "se": {"senior", "lead"},
+			"p": {"1"}, "offset": {"0"}, "limit": {"6"}, "sa": {"350000"},
+			"l": {"regions_ru", "remote"}, "sp": {"golang", "python"}, "se": {"senior", "lead"},
+			"pa": {"7d"}, "s": {"wih"},
 		}
 		if r.Method != http.MethodGet || r.URL.Path != "/api/offers" || !reflect.DeepEqual(r.URL.Query(), want) || r.Header.Get("Referer") != Origin+"/vacancies" {
 			t.Fatalf("native search request changed: %s %s", r.Method, r.URL)
@@ -73,7 +74,7 @@ func TestSearchVacanciesNativeFiltersAndExactTags(t *testing.T) {
 	})}, nil)
 	result, err := client.SearchVacancies(context.Background(), domain.VacancySearchOptions{
 		Specializations: []string{"golang", "python"}, Skills: []string{"go", " Golang "},
-		Remote: true, Salary: 350000, Levels: []domain.Level{domain.Senior(), domain.Lead()}, PerPage: 6,
+		Locations: []string{"regions_ru", "remote"}, Period: "7d", S: "wih", Salary: 350000, Levels: []domain.Level{domain.Senior(), domain.Lead()}, PerPage: 6,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -111,10 +112,10 @@ func TestSearchVacanciesPageContract(t *testing.T) {
 		"all fields", "last page", "empty", "no matching tags", "unknown specialization",
 		"missing meta", "wrong offset", "wrong limit", "missing offers", "partial page",
 		"duplicate vacancy", "foreign URL", "wrong vacancy ID", "missing skill tags",
-		"excluded remote only", "office only", "missing salary visibility",
+		"excluded remote only", "office only", "office in union with remote", "missing salary visibility",
 	} {
 		t.Run(scenario, func(t *testing.T) {
-			options := domain.VacancySearchOptions{Remote: true, PerPage: 20}
+			options := domain.VacancySearchOptions{Locations: []string{"remote"}, PerPage: 20}
 			row := searchOfferFixture(101, []any{Object{"name": "Go"}})
 			page := searchPageFixture([]any{row}, 1, 0, 20)
 			wantErr := ""
@@ -156,6 +157,9 @@ func TestSearchVacanciesPageContract(t *testing.T) {
 			case "office only":
 				row["location_items"] = []any{Object{"label": "Москва", "format": "office", "exclude": false}}
 				wantErr = "included remote"
+			case "office in union with remote":
+				options.Locations = []string{"moscow", "remote"}
+				row["location_items"] = []any{Object{"label": "Москва", "format": "office", "exclude": false}}
 			case "missing salary visibility":
 				delete(row, "salary_hidden")
 				wantErr = "salary"
