@@ -138,7 +138,14 @@ uslugi-tatar gas --dry-run /path/to/private/meters.yaml
 uslugi-tatar main --dry-run /path/to/private/meters.yaml
 uslugi-tatar gas /path/to/private/meters.yaml
 uslugi-tatar main /path/to/private/meters.yaml
+uslugi-tatar status /path/to/private/meters.yaml
 ```
+
+`status` never submits. It reports whether the current Moscow month's YAML
+readings are already saved on the portal: gas when the last transmitted value
+equals the YAML reading, main when all three saved values equal it. A missing
+current-month YAML entry counts as not submitted. It exits nonzero when anything
+is pending.
 
 ## Validation and submission
 

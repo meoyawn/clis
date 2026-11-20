@@ -24,6 +24,9 @@ type gasReading struct {
 	History []gasReading
 }
 
+// errNoCurrentMonth marks a meters.yaml whose latest reading predates the current Moscow month.
+var errNoCurrentMonth = errors.New("no reading for the current month")
+
 type wholeNumber int64
 
 func (v *wholeNumber) UnmarshalYAML(n *yaml.Node) error {
@@ -116,7 +119,7 @@ func decodeGasReading(source io.Reader, now time.Time) (gasReading, error) {
 	sort.Slice(readings, func(i, j int) bool { return readings[i].Date.Before(readings[j].Date) })
 	latest := readings[len(readings)-1]
 	if latest.Date.Year() != now.Year() || latest.Date.Month() != now.Month() {
-		return gasReading{}, fmt.Errorf("latest gas reading %s must be in the current Moscow month %s", latest.Date.Format(time.DateOnly), now.Format("2006-01"))
+		return gasReading{}, fmt.Errorf("latest gas reading %s must be in the current Moscow month %s: %w", latest.Date.Format(time.DateOnly), now.Format("2006-01"), errNoCurrentMonth)
 	}
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	if latest.Date.After(today) {

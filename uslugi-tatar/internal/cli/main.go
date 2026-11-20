@@ -23,6 +23,11 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
   uslugi-tatar auth status
   uslugi-tatar accounts [--yaml] [--account <number>]
   uslugi-tatar {gas|main} [--dry-run] meters.yaml
+  uslugi-tatar status meters.yaml
+
+status checks, without submitting, whether this Moscow month's YAML readings
+are already saved on the portal (gas: last transmitted value; main: all three
+saved values). It exits nonzero when anything is still pending.
 
 Portal saved usage uses the site's saved readings and baseline, independently
 of YAML history. Gas reports accounted -> last transmitted usage and the site's
@@ -32,7 +37,7 @@ YAML history is labelled separately. --dry-run never submits meter readings.`)
 		if len(args) > 0 {
 			return nil
 		}
-		return fmt.Errorf("expected auth, accounts, gas or main")
+		return fmt.Errorf("expected auth, accounts, gas, main or status")
 	}
 	if args[0] == "auth" {
 		return runAuth(ctx, args[1:], out, errOut)
@@ -40,8 +45,8 @@ YAML history is labelled separately. --dry-run never submits meter readings.`)
 	if args[0] == "accounts" {
 		return runAccounts(ctx, args[1:], out, errOut)
 	}
-	if args[0] != "gas" && args[0] != "main" {
-		return fmt.Errorf("unknown command %q; expected auth, accounts, gas or main", args[0])
+	if args[0] != "gas" && args[0] != "main" && args[0] != "status" {
+		return fmt.Errorf("unknown command %q; expected auth, accounts, gas, main or status", args[0])
 	}
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	flags.SetOutput(errOut)
@@ -57,6 +62,12 @@ YAML history is labelled separately. --dry-run never submits meter readings.`)
 		return fmt.Errorf("load Moscow timezone: %w", err)
 	}
 	now := time.Now().In(zone)
+	if args[0] == "status" {
+		if *dryRun {
+			return fmt.Errorf("status never submits; drop --dry-run")
+		}
+		return runStatus(ctx, flags.Arg(0), now, out)
+	}
 	var gas gasReading
 	var main mainReading
 	if args[0] == "gas" {

@@ -78,7 +78,7 @@ func decodeMainReading(source io.Reader, now time.Time) (mainReading, error) {
 	sort.Slice(readings, func(i, j int) bool { return readings[i].Date.Before(readings[j].Date) })
 	latest := readings[len(readings)-1]
 	if latest.Date.Year() != now.Year() || latest.Date.Month() != now.Month() {
-		return mainReading{}, fmt.Errorf("latest main reading %s must be in the current Moscow month %s", latest.Date.Format(time.DateOnly), now.Format("2006-01"))
+		return mainReading{}, fmt.Errorf("latest main reading %s must be in the current Moscow month %s: %w", latest.Date.Format(time.DateOnly), now.Format("2006-01"), errNoCurrentMonth)
 	}
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	if latest.Date.After(today) {
