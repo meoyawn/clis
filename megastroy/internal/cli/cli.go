@@ -50,8 +50,8 @@ arguments; -- ends option parsing.
 
 auth import reads only anonymous DDoS-Guard cookies from your existing browser;
 import/status make no HTTP requests. On DDoS-Guard rejection, the CLI prints only
-the complete rejected URL to stderr and exits unsuccessfully. Open that URL in
-Chrome, complete the check, then run auth import for that same browser/profile
+the complete rejected URL to stderr and exits unsuccessfully. The human opens
+that URL in Chrome and completes the check; then run auth import for that same browser/profile
 and rerun your original command. The CLI does not launch a browser or retry.
 `
 

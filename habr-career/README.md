@@ -10,6 +10,7 @@ go run . profile get
 go run . profile specialization get
 go run . resume view YOUR_ALIAS
 go run . vacancy get https://career.habr.com/vacancies/1000000000
+go run . company vacancies https://career.habr.com/companies/synthetic/vacancies
 go run . applications list
 go run . application prepare 1000000000 --resume YOUR_ALIAS --text-file letter.txt --output draft.json
 go run . application submit --draft draft.json
@@ -69,8 +70,9 @@ pagination links, checking the account and advertised total; deleted responses
 are excluded. Read status is the site's label, not inferred interview progress.
 No quick-response request is used for inspection. Auth redirects, protection,
 rate limits and unknown forms stop without retries. Captures and account data
-must stay outside Git. Use `har inspect` for offline schema summaries; use Chrome
-only to discover missing HTTP contracts, implement/test support, then use the CLI.
+must stay outside Git. Use `har inspect` for offline schema summaries; inspect real
+browser traffic with the Chrome DevTools MCP only to learn missing HTTP
+contracts, implement/test support, then use the CLI.
 
 ```sh
 moon run habr-career:check

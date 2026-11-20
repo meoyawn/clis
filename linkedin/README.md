@@ -4,44 +4,37 @@ A Go CLI that returns LinkedIn people searches, company people and job openings,
 signed-in session. Cookie import uses [SweetCookie](https://github.com/steipete/sweetcookie/).
 
 ```sh
-go build -o linkedin .
-./linkedin auth login --browser chrome
-./linkedin companies people example-company
-```
-
-To install `linkedin` on your PATH:
-
-```sh
-go install .
+go run . auth login --browser chrome
+go run . companies people example-company
 ```
 
 Requires Go 1.27.2 or newer. Examples use placeholder company slugs and IDs;
 replace them with the company you want to look up.
 
 ```sh
-linkedin --help
-linkedin companies people --help
-linkedin companies jobs --help
-linkedin people search --help
-linkedin people profile --help
-linkedin people mutuals --help
-linkedin auth login --help
+go run . --help
+go run . companies people --help
+go run . companies jobs --help
+go run . people search --help
+go run . people profile --help
+go run . people mutuals --help
+go run . auth login --help
 ```
 
-Every command supports `-h` and `--help`. Use `linkedin help <command>` for
-the same help, for example `linkedin help companies people`.
+Every command supports `-h` and `--help`. Use `go run . help <command>` for
+the same help, for example `go run . help companies people`.
 
 ## Authentication
 
 Sign in to linkedin.com in your browser, then import its cookies:
 
 ```sh
-linkedin auth login                         # first usable browser session
-linkedin auth login --browser chrome --profile 'Your Chrome'
-linkedin auth login --browser arc
-linkedin auth login --cookies-file /path/to/cookies.json
-linkedin auth status
-linkedin auth logout
+go run . auth login                         # first usable browser session
+go run . auth login --browser chrome --profile 'Your Chrome'
+go run . auth login --browser arc
+go run . auth login --cookies-file /path/to/cookies.json
+go run . auth status
+go run . auth logout
 ```
 
 The JSON import accepts SweetCookie's cookie array or `{ "cookies": [...] }`
@@ -64,12 +57,12 @@ Company accepts the URL slug, numeric ID,
 company URL (including `/people/`), or organization URN:
 
 ```sh
-linkedin companies people example-company
-linkedin companies people https://www.linkedin.com/company/example-company/
-linkedin companies people 123456789
-linkedin companies people example-company --limit 24
-linkedin companies people example-company --start 49
-linkedin companies people example-company --all
+go run . companies people example-company
+go run . companies people https://www.linkedin.com/company/example-company/
+go run . companies people 123456789
+go run . companies people example-company --limit 24
+go run . companies people example-company --start 49
+go run . companies people example-company --all
 ```
 
 The default returns up to 49 people. `--limit N` requests up to N;
@@ -155,12 +148,12 @@ available documents on failure; never commit those captures.
 ## Profiles and referral introductions
 
 ```sh
-linkedin people profile example-person
-linkedin people profile https://www.linkedin.com/in/example-person/
-linkedin people profile example-person --summary
-linkedin people profile example-person --save-response private/profile.json
-linkedin people mutuals example-person --limit 3
-linkedin people mutuals urn:li:fsd_profile:ACoExample
+go run . people profile example-person
+go run . people profile https://www.linkedin.com/in/example-person/
+go run . people profile example-person --summary
+go run . people profile example-person --save-response private/profile.json
+go run . people mutuals example-person --limit 3
+go run . people mutuals urn:li:fsd_profile:ACoExample
 ```
 
 `people profile` returns the name, headline, about text, canonical profile URL,
@@ -251,9 +244,9 @@ one GET. Authentication failures, restrictions and rate limits stop the command.
 ## Direct messages and free InMail
 
 ```sh
-linkedin messages read example-person
-linkedin messages send example-person --text-file /path/to/message.txt
-linkedin messages send example-person --text-file /path/to/message.txt --send
+go run . messages read example-person
+go run . messages send example-person --text-file /path/to/message.txt
+go run . messages send example-person --text-file /path/to/message.txt --send
 ```
 
 `messages send` previews by default. Show the human the exact recipient and final

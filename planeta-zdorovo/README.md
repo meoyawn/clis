@@ -2,23 +2,22 @@
 
 An HTTP-only Go CLI for the public [Planeta Zdorovo catalog](https://planetazdorovo.ru/), with JSON output and a configurable search city. Requires Go 1.27.2+ to build.
 
-## Install and import browser clearance
+## Import browser clearance
 
 ```sh
-go install github.com/meoyawn/clis/planeta-zdorovo@latest
-planeta-zdorovo auth import --browser chrome
-planeta-zdorovo config set city "<city-slug>"
-planeta-zdorovo search магний хелат
+go run . auth import --browser chrome
+go run . config set city "<city-slug>"
+go run . search магний хелат
 ```
 
-Use your existing browser window. You do not need to sign out or create a pharmacy account. If authentication fails, run `planeta-zdorovo auth import --browser chrome` (or select your browser), then retry the command. If import fails, reload the site in that browser until the catalog appears and rerun import.
+Use your existing browser window. You do not need to sign out or create a pharmacy account. If authentication fails, run `go run . auth import --browser chrome` (or select your browser), then retry the command. If import fails, reload the site in that browser until the catalog appears and rerun import.
 
 Import uses [Sweet Cookie v0.0.2](https://github.com/steipete/sweetcookie), following the browser-import approach in [spogo](https://github.com/openclaw/spogo). It reads the selected browser's local cookie store; it does not launch or automate a browser. macOS may show a Keychain prompt.
 
 ```sh
-planeta-zdorovo auth import --browser firefox
-planeta-zdorovo auth import --browser chrome --browser-profile "Profile 1"
-planeta-zdorovo auth status
+go run . auth import --browser firefox
+go run . auth import --browser chrome --browser-profile "Profile 1"
+go run . auth status
 ```
 
 Other supported browser names include brave, edge, chromium, safari, arc, vivaldi, opera, helium, dia, comet, atlas, whale, zen, floorp, waterfox, and librewolf. Availability depends on the browser and operating system.
@@ -33,18 +32,18 @@ The renamed command retains the existing `planeta` config and cache directories 
 
 For Chrome profile selection, open `chrome://version` in the working window and copy **Profile Path** into `--browser-profile`. A friendly name such as “Your Chrome” can differ from the profile directory, such as `Default`. New imports remember the actual cookie-store path in the auth metadata. Private-window cookies cannot be imported from disk.
 
-Search and ID commands reuse valid saved clearance. Expired or rejected authentication stops the command with instructions to run `planeta-zdorovo auth import --browser chrome` (or your browser). Browser imports happen only through `auth import`.
+Search and ID commands reuse valid saved clearance. Expired or rejected authentication stops the command with instructions to run `go run . auth import --browser chrome` (or your browser). Browser imports happen only through `auth import`.
 
 The CLI also saves anonymous cookie renewals returned by successful HTTP requests, including the [expiry extensions supplied by Qrator](https://docs.qrator.net/technologies/tracking-cookie.html). Clearance can still expire after inactivity or a network change; the same human refresh flow handles that. The CLI never launches, controls, or embeds a browser.
 
 ## User config
 
 ```sh
-planeta-zdorovo config
-planeta-zdorovo config set city "<city-slug>"
+go run . config
+go run . config set city "<city-slug>"
 ```
 
-Replace `<city-slug>` with the city's URL segment from `https://planetazdorovo.ru/<city-slug>/`. `planeta-zdorovo config` prints the saved preferences as JSON. The only preference is `city`, which starts unset (`""`). Search and ID commands require either a saved city or an explicit `--city`; there is no built-in city default. `--city` overrides the saved value for one invocation. The config command trims whitespace and lowercases the slug before saving.
+Replace `<city-slug>` with the city's URL segment from `https://planetazdorovo.ru/<city-slug>/`. `go run . config` prints the saved preferences as JSON. The only preference is `city`, which starts unset (`""`). Search and ID commands require either a saved city or an explicit `--city`; there is no built-in city default. `--city` overrides the saved value for one invocation. The config command trims whitespace and lowercases the slug before saving.
 
 Preferences are saved in `os.UserConfigDir()/planeta/config.json`, beside `auth.json`: `~/Library/Application Support/planeta/config.json` on macOS, or `$XDG_CONFIG_HOME/planeta/config.json` (normally `~/.config/planeta/config.json`) on Linux. Writes are atomic with an owner-only file. The config contains only the city; timeout, authentication, and pagination remain command options.
 
@@ -53,9 +52,9 @@ Config commands are entirely local: they validate the slug's format without read
 ## Search
 
 ```sh
-planeta-zdorovo search магний хелат
-planeta-zdorovo search --page 2 магний
-planeta-zdorovo search --city "<city-slug>" "магний & B6"
+go run . search магний хелат
+go run . search --page 2 магний
+go run . search --city "<city-slug>" "магний & B6"
 ```
 
 Each invocation returns **one page** in the website's default order:
@@ -84,8 +83,8 @@ Both search products and `id` output expose supply in the selected city:
 These are counts of pharmacies, not packs. The two groups may overlap, so the CLI does not add them into a total. Counts do not establish stock quantity, proximity, or price at each pharmacy. Use `fetched_at` to assess freshness; no pharmacy list or extra AJAX requests are fetched.
 
 ```sh
-planeta-zdorovo search магний хелат | jq '.results[] | {id, name, price_from, pharmacy_counts}'
-planeta-zdorovo id 20519511 | jq '{name, pharmacy_counts, availability}'
+go run . search магний хелат | jq '.results[] | {id, name, price_from, pharmacy_counts}'
+go run . id 20519511 | jq '{name, pharmacy_counts, availability}'
 ```
 
 Callers can apply their own minimum pharmacy-count requirement outside the CLI.
@@ -93,9 +92,9 @@ Callers can apply their own minimum pharmacy-count requirement outside the CLI.
 ## Product details
 
 ```sh
-planeta-zdorovo id 15484411
-planeta-zdorovo id 15484411 --full
-planeta-zdorovo id -157028
+go run . id 15484411
+go run . id 15484411 --full
+go run . id -157028
 ```
 
 The default output contains the facts needed to compare products: the complete `ingredients` text, separate `active_substances` and `excipients` fields, dosage strength and declared serving amounts, manufacturer, brand, dosage form, package quantity, age indication, specifications, price, availability, images, links, and related package cards present in the same HTML. The `excipients` field preserves the full list and attached ingredient warnings, including sorbitol/sweetener statements; it does not summarize away additives.
@@ -107,7 +106,7 @@ The default output contains the facts needed to compare products: the complete `
 Inspect product facts without loading the complete instructions:
 
 ```sh
-planeta-zdorovo id 23162311 | jq '{name, composition_amounts, active_substances, excipients, dosage, package, price_from, currency, package_unit_price, warnings}'
+go run . id 23162311 | jq '{name, composition_amounts, active_substances, excipients, dosage, package, price_from, currency, package_unit_price, warnings}'
 ```
 
 **Directions and complete medical instructions appear only with `--full`.** Full output adds every published instruction section, including composition, indications, contraindications, interactions, adverse effects, storage, and directions, plus the site's product schema and visible product text. Available sections vary by product. Paragraphs, lists, and table cell boundaries are preserved; full instruction tables and links are also returned separately.
@@ -125,7 +124,7 @@ Some products keep an older ID in their canonical URL while the page uses a diff
 For an ID not previously returned by search, supply its canonical URL:
 
 ```sh
-planeta-zdorovo id --url "https://planetazdorovo.ru/<city-slug>/catalog/...-15484411/" 15484411
+go run . id --url "https://planetazdorovo.ru/<city-slug>/catalog/...-15484411/" 15484411
 ```
 
 Replace the abbreviated example with the real product URL. Unknown IDs fail locally with guidance to search first. If a product URL changes, repeat search.
@@ -143,9 +142,9 @@ Commands make **one request when the saved city selection is complete and matche
 Put any iteration outside the CLI. For example, in fish:
 
 ```fish
-planeta-zdorovo search магний хелат > search.json
+go run . search магний хелат > search.json
 for id in (jq -r '.results[].id' search.json)
-    planeta-zdorovo id $id
+    go run . id $id
 end
 ```
 
@@ -172,7 +171,7 @@ Offline tests cover recorded public HTML, request counts, immediate challenge fa
 
 Fixtures contain sanitized public catalog markup with synthetic city paths and authentication values. Cookies, account data, browser profiles, and personal recommendations are not included. Catalog prices, counts, availability, and labels can change.
 
-From this CLI directory, run `go install .` to install, or `go build -o planeta-zdorovo .` to build locally.
+Run every command from this CLI directory with `go run .`.
 
 ## License
 

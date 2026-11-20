@@ -10,6 +10,7 @@ import (
 type VacancyID struct{ value string }
 type ResumeID struct{ value string }
 type ExperienceID struct{ value string }
+type CompanyID struct{ value string }
 
 var vacancyPattern = regexp.MustCompile(`^[1-9][0-9]{0,15}$`)
 var aliasPattern = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_-]{0,99}$`)
@@ -58,3 +59,17 @@ func NewExperienceIDFromValue(value string) (ExperienceID, error) {
 }
 
 func (id ExperienceID) String() string { return id.value }
+
+func NewCompanyIDFromValue(value string) (CompanyID, error) {
+	id, err := target(value, "/companies/")
+	if err != nil {
+		return CompanyID{}, err
+	}
+	id = strings.TrimSuffix(id, "/vacancies")
+	if !aliasPattern.MatchString(id) {
+		return CompanyID{}, fmt.Errorf("invalid company alias %q; use the alias from career.habr.com/companies/ALIAS", value)
+	}
+	return CompanyID{value: id}, nil
+}
+
+func (id CompanyID) String() string { return id.value }

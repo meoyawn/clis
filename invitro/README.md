@@ -3,29 +3,22 @@
 An HTTP-only Go CLI for the public [Invitro catalog](https://www.invitro.ru/), with Planeta-style commands and JSON output. Requires Go 1.27.2+.
 
 ```sh
-go install .
-invitro config set city kazan
-invitro search ттг
-invitro show 2467
-invitro show 'https://www.invitro.ru/analizes/for-doctors/kazan/629/2467/' --full
-```
-
-To build without installing:
-
-```sh
-go build -o invitro .
+go run . config set city kazan
+go run . search ттг
+go run . show 2467
+go run . show 'https://www.invitro.ru/analizes/for-doctors/kazan/629/2467/' --full
 ```
 
 ## Commands
 
 | Planeta | Invitro |
 | --- | --- |
-| `planeta-zdorovo search <query>` | `invitro search <query>` |
-| `planeta-zdorovo id <id>` | `invitro show <id-or-url>` |
-| `planeta-zdorovo config` | `invitro config` |
-| `planeta-zdorovo config set city <slug>` | `invitro config set city <slug>` |
+| `planeta-zdorovo search <query>` | `go run . search <query>` |
+| `planeta-zdorovo id <id>` | `go run . show <id-or-url>` |
+| `planeta-zdorovo config` | `go run . config` |
+| `planeta-zdorovo config set city <slug>` | `go run . config set city <slug>` |
 
-There is no `invitro id` command. Options can appear before or after positional arguments. A literal `--` ends option parsing. Success writes one JSON object to stdout; errors go to stderr with a nonzero exit status. Help is plain text.
+There is no `go run . id` command. Options can appear before or after positional arguments. A literal `--` ends option parsing. Success writes one JSON object to stdout; errors go to stderr with a nonzero exit status. Help is plain text.
 
 ## Anonymous access
 
@@ -40,33 +33,33 @@ If access checks change, the CLI reports the rejection immediately. It never ret
 Set Moscow as your default city:
 
 ```sh
-invitro config set city moscow
+go run . config set city moscow
 ```
 
 Or set Kazan as your default city:
 
 ```sh
-invitro config set city kazan
+go run . config set city kazan
 ```
 
 Choose one: only one default city is saved at a time. Running either command replaces the previous default and persists it across terminal sessions and working directories. You can then omit `--city` when searching or showing a product by ID:
 
 ```sh
-invitro search ттг
-invitro show 2467
+go run . search ттг
+go run . show 2467
 ```
 
 Check your saved default:
 
 ```sh
-invitro config
+go run . config
 ```
 
 To use another city for one command without changing the saved default, pass `--city`:
 
 ```sh
-invitro search --city moscow ферритин
-invitro show --city kazan 2467
+go run . search --city moscow ферритин
+go run . show --city kazan 2467
 ```
 
 Use the site's lowercase city URL slug. There is no built-in city default. Precedence is `--city`, then a city in a product URL, then saved config. Product URLs without a city mean Moscow, matching the website. An explicit `--city` fetches the requested product's price in that city and returns its corresponding URL.
@@ -76,21 +69,21 @@ Config is stored at `os.UserConfigDir()/invitro/config.json`: `~/Library/Applica
 ## Search and filters
 
 ```sh
-invitro search ттг
-invitro search --include-filters ттг
-invitro search --page 2 витамин
-invitro search ттг --available-at-home --deadline 1
-invitro search витамин --is-promo
-invitro search ттг --available-at-home=false
-invitro search --type complexes щитовидная железа
-invitro search --type checkups щитовидной
+go run . search ттг
+go run . search --include-filters ттг
+go run . search --page 2 витамин
+go run . search ттг --available-at-home --deadline 1
+go run . search витамин --is-promo
+go run . search ттг --available-at-home=false
+go run . search --type complexes щитовидная железа
+go run . search --type checkups щитовидной
 ```
 
 Use `--include-filters` to discover the current filters for the selected catalog type alongside your results. With Kazan saved as your default, run:
 
 ```sh
-invitro search --include-filters ттг
-invitro search --include-filters ттг | jq '.available_filters'
+go run . search --include-filters ттг
+go run . search --include-filters ттг | jq '.available_filters'
 ```
 
 The extra `available_filters` object contains each filter's website label, control `type`, `is_active`, original `config`, and its `cli_flag` when supported by this CLI. For example, `available_filters.available_at_home.cli_flag` is `--available-at-home`. These are catalog-wide definitions, not counts for the current query. `config` preserves the site's JSON-encoded string, which may be `"{}"`.
@@ -98,8 +91,8 @@ The extra `available_filters` object contains each filter's website label, contr
 Then apply the filters you want:
 
 ```sh
-invitro search ттг --available-at-home --deadline 1 --include-filters
-invitro search --type checkups --include-filters щитовидной
+go run . search ттг --available-at-home --deadline 1 --include-filters
+go run . search --type checkups --include-filters щитовидной
 ```
 
 `--include-filters` only adds metadata; it does not enable filters or change the results. The existing `filters` object records filters you applied. Without the flag (or with `--include-filters=false`), `available_filters` is omitted. Fetching the definitions costs one additional HTTP request, including for empty search results. If that request fails, the command reports an error.
@@ -129,22 +122,22 @@ Each result contains:
 Missing numeric/boolean facts remain `null`; they are not converted to zero or false. Collection charges are separate from `price_from` and are not added into a guessed order total. The website states that the sample collection day does not count toward turnaround. Home collection availability does not specify a visit fee.
 
 ```sh
-invitro search ттг | jq '.results[] | {id, name, price_from, additional_services, deadline_days}'
+go run . search ттг | jq '.results[] | {id, name, price_from, additional_services, deadline_days}'
 ```
 
 ## Details
 
 ```sh
-invitro show 2467
-invitro show ce302550-a6c3-4525-9bcf-c48939edafa4
-invitro show 'https://www.invitro.ru/analizes/for-doctors/kazan/629/2467/'
-invitro show 69795 --type complexes
-invitro show 2467 --full
+go run . show 2467
+go run . show ce302550-a6c3-4525-9bcf-c48939edafa4
+go run . show 'https://www.invitro.ru/analizes/for-doctors/kazan/629/2467/'
+go run . show 69795 --type complexes
+go run . show 2467 --full
 ```
 
 Numeric IDs are **website IDs**, not the visible test codes (for example, website ID `2467` has code `199`). The public mapper resolves previously unseen numeric IDs, so a prior search is not required. UUIDs skip the mapper request. URLs determine the product type. For a previously unseen bare complex/checkup ID, pass `--type` or use its URL; bare IDs otherwise default to analyses. IDs returned by search remember their type automatically.
 
-For Planeta-style scripts, `invitro show --url <product-url> <matching-id>` is also accepted. URLs must be HTTPS Invitro catalog URLs. Tracking queries and fragments are discarded. Requests always target the fixed public API origin, and returned product identities are checked against the requested ID.
+For Planeta-style scripts, `go run . show --url <product-url> <matching-id>` is also accepted. URLs must be HTTPS Invitro catalog URLs. Tracking queries and fragments are discarded. Requests always target the fixed public API origin, and returned product identities are checked against the requested ID.
 
 Default output adds published sample `material`, analysis `method`, `categories`, and included `tests`, `services`, and `tags` for complexes/checkups, where available. `--full` additionally includes every nonempty `*_markup` instruction as plain text under `sections`, plus the complete response under `source`. This includes description, preparation, indications, interpretation, literature, and result information where published. Paragraphs, list items, and table cells retain boundaries; original HTML and links remain in `source`. Documents and linked products are not fetched.
 
@@ -153,9 +146,9 @@ The CLI returns published catalog facts and instructions; it does not interpret 
 ## Promotions and price comparison
 
 ```sh
-invitro promos --city kazan
-invitro promos '<slug-from-list>' --city kazan --full
-invitro promos --city kazan --page 2
+go run . promos --city kazan
+go run . promos '<slug-from-list>' --city kazan --full
+go run . promos --city kazan --page 2
 ```
 
 Replace `<slug-from-list>` with a slug returned by the listing. A promotion URL is also accepted. For a promotion found on a later page, pass that page's number to the detail command with `--page`.
@@ -171,12 +164,12 @@ Composition may be published only in the landing page's `sections` rather than i
 The CLI supplies facts, **not an optimizer or an order total**. An agent or external script can combine them:
 
 ```sh
-invitro search --city kazan холестерин > individual.json
-invitro search --city kazan --type complexes липид > packages.json
-invitro search --city kazan --type checkups липид > checkups.json
-invitro show --city kazan --type complexes 6742 --full > package-detail.json
-invitro promos --city kazan > promotions.json
-invitro promos --city kazan '<slug-from-list>' --full > promotion-detail.json
+go run . search --city kazan холестерин > individual.json
+go run . search --city kazan --type complexes липид > packages.json
+go run . search --city kazan --type checkups липид > checkups.json
+go run . show --city kazan --type complexes 6742 --full > package-detail.json
+go run . promos --city kazan > promotions.json
+go run . promos --city kazan '<slug-from-list>' --full > promotion-detail.json
 jq '.offers[] | {code, name, price_from, additional_services}' promotion-detail.json
 ```
 
@@ -211,9 +204,7 @@ Catalog commands stop at three requests, or four for search with `--include-filt
 ## Verification
 
 ```sh
-go test -race ./...
-moon run invitro:lint
-go build .
+moon run invitro:check
 ```
 
 Tests use recorded public JSON and local HTTP servers; they do not need Chrome, credentials, or network access. They cover command compatibility, flag placement, config and cache behavior, URL validation and identity checks, city precedence, filters, pagination, empty results, price/fee separation, full instructions, malformed responses, cancellation, and bounded requests. GitHub Actions runs the same checks.

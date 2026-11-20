@@ -146,14 +146,13 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       Includes destination, salary, letter, wire fields and review_sha256.
       For a questionnaire, --answers-file is a JSON object mapping question
       IDs to complete text answers or exact single-choice IDs. Questions,
-      choices and answers are bound to approval;
+      choices and answers are bound to review_sha256;
       fresh hidden form nonces remain private and are never saved in the draft.
       Use --no-letter instead of --text-file only for an explicitly empty letter.
   application submit --draft FILE [--send --approved SHA256] [--output FILE]
       Without --send, show the saved package locally. Sending requires BOTH
-      flags, the human's prior approval of the exact displayed destination,
-      text and resume, and the checksum of that unchanged review package.
-      A checksum is a binding mechanism, not evidence of human approval.
+      flags and the human's instruction to apply; --approved takes the
+      review_sha256 of the unchanged prepared package so exactly it is sent.
       Fresh preflight rejects changed content, prior applications, restrictions,
       changed questions and unsupported forms. POST once, then verify the topic/resume
       against an independent vacancy readback. Never send a live test.
@@ -289,18 +288,20 @@ No automatic retries. Stop on 429 (honor Retry-After), auth redirects, CAPTCHA,
 checkpoints, or restrictions. For an uncertain write, inspect get/view before
 retrying. A 200 alone is not proof: update verifies readback and print view.
 Print view is the resume content an employer sees; it does not change visibility.
-Only application submit with both explicit sending flags can apply to a job.
-Show the exact package in chat and wait for human approval before using them.
-Other commands never apply. No command solves CAPTCHA or requests SMS codes.
+Only application submit with both explicit sending flags can apply to a job;
+the human's instruction to apply authorizes it. Chat replies need the human's
+approval of the exact preview. Other commands never apply. No command solves
+CAPTCHA or requests SMS codes.
 
 Backups default to $XDG_STATE_HOME/hh/backups (or ~/.local/state/hh/backups).
 They contain personal data and use mode 0600. Saved HARs can contain personal
 data too: keep them local, omit cookies/tokens and never commit raw recordings.
-Use confirmed native requests from HAR to add a missing capability; test the
-contract locally, run moon run hh:check, then go install ..
-Do tasks through hh. Chrome is only for discovering missing network contracts,
-not for working around unsupported commands. Preserve the human's submission
-and message-approval rules; tooling support is not authorization to send/apply.
+
+Do tasks through go run . in /Users/meoyawn/Developer/clis/hh/.
+If support is missing or broken, change this CLI, test it with
+moon run hh:check and resume through the CLI. To learn a missing HTTP contract,
+inspect real browser traffic with the Chrome DevTools MCP; never do the task in
+the browser. Tool development does not authorize applications or messages.
 `
 
 // Main runs the command-line application.
@@ -419,8 +420,8 @@ func run(ctx context.Context, args []string) error {
 	answersFile := options.String("answers-file", "", "JSON mapping native question IDs to exact reviewed answers")
 	noLetter := options.Bool("no-letter", false, "explicitly prepare without a letter")
 	draftFile := options.String("draft", "", "saved application package")
-	send := options.Bool("send", false, "send only after human approval")
-	approved := options.String("approved", "", "approved unchanged package SHA-256")
+	send := options.Bool("send", false, "send under the human's instruction to apply")
+	approved := options.String("approved", "", "review_sha256 of the unchanged prepared package")
 	harPath := options.String("har", "", "recorded letter success receipt; read only, never replay")
 	negotiationFilter := options.String("filter", "active", "negotiation list: active, all or deleted")
 	rejectedOnly := options.Bool("rejected", false, "filter negotiation state to DISCARD")
@@ -505,7 +506,7 @@ func run(ctx context.Context, args []string) error {
 				return outputJSON(*output, application)
 			}
 			if *approved == "" {
-				return fmt.Errorf("--send requires --approved SHA256 after the human approves the exact package in chat")
+				return fmt.Errorf("--send requires --approved with the prepared package's review_sha256")
 			}
 		}
 	}

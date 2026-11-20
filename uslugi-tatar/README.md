@@ -12,18 +12,12 @@ A Go CLI for submitting gas, electricity and water meter readings to
 
 Requires Go 1.27.2+ and an authenticated browser session for the portal.
 
-## Install
+## Run
+
+Run every command from this directory with `go run .`:
 
 ```console
-go install github.com/meoyawn/clis/uslugi-tatar@latest
-```
-
-Or build from source:
-
-```console
-git clone https://github.com/meoyawn/clis.git
-cd clis/uslugi-tatar
-go build -trimpath .
+go run . --help
 ```
 
 ## Authenticate
@@ -31,8 +25,8 @@ go build -trimpath .
 Log in to the portal in your browser, then run:
 
 ```console
-uslugi-tatar auth import --browser chrome
-uslugi-tatar auth status
+go run . auth import --browser chrome
+go run . auth status
 ```
 
 Import uses [SweetCookie](https://github.com/steipete/sweetcookie/) to read a
@@ -64,9 +58,9 @@ Failed verification does not overwrite a previously saved session.
 ## Discover and configure
 
 ```console
-uslugi-tatar accounts
-uslugi-tatar accounts --account 0000000001 --yaml
-uslugi-tatar accounts --account 000000000001 --yaml
+go run . accounts
+go run . accounts --account 0000000001 --yaml
+go run . accounts --account 000000000001 --yaml
 ```
 
 `accounts` lists saved ЖКХ cards (including cards needing setup) and gas accounts,
@@ -134,11 +128,11 @@ and meter fields. Other supported meter fields may remain in the same file.
 Flags go before the YAML path:
 
 ```console
-uslugi-tatar gas --dry-run /path/to/private/meters.yaml
-uslugi-tatar main --dry-run /path/to/private/meters.yaml
-uslugi-tatar gas /path/to/private/meters.yaml
-uslugi-tatar main /path/to/private/meters.yaml
-uslugi-tatar status /path/to/private/meters.yaml
+go run . gas --dry-run /path/to/private/meters.yaml
+go run . main --dry-run /path/to/private/meters.yaml
+go run . gas /path/to/private/meters.yaml
+go run . main /path/to/private/meters.yaml
+go run . status /path/to/private/meters.yaml
 ```
 
 `status` never submits. It reports whether the current Moscow month's YAML

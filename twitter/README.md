@@ -163,7 +163,7 @@ confirmed deletes can be read back from their journal without resending.
 HTTP 429, authentication redirects/errors, API errors and restrictions stop the
 command with no automatic retry. `Retry-After` is retained in diagnostics. Run
 account commands sequentially. If X changes its bootstrap or GraphQL contract,
-inspect the exact signed-in Chrome traffic and update the CLI; do not guess IDs,
+inspect the real browser traffic with the Chrome DevTools MCP and update the CLI; do not guess IDs,
 switch accounts, repeatedly import cookies or use a mirror to evade a restriction.
 
 ```sh

@@ -61,6 +61,13 @@ Usage: habr-career COMMAND [OPTIONS]
       requirements, response, fields, restrictions and signed-in alias. GET only.
       predicted_salary is Habr's estimate, never an employer-confirmed budget.
       Never execute the website's quick-apply POST during inspection.
+  company vacancies ALIAS
+      List every card on the employer's public vacancy page: ID, URL, title,
+      publication time, format/location chips and skill tags. GET only.
+      Accepts the alias or https://career.habr.com/companies/ALIAS[/vacancies].
+      Verifies the page's company alias and each card's employer link. A
+      populated paginator stops: pagination is unsupported, never truncated.
+      Use vacancy get for descriptions and pay.
   applications list
       Read all native active-response pages (excluding deleted). Verify account,
       role URLs and the total count; preserve native status and application date.
@@ -131,7 +138,7 @@ stdout contains successful JSON only; bounded, redacted HTTP errors go to stderr
 
 Do tasks through go run . in /Users/meoyawn/Developer/clis/habr-career/.
 If support is missing/broken, change this CLI, test it and resume through the CLI.
-Inspect saved captures first; signed-in Chrome is only for discovering missing
-HTTP contracts, never a browser workaround. Keep captures and private exports
+To learn a missing HTTP contract, inspect real browser traffic with the Chrome
+DevTools MCP; never do the task in the browser. Keep captures and private exports
 outside Git. Tool development does not authorize applications or account changes.
 `

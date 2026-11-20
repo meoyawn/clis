@@ -6,27 +6,23 @@ and delivery reflect the saved account's Ozon location and session.
 
 Agent workflow: [ozon skill](.agents/skills/ozon/SKILL.md).
 
-## Installation
+## Run
 
-Requires Go 1.27.2 or newer. Install from this checkout:
+Requires Go 1.27.2 or newer. Run from this CLI directory:
 
 ```sh
-go install -trimpath .
-ozon --help
+go run . --help
 ```
-
-For a binary inside the checkout, use
-`go build -trimpath -o bin/ozon .`.
 
 Sign in to Ozon in a supported browser, then import its session once:
 
 ```sh
-ozon auth import --browser chrome
+go run . auth import --browser chrome
 # Select a profile if needed:
-ozon auth import --browser chrome --browser-profile 'Profile 1'
+go run . auth import --browser chrome --browser-profile 'Profile 1'
 ```
 
-`ozon auth status` verifies the CLI's saved cookies without reading the browser
+`go run . auth status` verifies the CLI's saved cookies without reading the browser
 or updating the saved session. Product and search commands use that same copy.
 `auth import` copies browser cookies locally with sweetcookie and makes zero
 HTTP requests. The CLI never opens a browser or uses Chrome's renewal tokens.
@@ -35,17 +31,17 @@ HTTP requests. The CLI never opens a browser or uses Chrome's renewal tokens.
 
 | Need | Command | HTTP requests per invocation |
 | --- | --- | ---: |
-| Find candidates and discover filters together | `ozon search 'query' --include-filters` | 1, plus up to 3 validated redirects |
-| Search using known constraints | `ozon search 'query' --filter KEY=VALUE` | 1, plus up to 3 validated redirects |
-| Discover filters without product output | `ozon filters 'query'` | 1, plus up to 3 validated redirects |
-| Inspect prices, variants and the current seller | `ozon show <sku-or-url>` | 1, plus up to 3 validated redirects |
-| Load details and compare seller offers | `ozon show <sku-or-url> --full` | At most 4 pages, each plus up to 3 validated redirects |
-| Read one page of buyer reviews | `ozon reviews <sku-or-url>` | 1, plus up to 3 validated redirects |
-| List cart items | `ozon cart list` | 1, plus up to 3 validated cart redirects |
-| Add one unit to the cart | `ozon cart add <sku-or-url>` | 1 POST, plus up to 3 validated 307/308 navigation redirects |
-| Remove all units of one SKU | `ozon cart remove <sku-or-url>` | 1 POST, plus up to 3 validated 307/308 navigation redirects |
-| Copy browser session | `ozon auth import --browser chrome` | 0 |
-| Check saved authentication | `ozon auth status` | 1, plus up to 3 validated redirects |
+| Find candidates and discover filters together | `go run . search 'query' --include-filters` | 1, plus up to 3 validated redirects |
+| Search using known constraints | `go run . search 'query' --filter KEY=VALUE` | 1, plus up to 3 validated redirects |
+| Discover filters without product output | `go run . filters 'query'` | 1, plus up to 3 validated redirects |
+| Inspect prices, variants and the current seller | `go run . show <sku-or-url>` | 1, plus up to 3 validated redirects |
+| Load details and compare seller offers | `go run . show <sku-or-url> --full` | At most 4 pages, each plus up to 3 validated redirects |
+| Read one page of buyer reviews | `go run . reviews <sku-or-url>` | 1, plus up to 3 validated redirects |
+| List cart items | `go run . cart list` | 1, plus up to 3 validated cart redirects |
+| Add one unit to the cart | `go run . cart add <sku-or-url>` | 1 POST, plus up to 3 validated 307/308 navigation redirects |
+| Remove all units of one SKU | `go run . cart remove <sku-or-url>` | 1 POST, plus up to 3 validated 307/308 navigation redirects |
+| Copy browser session | `go run . auth import --browser chrome` | 0 |
+| Check saved authentication | `go run . auth status` | 1, plus up to 3 validated redirects |
 
 **Behavior change:** `show` is now lightweight by default. Existing scripts that
 need the additional description/characteristics section or other seller offers
@@ -79,7 +75,7 @@ reporting it. Unknown numeric/boolean values are `null`, not zero or false.
 - `delivery_day` in Ozon's wording, or an empty string if absent.
 
 With `--include-filters`, the same top-level `filters` and `sorting` arrays as
-`ozon filters` are added. Without the flag, these fields are omitted. If an
+`go run . filters` are added. Without the flag, these fields are omitted. If an
 incremental page has no facets, both are `null` with a warning; no extra page is
 fetched. An explicit no-results response returns empty arrays.
 
@@ -135,9 +131,9 @@ type. Missing media metadata is omitted. Media is not downloaded.
 ### Cart
 
 ```sh
-ozon cart add https://www.ozon.ru/product/1613489220/
-ozon cart list
-ozon cart remove 1613489220
+go run . cart add https://www.ozon.ru/product/1613489220/
+go run . cart list
+go run . cart remove 1613489220
 ```
 
 `cart list` returns `count` and `items` from all cart-item sections on the cart

@@ -6,9 +6,8 @@ BRIS without a browser. Gas belongs to Госуслуги РТ and is ignored.
 From this folder, with Go 1.27.2 or newer:
 
 ```console
-go build .
-./bris --dry-run /path/to/private/meters.yaml
-./bris /path/to/private/meters.yaml
+go run . --dry-run /path/to/private/meters.yaml
+go run . /path/to/private/meters.yaml
 ```
 
 Flags go before the YAML path. The same YAML file holds the readings and a

@@ -57,15 +57,15 @@ It returns the site's delivery/pickup calculation without fetching product HTML.
 No images are fetched automatically. Download selected URLs with curl/wget and
 view saved files locally. There is no image subcommand.
 
-Cookie-free requests with ChatGPT-User were rejected during implementation.
+Requests without browser cookies are rejected.
 Import the existing Chrome session with sweetcookie; import/status are local
 and make no HTTP requests. Cookies for this storefront session are saved with
 owner-only permissions; cookies from other sites are excluded. Requests use
 Chrome-compatible TLS/HTTP2, browser headers and the saved catalog Referer.
 Kazan is checked in both session cookies and published page location.
 On a protection page or HTTP 401/403/429 the command stops, opens Chrome and
-exits with an error. Complete any check manually, import the same profile,
-and rerun the command. No automatic retry, challenge solving or cookie refresh.
+exits with an error. The human completes any check; then import the same
+profile and rerun the command. No automatic retry, challenge solving or cookie refresh.
 `
 
 type repeated []string

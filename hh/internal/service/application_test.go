@@ -151,7 +151,7 @@ func TestApplicationApprovalIdentityAndReceipt(t *testing.T) {
 				}
 				return
 			}
-			wantError := map[string]string{"changed-resume": "changed since approval", "wrong-readback": "does not confirm", "rate-limit": "rate_limited"}[scenario]
+			wantError := map[string]string{"changed-resume": "changed since it was prepared", "wrong-readback": "does not confirm", "rate-limit": "rate_limited"}[scenario]
 			if wantError != "" {
 				wantPosts := 1
 				if scenario == "changed-resume" {

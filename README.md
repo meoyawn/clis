@@ -25,10 +25,9 @@ moon run :test          # run tests with the race detector
 moon run :lint          # run the shared golangci-lint configuration
 moon run :check         # build, lint, and test
 moon run ozon:check     # check one CLI
-moon run :install      # install into GOBIN or GOPATH/bin
 ```
 
-For a standalone install, use `go install github.com/meoyawn/clis/<cli>@latest`.
+Run a CLI with `go run .` from its directory, or `go run ./<cli>` from the workspace root.
 Module READMEs describe service setup and usage. All modules share
 [`.golangci.yml`](.golangci.yml); run `moon run :test` to test the workspace,
 or `go test ./...` from a CLI directory.

@@ -76,7 +76,8 @@ Queries/catalogs are cached for 24h; salary estimates are fetched fresh.
 Default: saved Chrome session required. --anonymous is explicit, never a
 fallback after a block. Stop on 403/429, login or challenge; no automatic retry.
 An identified human-verification challenge prints a verification URL and exits
-unsuccessfully. Open that URL in Chrome, complete verification, reimport the
+unsuccessfully. The human opens that URL in Chrome and completes verification;
+then reimport the
 same Chrome profile with auth login --headers-file FILE, using fresh native
 request headers from that session, and rerun the original command once.
 The CLI never launches a browser, solves a challenge, or retries a request.
@@ -99,7 +100,7 @@ func reportError(err error, out io.Writer) {
 		return
 	}
 	fmt.Fprintf(out, "Verification URL: %s\n", service.VerificationURL)
-	fmt.Fprintln(out, "Open this URL in Chrome and complete verification. Capture safe native request headers from that running profile, then run go run . auth login --browser chrome --profile <the same profile> --headers-file <snapshot.json>, and rerun your original command once. No browser was launched and no request was retried.")
+	fmt.Fprintln(out, "Ask the human to open this URL in Chrome and complete verification. Capture safe native request headers from that running profile, then run go run . auth login --browser chrome --profile <the same profile> --headers-file <snapshot.json>, and rerun your original command once. No browser was launched and no request was retried.")
 }
 
 func run(ctx context.Context, args []string, out io.Writer) error {

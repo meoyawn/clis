@@ -38,7 +38,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 		optionStart = 3
 	}
 	switch command {
-	case "auth import", "auth status", "profile get", "profile specialization get", "profile specialization update", "profile specialization verify", "resume get", "resume view", "resume experiences", "resume experience", "resume update", "resume verify", "resume about", "resume verify-about", "vacancy get", "vacancy response-options", "applications list", "application get", "application letter", "application prepare", "application submit", "application verify", "application update", "application delete", "har inspect":
+	case "auth import", "auth status", "profile get", "profile specialization get", "profile specialization update", "profile specialization verify", "resume get", "resume view", "resume experiences", "resume experience", "resume update", "resume verify", "resume about", "resume verify-about", "vacancy get", "vacancy response-options", "company vacancies", "applications list", "application get", "application letter", "application prepare", "application submit", "application verify", "application update", "application delete", "har inspect":
 	default:
 		return fmt.Errorf("unknown command %q; run --help", command)
 	}
@@ -93,7 +93,7 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 		return err
 	}
 	want := 0
-	if args[0] == "resume" || args[0] == "vacancy" || args[0] == "har" || args[0] == "application" && args[1] != "submit" && args[1] != "verify" {
+	if args[0] == "resume" || args[0] == "vacancy" || args[0] == "company" || args[0] == "har" || args[0] == "application" && args[1] != "submit" && args[1] != "verify" {
 		want = 1
 	}
 	if fs.NArg() != want {
@@ -112,7 +112,14 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 	var vacancyID domain.VacancyID
 	var resumeID domain.ResumeID
 	var experienceID domain.ExperienceID
+	var companyID domain.CompanyID
 	var err error
+	if args[0] == "company" {
+		companyID, err = domain.NewCompanyIDFromValue(fs.Arg(0))
+		if err != nil {
+			return err
+		}
+	}
 	if args[0] == "vacancy" || args[0] == "application" && args[1] != "submit" && args[1] != "verify" {
 		vacancyID, err = domain.NewVacancyIDFromValue(fs.Arg(0))
 		if err != nil {
@@ -250,6 +257,8 @@ func Run(ctx context.Context, args []string, stdout, _ io.Writer) error {
 		result, err = client.UpdateSpecialization(ctx, patch, apply, backupDir)
 	case "profile specialization verify":
 		result, err = client.VerifySpecialization(ctx, patch)
+	case "company vacancies":
+		result, err = client.CompanyVacancies(ctx, companyID)
 	case "applications list":
 		result, err = client.Applications(ctx)
 	case "resume get", "resume view":

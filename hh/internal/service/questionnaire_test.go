@@ -184,7 +184,7 @@ func TestQuestionnaireReviewAndNativeSubmission(t *testing.T) {
 				return
 			}
 			if scenario == "changed-question" || scenario == "changed-choice" || scenario == "changed-choice-mode" {
-				if err == nil || !strings.Contains(err.Error(), "changed since approval") || posts != 0 {
+				if err == nil || !strings.Contains(err.Error(), "changed since it was prepared") || posts != 0 {
 					t.Fatalf("changed prompt bypassed approval: err=%v posts=%d", err, posts)
 				}
 				return

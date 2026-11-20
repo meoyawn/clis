@@ -4,33 +4,20 @@ A Go CLI for Avito search, filter discovery, and listing details, using browser 
 
 The web protocol follows observed Avito responses. Parser and command tests use synthetic fixtures with the same structure, without publishing private captures or real listing data. Authentication, city lookup, filter discovery, brand-value lookup, filtered search, pagination, and listing details have been checked live. Sustained request limits have not been verified.
 
-## Install
+## Run
 
-Requires Go 1.27.2 or newer. Install the latest published version:
-
-```sh
-go install github.com/meoyawn/clis/avito@latest
-avito --help
-```
-
-Or run from this CLI directory:
+Requires Go 1.27.2 or newer. Run from this CLI directory:
 
 ```sh
 go run . --help
 ```
 
-Go installs into `GOBIN`, or `GOPATH/bin` when `GOBIN` is unset. That directory must be on your PATH. To keep the executable in this checkout:
-
-```sh
-go build -o bin/avito .
-```
-
 ## Import authentication
 
 ```sh
-avito auth import --browser chrome
+go run . auth import --browser chrome
 # Signed in as Алексей Пример. Session saved.
-avito auth status
+go run . auth status
 # Signed in as Алексей Пример.
 ```
 
@@ -39,28 +26,28 @@ The name above is an example. Both commands check Avito's current profile and sh
 Supported browsers: `chrome`, `firefox`, `brave`, `edge`, `safari`. The browser must have an existing Avito session. Select another profile when needed:
 
 ```sh
-avito auth import --browser chrome --browser-profile 'Profile 1'
+go run . auth import --browser chrome --browser-profile 'Profile 1'
 ```
 
 Import reads the selected browser locally through sweetcookie; OS Keychain/keyring access may be needed. It keeps only valid, unexpired cookies for the Avito web origin and the paths used by auth, city lookup, search, filter-value lookup, and show. It makes one read-only request to `/web/1/profiles/list?limit=3&withEntities=true`, verifies the explicitly current profile, and then saves the session. Failed imports, including failed verification, preserve the previous store. Search/show subsequently read that store; they do not reopen the browser cookie database or silently re-import credentials. To refresh a session, run `auth import` again after signing in to Avito in the browser.
 
 `auth status` checks the saved session with the same profile request, without reading the browser or changing the saved session. Missing or fully expired credentials fail locally. Both auth commands accept `--timeout 60s` and `--user-agent '…'`.
 
-Use `avito auth status --json` or `avito auth import --browser chrome --json` for scripts and cookie diagnostics. JSON includes the verified account, `is_authenticated`, `login_verified`, check time, browser/profile, import time, cookie names and counts, and expiry information, without cookie values. When a check fails, JSON includes an `error` and the command still exits nonzero. An omitted `is_authenticated` means the account could not be checked. `login_verified` records whether Avito gave a definitive signed-in or signed-out result. Search/show include Avito's `is_authenticated` flag when present and warn if saved cookies produce a logged-out response.
+Use `go run . auth status --json` or `go run . auth import --browser chrome --json` for scripts and cookie diagnostics. JSON includes the verified account, `is_authenticated`, `login_verified`, check time, browser/profile, import time, cookie names and counts, and expiry information, without cookie values. When a check fails, JSON includes an `error` and the command still exits nonzero. An omitted `is_authenticated` means the account could not be checked. `login_verified` records whether Avito gave a definitive signed-in or signed-out result. Search/show include Avito's `is_authenticated` flag when present and warn if saved cookies produce a logged-out response.
 
 The credential file is `avito/auth.json` inside Go's user config directory: `~/Library/Application Support/avito/auth.json` on macOS, or `$XDG_CONFIG_HOME/avito/auth.json` (default `~/.config/avito/auth.json`) on Linux. It contains decrypted cookie values and is written atomically with mode `0600` in a `0700` directory. Import/status output never includes those values. Browser session cookies with no expiry remain stored until replaced; the profile check verifies their current server-side validity.
 
 ## User config
 
 ```sh
-avito config
-avito config set city Казань
-avito config set local-priority true
-avito config set timeout 60s
-avito search 'кокосовое масло'
+go run . config
+go run . config set city Казань
+go run . config set local-priority true
+go run . config set timeout 60s
+go run . search 'кокосовое масло'
 ```
 
-`avito config` prints all effective user preferences as JSON. `avito config set <key> <value>` saves a preference and prints the updated config. Viewing config and setting `local-priority` or `timeout` are local. Setting `city` resolves an uncached city once through Avito using saved cookies; cached cities require no request. A missing file uses these defaults:
+`go run . config` prints all effective user preferences as JSON. `go run . config set <key> <value>` saves a preference and prints the updated config. Viewing config and setting `local-priority` or `timeout` are local. Setting `city` resolves an uncached city once through Avito using saved cookies; cached cities require no request. A missing file uses these defaults:
 
 | Key | Default | Purpose |
 | --- | --- | --- |
@@ -75,8 +62,8 @@ Explicit flags override the saved preferences for that invocation. Unknown keys,
 ## Filters
 
 ```sh
-avito filters 'холодильник'
-avito filters 'холодильник' --only price
+go run . filters 'холодильник'
+go run . filters 'холодильник' --only price
 ```
 
 `filters` requests one search response and exports the current category path, category choices, filter keys, option labels and values, selected values, range input keys, and sorting choices as JSON. It uses the same city config and request flags as search. A query is required unless `--category-id` is supplied. Category and attribute IDs come from Avito; none are built into the CLI.
@@ -125,18 +112,18 @@ If the option is absent from the initial form, use its suggestion lookup. A low 
 ## Search
 
 ```sh
-avito search 'кокосовое масло' --city Казань
-avito search 'телевизор'
-avito search 'телевизор' --city Москва --category-id 32
-avito search 'телевизор' --page 2
-avito search 'телевизор' --limit 0
-avito search 'телевизор' --location-id 650400
-avito search 'холодильник' --filter pmax=5000 --sort 1
+go run . search 'кокосовое масло' --city Казань
+go run . search 'телевизор'
+go run . search 'телевизор' --city Москва --category-id 32
+go run . search 'телевизор' --page 2
+go run . search 'телевизор' --limit 0
+go run . search 'телевизор' --location-id 650400
+go run . search 'холодильник' --filter pmax=5000 --sort 1
 ```
 
 Search uses the explicit `--city` or saved city preference and calls `/web/1/js/items` using saved browser cookies. It reuses cached city IDs. An uncached city needs one lookup through `/web/1/slocations?q=…&limit=10` before searching, and the resolved ID is saved internally for later commands. City matching requires a full Russian name and ignores letter case. Unknown or ambiguous names stop before the search. With no saved city, pass `--city` or `--location-id`; an unspecified location fails locally. `--location-id ID` overrides the saved city and bypasses city resolution. `--city` and `--location-id` cannot be combined. Flags can appear before or after the query. Use `--` before a query beginning with a dash.
 
-The search request sends the resolved `locationId` and, by default, `localPriority=1`, matching Avito's “Сначала в выбранном городе” selection in the city capture. Avito controls the ordering and may include listings from other cities. The CLI preserves the returned order and does not filter listings by city. Use `--local-priority=false` to send `localPriority=0` for one search, or `avito config set local-priority false` to save that preference.
+The search request sends the resolved `locationId` and, by default, `localPriority=1`, matching Avito's “Сначала в выбранном городе” selection in the city capture. Avito controls the ordering and may include listings from other cities. The CLI preserves the returned order and does not filter listings by city. Use `--local-priority=false` to send `localPriority=0` for one search, or `go run . config set local-priority false` to save that preference.
 
 Each invocation requests exactly one page. Results include public listing fields, canonical URLs, `total`, `accessible_total`, actual listing `count`, `applied_filters`, reusable `search_args`, and pagination metadata. The search fixture exercises 50 listings, `total: 5887`, and `accessible_total: 1500`. These are result counts, not request quotas. `--page` sends Avito's `p` parameter; page 2 has been verified live. The parser rejects a response with the wrong page, location, explicit category, filter selections, or sort. It does not automatically fetch subsequent pages.
 
@@ -160,8 +147,8 @@ Optional request flags: `--timeout 60s` and `--user-agent '…'`. Requests send 
 ## Show
 
 ```sh
-avito show '<listing-url-from-search>'
-avito show '<listing-id-from-search>'
+go run . show '<listing-url-from-search>'
+go run . show '<listing-id-from-search>'
 ```
 
 Show fetches the listing HTML and reads its embedded public listing data without running JavaScript. Output includes description, price, images, location, attributes, and active status when present. Replace the placeholders above with an actual URL or ID returned by search.

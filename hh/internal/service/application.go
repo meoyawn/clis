@@ -241,7 +241,7 @@ func (c *Client) SubmitApplication(ctx context.Context, draft ApplicationDraft, 
 		return nil, err
 	}
 	if fresh.ReviewSHA256 != approvedSHA {
-		return nil, fmt.Errorf("vacancy, resume, or application package changed since approval; show the fresh package and obtain renewed approval; no POST attempted")
+		return nil, fmt.Errorf("vacancy, resume, or application package changed since it was prepared; prepare and review it again; no POST attempted")
 	}
 	request := Object{}
 	for key, value := range fresh.Request {

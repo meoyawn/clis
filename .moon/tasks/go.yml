@@ -30,9 +30,3 @@ tasks:
     description: Build, lint, and test this CLI
     deps: ['~:build', '~:lint', '~:test']
 
-  install:
-    description: Install this CLI into GOBIN or GOPATH/bin
-    command: go install -trimpath .
-    options:
-      cache: false
-      runInCI: false
