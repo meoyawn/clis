@@ -158,6 +158,17 @@ func ImportSession(ctx context.Context, path, profile, ua string) (*AuthStatus, 
 	}
 	return SessionStatus(path, s), nil
 }
+
+// FreshProtection returns the value of a protection cookie that stays valid for
+// at least margin, or "" when the session has none.
+func FreshProtection(s Session, margin time.Duration) string {
+	for _, c := range s.Cookies {
+		if strings.HasPrefix(c.Name, "qrator_") && (c.Expires == nil || c.Expires.After(time.Now().Add(margin))) {
+			return c.Value
+		}
+	}
+	return ""
+}
 func SessionStatus(path string, s Session) *AuthStatus {
 	r := &AuthStatus{Path: path, Imported: !s.ImportedAt.IsZero(), Profile: s.Profile, CookieNames: []string{}}
 	for _, c := range s.Cookies {

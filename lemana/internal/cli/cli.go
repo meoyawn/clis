@@ -54,9 +54,11 @@ Requests without browser cookies are rejected.
 Import the existing Chrome session with sweetcookie; import/status are local
 and make no HTTP requests. Only catalog protection/region cookies are saved,
 with owner-only permissions; account credentials and analytics are excluded.
-On a protection page or HTTP 401/403/429 the command stops, opens Chrome and
-exits with an error. The human completes any check; then import the same
-profile and rerun the command. No automatic retry, challenge solving or cookie refresh.
+The protection cookie lives about 16 minutes. When it is stale, or a request
+hits a protection page or HTTP 401/403/429, the command re-reads Chrome's
+cookies, opening the storefront in a background Chrome tab so Chrome renews
+them, and retries once. If Chrome has no fresh cookie within 90s, it brings
+Chrome to the front and exits; the human completes the check and reruns.
 `
 
 type repeated []string
@@ -145,9 +147,9 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		}
 		*sessionPath = p
 	}
-	ctx, cancel := context.WithTimeout(ctx, *timeout)
-	defer cancel()
 	if command == "auth" {
+		ctx, cancel := context.WithTimeout(ctx, *timeout)
+		defer cancel()
 		if browser != "chrome" {
 			return fmt.Errorf("browser %q is unsupported; use chrome", browser)
 		}
@@ -168,24 +170,43 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if len(service.SessionStatus(*sessionPath, s).CookieNames) == 0 {
-		return fmt.Errorf("no usable saved cookies; open %s in Chrome, then run go run . auth import --browser chrome", service.Origin)
+	profile = s.Profile
+	if profile == "" {
+		profile = "Default"
 	}
-	if *ua != "" {
-		s.UserAgent = *ua
+	if service.FreshProtection(s, protectionMargin) == "" {
+		if s, err = refreshSession(ctx, *sessionPath, profile, s.UserAgent, service.Origin+"/", ""); err != nil {
+			return err
+		}
 	}
-	client, err := service.NewClient(s)
-	if err != nil {
-		return err
+	fetch := func(s service.Session) (*domain.Result, *service.Client, error) {
+		if *ua != "" {
+			s.UserAgent = *ua
+		}
+		client, err := service.NewClient(s)
+		if err != nil {
+			return nil, nil, err
+		}
+		ctx, cancel := context.WithTimeout(ctx, *timeout)
+		defer cancel()
+		var result *domain.Result
+		switch command {
+		case "search":
+			result, err = client.Search(ctx, strings.Join(fs.Args(), " "), o)
+		case "list":
+			result, err = client.List(ctx, fs.Arg(0), o)
+		case "details":
+			result, err = client.Details(ctx, fs.Arg(0), availability)
+		}
+		return result, client, err
 	}
-	var result *domain.Result
-	switch command {
-	case "search":
-		result, err = client.Search(ctx, strings.Join(fs.Args(), " "), o)
-	case "list":
-		result, err = client.List(ctx, fs.Arg(0), o)
-	case "details":
-		result, err = client.Details(ctx, fs.Arg(0), availability)
+	result, client, err := fetch(s)
+	var blocked *service.BlockedError
+	if errors.As(err, &blocked) {
+		if s, err = refreshSession(ctx, *sessionPath, profile, s.UserAgent, chromeTarget(blocked.URL), service.FreshProtection(s, 0)); err != nil {
+			return err
+		}
+		result, client, err = fetch(s)
 	}
 	if err != nil {
 		return err
@@ -195,33 +216,80 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	return writeJSON(stdout, result)
 }
+
+const (
+	protectionMargin = 30 * time.Second
+	refreshWait      = 90 * time.Second
+)
+
+// refreshSession re-imports Chrome's cookies until it holds a protection cookie
+// other than stale. Chrome renews the cookie only when it loads the storefront,
+// so a background tab is opened once if the first import is not fresh.
+func refreshSession(ctx context.Context, path, profile, ua, target, stale string) (service.Session, error) {
+	ctx, cancel := context.WithTimeout(ctx, refreshWait)
+	defer cancel()
+	opened := false
+	for {
+		if _, err := service.ImportSession(ctx, path, profile, ua); err == nil {
+			if s, err := service.LoadSession(path); err == nil {
+				if v := service.FreshProtection(s, protectionMargin); v != "" && v != stale {
+					return s, nil
+				}
+			}
+		}
+		if !opened {
+			if err := openChrome(ctx, target, true); err != nil {
+				return service.Session{}, fmt.Errorf("open Chrome to renew the catalog session: %w", err)
+			}
+			opened = true
+		}
+		select {
+		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return service.Session{}, &service.BlockedError{URL: target}
+			}
+			return service.Session{}, ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
+	}
+}
+func chromeTarget(target string) string {
+	if strings.Contains(target, "/ajax/") || strings.Contains(target, "api.lemanapro.ru") {
+		return service.Origin + "/"
+	}
+	return target
+}
+func openChrome(ctx context.Context, target string, background bool) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		args := []string{"-a", "Google Chrome", target}
+		if background {
+			args = append([]string{"-g"}, args...)
+		}
+		cmd = exec.CommandContext(ctx, "open", args...)
+	case "windows":
+		cmd = exec.CommandContext(ctx, "rundll32", "url.dll,FileProtocolHandler", target)
+	default:
+		cmd = exec.CommandContext(ctx, "xdg-open", target)
+	}
+	return cmd.Run()
+}
 func reportError(ctx context.Context, err error, stderr io.Writer) {
 	fmt.Fprintln(stderr, service.Name+":", err)
 	var blocked *service.BlockedError
 	if !errors.As(err, &blocked) {
 		return
 	}
-	target := blocked.URL
-	if strings.Contains(target, "/ajax/") || strings.Contains(target, "api.lemanapro.ru") {
-		target = service.Origin + "/"
-	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.CommandContext(ctx, "open", "-a", "Google Chrome", target)
-	case "windows":
-		cmd = exec.CommandContext(ctx, "rundll32", "url.dll,FileProtocolHandler", target)
-	default:
-		cmd = exec.CommandContext(ctx, "xdg-open", target)
-	}
-	if openErr := cmd.Run(); openErr != nil {
+	target := chromeTarget(blocked.URL)
+	if openErr := openChrome(ctx, target, false); openErr != nil {
 		fmt.Fprintln(stderr, "Open manually in Chrome:", target)
 	} else {
 		fmt.Fprintln(stderr, "Opened in Chrome:", target)
 	}
-	fmt.Fprintln(stderr, "Complete any protection check manually; import the same Chrome profile and rerun the original command.")
+	fmt.Fprintln(stderr, "Complete the check manually, then rerun the original command.")
 }
 func parseOptions(fs *flag.FlagSet, args []string) error {
 	var flags, positionals []string
