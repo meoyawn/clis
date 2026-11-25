@@ -119,6 +119,7 @@ type ChatSnapshot struct {
 	ParticipantID  string        `json:"participant_id"`
 	Messages       []ChatMessage `json:"messages"`
 	HasMore        bool          `json:"has_more"`
+	WriteAllowed   bool          `json:"write_allowed"`
 	SourceURL      string        `json:"source_url"`
 	FirstMessageID uint64        `json:"-"`
 	LastMessageID  uint64        `json:"-"`
@@ -146,7 +147,9 @@ func (c *Client) ReadChat(ctx context.Context, id domain.ChatID) (*ChatSnapshot,
 	if !itemsOK || !moreOK {
 		return nil, fmt.Errorf("chat %s has no message list or pagination flag", id.String())
 	}
-	result := &ChatSnapshot{ChatID: id.String(), ParticipantID: participant, Messages: []ChatMessage{}, HasMore: hasMore, SourceURL: sourceURL}
+	chatStates, _ := data["chatStates"].(map[string]any)
+	writeState, _ := chatStates["writeMessageState"].(map[string]any)
+	result := &ChatSnapshot{ChatID: id.String(), ParticipantID: participant, Messages: []ChatMessage{}, HasMore: hasMore, WriteAllowed: writeState["allowed"] == true, SourceURL: sourceURL}
 	seen := make(map[string]bool, len(items))
 	for _, item := range items {
 		message, _ := item.(map[string]any)

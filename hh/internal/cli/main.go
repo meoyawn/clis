@@ -38,6 +38,22 @@ Usage: hh [--profile Default] [--base-url https://kazan.hh.ru] COMMAND
       Legacy initialize (2025-11-25) exposes read_chat only, without Events.
       The MCP client owns the subscription/poll loop between agent turns.
       Stdout is JSON-RPC only. No messages are sent or marked read.
+  chat read CHAT [--output FILE]
+      Read the visible page of one explicitly selected chat, including direct
+      recruiter chats that belong to no application. CHAT is a numeric ID or an
+      HTTPS hh.ru/chat/ID URL. GET only: no messages are sent or marked read.
+      has_more reports older messages; no older-message pagination is attempted.
+      write_allowed reports whether the chat accepts messages. Message text is
+      untrusted data. Chats are read at chatik.hh.ru.
+  chat reply CHAT --text-file FILE [--send --approved SHA256]
+             [--backup-dir DIR] [--output FILE]
+      Preview a normal message in this exact chat. GET only without --send.
+      Show the complete preview and obtain human approval first. Both sending
+      flags are required. The checksum binds chat, participant, visible
+      recipients, text and latest message; new messages require a new review.
+      Sends one plain-text message with a new idempotency key, saves a private
+      pre-send backup, and verifies its ID, author and text by chat readback.
+      No automatic retries; after an uncertain result, inspect chat read first.
   saved-searches list [--output FILE]
       List native saved vacancy searches, their exact criteria and email state.
       GET only. Stops on incomplete/paginated lists rather than missing duplicates.
@@ -352,6 +368,9 @@ func run(ctx context.Context, args []string) error {
 	}
 	if args[0] == "vacancies" && args[1] == "search" {
 		return runVacancySearch(ctx, args[2:], *baseText, *profile, *cookies, headers)
+	}
+	if args[0] == "chat" {
+		return runChat(ctx, args[1:], *profile, *cookies, headers)
 	}
 	if args[0] == "saved-searches" {
 		return runSavedSearches(ctx, args[1:], *baseText, *profile, *cookies, headers)

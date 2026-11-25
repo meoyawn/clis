@@ -97,3 +97,6 @@ Then subscribe through the client's native Events controls with
 `name: hh.chat.reply` and `arguments: {chat_id: "123"}`. Stop polling to
 unsubscribe. `read_chat` takes the same arguments when current context is
 needed. Watching a chat does not authorize replying to it.
+
+For a one-off read outside an MCP client, `go run . chat read 123` prints the
+same page as `read_chat` (also with an HTTPS hh.ru/chat/ID URL).
