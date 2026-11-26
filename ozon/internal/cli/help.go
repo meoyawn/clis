@@ -44,6 +44,7 @@ Use --include-filters to discover filter keys, option values and sorting values.
 Pass those values with --filter and --sort; query words do not enforce filters.
 Repeat --filter for different keys; quote semicolon-separated values and ranges.
 If filters are missing, use ozon filters with the same query and filters.
+Result rating covers all variants of a product; for this SKU's review count use ozon show.
 
 Continue the same query with --cursor using next_cursor from the previous response.
 Do not combine --cursor with --page, --filter or --sort. --limit trims this page.
@@ -66,6 +67,8 @@ Examples:
 		details = `Print product prices, availability, selected variants and the current seller as JSON.
 Use --full for additional description, characteristics and cheaper/faster seller offers.
 Check the selected variant and both Ozon-card and regular payment prices.
+sku_review_count counts only this SKU's reviews (one extra review-page request);
+rating is Ozon's rating across all variants, which has no per-SKU equivalent.
 Shared product URLs keep their sh parameter for the current offer and delivery estimate.
 
 Examples:
@@ -74,7 +77,8 @@ Examples:
 	case "reviews":
 		syntax = "reviews <sku-or-url> [options]"
 		details = `Print one page of buyer reviews as JSON.
-By default, reviews cover this SKU; --scope all includes other variants.
+By default, reviews and total cover this SKU; --scope all includes other variants.
+rating is Ozon's rating across all variants in both scopes.
 
 Continue the same product with --cursor using next_cursor from the previous response.
 Do not combine --cursor with --page, --scope or --sort. --limit trims this page.

@@ -34,8 +34,8 @@ HTTP requests. The CLI never opens a browser or uses Chrome's renewal tokens.
 | Find candidates and discover filters together | `go run . search 'query' --include-filters` | 1, plus up to 3 validated redirects |
 | Search using known constraints | `go run . search 'query' --filter KEY=VALUE` | 1, plus up to 3 validated redirects |
 | Discover filters without product output | `go run . filters 'query'` | 1, plus up to 3 validated redirects |
-| Inspect prices, variants and the current seller | `go run . show <sku-or-url>` | 1, plus up to 3 validated redirects |
-| Load details and compare seller offers | `go run . show <sku-or-url> --full` | At most 4 pages, each plus up to 3 validated redirects |
+| Inspect prices, variants, the current seller and this SKU's review count | `go run . show <sku-or-url>` | 2 pages (product + first SKU review page), each plus up to 3 validated redirects |
+| Load details and compare seller offers | `go run . show <sku-or-url> --full` | At most 5 pages, each plus up to 3 validated redirects |
 | Read one page of buyer reviews | `go run . reviews <sku-or-url>` | 1, plus up to 3 validated redirects |
 | List cart items | `go run . cart list` | 1, plus up to 3 validated cart redirects |
 | Add one unit to the cart | `go run . cart add <sku-or-url>` | 1 POST, plus up to 3 validated 307/308 navigation redirects |
@@ -69,10 +69,15 @@ reporting it. Unknown numeric/boolean values are `null`, not zero or false.
 `search` returns `query`, `results`, and pagination fields. Each product has:
 
 - `sku`, canonical `url`, `title`, and `images` URLs;
-- displayed `price`, `rating`, and `num_ratings`;
+- displayed `price` and `rating`;
 - `quantity` only from an explicit stock label, with `quantity_source`;
 - `max_order_quantity` when Ozon supplies a cart limit; this is **not stock**;
 - `delivery_day` in Ozon's wording, or an empty string if absent.
+
+Ozon's `rating` and its displayed review count cover every variant of a product
+(colors, lengths, sizes), not just the listed SKU. Ozon publishes no per-SKU
+rating. Search omits the variant-group count; use `show` for this SKU's exact
+`sku_review_count`.
 
 With `--include-filters`, the same top-level `filters` and `sorting` arrays as
 `go run . filters` are added. Without the flag, these fields are omitted. If an
@@ -97,6 +102,11 @@ images, `variants`, and the current seller when supplied.
 | `description`, `description_images`, `characteristics` | Whatever is already on the main page | Also merges the additional details section when present |
 | `sellers_truncated` | Does not establish completeness; comparisons were not requested | Indicates whether Ozon reported more seller offers beyond those loaded |
 
+`sku_review_count` is the number of reviews for this exact SKU, read from the
+first SKU-scoped review page ("Этот вариант товара"). `rating` stays Ozon's
+variant-group rating. When the group has no reviews, the count is 0 without that
+request. If the review page fails, the count is `null` and `warnings` explains it.
+
 `full` records the requested fetch mode. It does not guarantee that every field
 exists or that all seller offers were fetched. Empty detail fields in lightweight
 mode mean no such data was present on the main page; try `--full` if needed.
@@ -118,7 +128,8 @@ tracking parameters are removed. Short `/t/` links and unrelated URLs are reject
 ### Reviews
 
 `reviews` returns `scope`, `sort`, pagination, `all_variants_total`, Ozon's
-aggregate `rating`, and a `reviews` array. A review contains its ID, SKU,
+variant-group `rating` (the same in both scopes), and a `reviews` array. With
+the default SKU scope, `total` is the exact SKU review count. A review contains its ID, SKU,
 permalink, public author name, rating, timestamps, text, pros/cons, variant
 attributes, purchase flag, helpful/unhelpful counts, and comment count. Comments
 are not individually fetched.

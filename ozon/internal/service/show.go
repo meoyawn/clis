@@ -11,7 +11,8 @@ import (
 const buttonTextPath = "/api/composer-api.bx/_action/v2/pdpGetButtonTexts"
 const buttonTextPayload = `{"params":{"enableProductViewedExtended":"true","inCartPosition":"subtitle","pageType":"pdp","toCartPosition":"subtitle"}}`
 
-// Show fetches one product page and, when needed, its delivery button text.
+// Show fetches one product page, its SKU-scoped review count and, when needed,
+// its delivery button text.
 // Full mode also fetches its details section and the first cheaper/faster
 // offer lists. Each request may follow up to three validated redirects.
 func (c *Client) Show(ctx context.Context, ref ItemReference, o ShowOptions, opt RequestOptions) (*ShowResult, error) {
@@ -52,6 +53,15 @@ func (c *Client) Show(ctx context.Context, ref ItemReference, o ShowOptions, opt
 					out.Sellers[i].DeliveryDay = day
 				}
 			}
+		}
+	}
+	if out.SKUReviewCount == nil {
+		count, meta, err := c.skuReviewCount(ctx, ref, opt)
+		mergeMeta(&out.Metadata, meta)
+		if err != nil {
+			out.Warnings = append(out.Warnings, fmt.Sprintf("load SKU review count: %v", err))
+		} else {
+			out.SKUReviewCount = count
 		}
 	}
 	out.Full = o.Full
@@ -117,6 +127,27 @@ func (c *Client) Show(ctx context.Context, ref ItemReference, o ShowOptions, opt
 		out.Warnings = append(out.Warnings, "Ozon did not supply a text description in the fetched product sections.")
 	}
 	return out, nil
+}
+
+// skuReviewCount reads the "this variant" review total from the first
+// SKU-scoped review page; the product page only carries the group total.
+func (c *Client) skuReviewCount(ctx context.Context, ref ItemReference, opt RequestOptions) (*int64, Metadata, error) {
+	path, err := ReviewsPath(ref, ReviewsOptions{Page: 1, Sort: UsefulReviewSort(), Scope: SKUReviewScope()})
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+	p, err := c.fetchProduct(ctx, path, ref.SKU, opt)
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+	r, err := parseReviews(p, ref, path)
+	if err != nil {
+		return nil, p.meta, err
+	}
+	if r.Total == nil {
+		return nil, p.meta, fmt.Errorf("Ozon review page has no SKU total")
+	}
+	return r.Total, p.meta, nil
 }
 
 func (c *Client) fetchButtonDelivery(ctx context.Context, productPath string, ref ItemReference, opt RequestOptions) (string, Metadata, error) {
@@ -208,7 +239,10 @@ func parseShow(p *page, ref ItemReference) (*ShowResult, error) {
 		return nil, err
 	}
 	out.Rating = number(score["totalScore"])
-	out.NumRatings = integer(score["reviewsCount"])
+	// reviewsCount covers every variant; an empty group needs no SKU lookup.
+	if n := integer(score["reviewsCount"]); n != nil && *n == 0 {
+		out.SKUReviewCount = n
+	}
 	cart, err := p.first("webAddToCart")
 	if err != nil {
 		return nil, err

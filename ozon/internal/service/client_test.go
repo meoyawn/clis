@@ -106,6 +106,8 @@ func TestRequestCountsDoNotGrowWithResults(t *testing.T) {
 				switch {
 				case path == "/product/100/":
 					body, err = json.Marshal(main)
+				case strings.HasPrefix(path, "/product/100/reviews/?"):
+					body = fixture(t, "reviews")
 				case strings.Contains(path, "layout_container=pdpPage2column"):
 					body = fixture(t, "details")
 				case strings.HasPrefix(path, "/modal/otherOffersFromSellers?"):
@@ -122,7 +124,7 @@ func TestRequestCountsDoNotGrowWithResults(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if calls != 4 || got.HTTPRequests != 4 || !got.Full {
+			if calls != 5 || got.HTTPRequests != 5 || !got.Full {
 				t.Fatalf("%d offers used %d requests, metadata %d", n, calls, got.HTTPRequests)
 			}
 			if len(got.Sellers) != n+1 || len(got.Variants[0].Variants) != n {

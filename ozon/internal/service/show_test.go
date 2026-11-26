@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -40,6 +41,11 @@ func TestShowSharedLinkResolvesDelivery(t *testing.T) {
 				t.Fatalf("delivery referer = %q", got)
 			}
 			return response([]byte(`{"data":{"firstButton":{"toCartText":{"text":"Доставим с 16 ноября"}}}}`), http.StatusOK), nil
+		case 3:
+			if got := requireRequest(t, r); got != "/product/sample-100/reviews/?reviewsVariantMode=1&sort=usefulness_desc" {
+				t.Fatalf("review count path = %q", got)
+			}
+			return response(fixture(t, "reviews"), http.StatusOK), nil
 		default:
 			t.Fatalf("unexpected request %s", r.URL)
 			return nil, nil
@@ -49,12 +55,12 @@ func TestShowSharedLinkResolvesDelivery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if calls != 2 || got.HTTPRequests != 2 || got.DeliveryDay != "Доставим с 16 ноября" || len(got.Sellers) != 1 || got.Sellers[0].DeliveryDay != got.DeliveryDay {
+	if calls != 3 || got.HTTPRequests != 3 || got.DeliveryDay != "Доставим с 16 ноября" || len(got.Sellers) != 1 || got.Sellers[0].DeliveryDay != got.DeliveryDay {
 		t.Fatalf("delivery result = %+v", got)
 	}
 }
 
-func TestShowLightweightUsesOnlyMainPage(t *testing.T) {
+func TestShowLightweightUsesMainPageAndSKUReviewCount(t *testing.T) {
 	t.Parallel()
 	for _, detailsPresent := range []bool{false, true} {
 		t.Run(map[bool]string{false: "details absent", true: "details on main page"}[detailsPresent], func(t *testing.T) {
@@ -62,7 +68,11 @@ func TestShowLightweightUsesOnlyMainPage(t *testing.T) {
 			calls := 0
 			c := testClient(t, func(r *http.Request) (*http.Response, error) {
 				calls++
-				if path := requireRequest(t, r); path != "/product/100/" || calls != 1 {
+				path := requireRequest(t, r)
+				if calls == 2 && path == "/product/100/reviews/?reviewsVariantMode=1&sort=usefulness_desc" {
+					return response(fixture(t, "reviews"), http.StatusOK), nil
+				}
+				if path != "/product/100/" || calls != 1 {
 					t.Fatal("lightweight show fetched an additional section")
 				}
 				p := fixturePage(t, "product")
@@ -81,8 +91,12 @@ func TestShowLightweightUsesOnlyMainPage(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if calls != 1 || got.HTTPRequests != 1 || got.Full || len(got.Warnings) != 0 {
+			if calls != 2 || got.HTTPRequests != 2 || got.Full || len(got.Warnings) != 0 {
 				t.Fatalf("unexpected lightweight metadata: %+v", got)
+			}
+			// The product page's 3676 covers all variants; only this SKU's 2191 count.
+			if got.SKUReviewCount == nil || *got.SKUReviewCount != 2191 {
+				t.Fatalf("sku_review_count = %v", got.SKUReviewCount)
 			}
 			if got.Prices.WithOzonCard.Amount != 232 || got.Prices.WithoutOzonCard.Amount != 258 || len(got.Variants) != 1 || len(got.Sellers) != 1 || !got.Sellers[0].Current {
 				t.Fatal("main-page prices, variants or current seller lost")
@@ -99,7 +113,9 @@ func TestShowFullSkipsAbsentOptionalSections(t *testing.T) {
 	calls := 0
 	c := testClient(t, func(r *http.Request) (*http.Response, error) {
 		calls++
-		requireRequest(t, r)
+		if strings.Contains(requireRequest(t, r), "/reviews/") {
+			return response(fixture(t, "reviews"), http.StatusOK), nil
+		}
 		if calls != 1 {
 			t.Fatal("invented a request for an absent section")
 		}
@@ -116,7 +132,7 @@ func TestShowFullSkipsAbsentOptionalSections(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.Full || got.HTTPRequests != 1 || len(got.Sellers) != 1 || len(got.Warnings) != 1 {
+	if !got.Full || calls != 2 || got.HTTPRequests != 2 || len(got.Sellers) != 1 || len(got.Warnings) != 1 {
 		t.Fatalf("unexpected full result with absent sections: %+v", got)
 	}
 }

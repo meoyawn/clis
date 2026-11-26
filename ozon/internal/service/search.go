@@ -237,9 +237,12 @@ func parseProduct(v object) (Product, error) {
 				if s == "" {
 					continue
 				}
+				// The tile review count covers every variant of the product,
+				// so only show reports the exact SKU count.
 				if strings.Contains(s, "отзыв") || strings.Contains(s, "оцен") {
-					p.NumRatings = textInteger(s)
-				} else if rating := textNumber(s); rating != nil && *rating <= 5 {
+					continue
+				}
+				if rating := textNumber(s); rating != nil && *rating <= 5 {
 					p.Rating = rating
 				}
 			}

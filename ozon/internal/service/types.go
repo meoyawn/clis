@@ -39,7 +39,6 @@ type Product struct {
 	Title            string   `json:"title"`
 	Images           []string `json:"images"`
 	Rating           *float64 `json:"rating"`
-	NumRatings       *int64   `json:"num_ratings"`
 	Price            *Money   `json:"price"`
 	Quantity         *int64   `json:"quantity"`
 	QuantitySource   string   `json:"quantity_source,omitempty"`
@@ -101,6 +100,7 @@ type ShowResult struct {
 	Metadata
 	Product
 	Full              bool           `json:"full"`
+	SKUReviewCount    *int64         `json:"sku_review_count"`
 	Prices            Prices         `json:"prices"`
 	Available         *bool          `json:"available"`
 	Variants          []VariantGroup `json:"variants"`

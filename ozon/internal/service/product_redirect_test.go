@@ -16,8 +16,8 @@ func TestProductCommandsFollowScopedRedirects(t *testing.T) {
 		reviews  bool
 		requests int
 	}{
-		{name: "show", requests: 2},
-		{name: "full show sections", full: true, requests: 8},
+		{name: "show", requests: 4},
+		{name: "full show sections", full: true, requests: 10},
 		{name: "reviews", reviews: true, requests: 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -107,10 +107,14 @@ func TestProductRedirectScopeAndBounds(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			calls := 0
+			calls, reviewCalls := 0, 0
 			c := testClient(t, func(r *http.Request) (*http.Response, error) {
+				// Show's SKU review count is a separate request outside this redirect chain.
+				if !tc.reviews && strings.Contains(requireRequest(t, r), "/reviews/") {
+					reviewCalls++
+					return response(fixture(t, "reviews"), http.StatusOK), nil
+				}
 				calls++
-				requireRequest(t, r)
 				if calls <= tc.redirects {
 					target := tc.target
 					if target == "" {
@@ -135,7 +139,7 @@ func TestProductRedirectScopeAndBounds(t *testing.T) {
 				t.Fatalf("calls=%d want=%d", calls, tc.wantCalls)
 			}
 			if tc.wantError == "" {
-				if err != nil || got.HTTPRequests != calls {
+				if err != nil || reviewCalls != 1 || got.HTTPRequests != calls+reviewCalls {
 					t.Fatalf("result=%+v err=%v", got, err)
 				}
 			} else if err == nil || !strings.Contains(err.Error(), tc.wantError) || strings.Contains(err.Error(), "private") || got != nil {

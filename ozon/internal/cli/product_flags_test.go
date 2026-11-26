@@ -18,10 +18,10 @@ func TestShowModes(t *testing.T) {
 		full  bool
 		calls int
 	}{
-		{[]string{"show", "100"}, false, 1},
-		{[]string{"show", "100", "--full=false"}, false, 1},
-		{[]string{"show", "100", "--full"}, true, 4},
-		{[]string{"show", "--full", "100"}, true, 4},
+		{[]string{"show", "100"}, false, 2},
+		{[]string{"show", "100", "--full=false"}, false, 2},
+		{[]string{"show", "100", "--full"}, true, 5},
+		{[]string{"show", "--full", "100"}, true, 5},
 	} {
 		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {
 			t.Parallel()
@@ -32,6 +32,8 @@ func TestShowModes(t *testing.T) {
 				name := "product"
 				switch {
 				case path == "/product/100/":
+				case strings.HasPrefix(path, "/product/100/reviews/?"):
+					name = "reviews"
 				case strings.Contains(path, "layout_container=pdpPage2column"):
 					name = "details"
 				case strings.HasPrefix(path, "/modal/otherOffersFromSellers?"):
