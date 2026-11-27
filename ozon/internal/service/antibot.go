@@ -4,15 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"slices"
 	"time"
 )
 
-// antibotCookie is set by Ozon after a browser passes its JavaScript check
-// (/abt/result). Ozon rejects stale values with a 403 challenge page.
-const antibotCookie = "abt_data"
+// AntibotCookie is set after a browser engine runs Ozon's anti-bot script.
+// Ozon answers requests carrying a stale value with a 403 challenge page.
+const AntibotCookie = "abt_data"
 
-// BrowserOpener shows a page in the browser the session was imported from.
-type BrowserOpener func(ctx context.Context, browser Browser, target string) error
+// antibotCookies are copied from the renewing engine; account cookies stay
+// as imported from the user's browser.
+var antibotCookies = [...]string{AntibotCookie, "__Secure-ETC"}
+
+// AntibotSource loads ozon.ru in a real browser engine, lets Ozon's current
+// script run there, and returns the cookies that engine then holds.
+type AntibotSource func(ctx context.Context) ([]*http.Cookie, error)
 
 // IsBrowserChallenge reports whether Ozon rejected the saved anti-bot cookie.
 func IsBrowserChallenge(err error) bool {
@@ -20,62 +27,79 @@ func IsBrowserChallenge(err error) bool {
 	return errors.As(err, &challenge)
 }
 
-// RenewAntibot lets the imported browser profile pass Ozon's check and saves
-// its renewed cookies. The CLI never answers the challenge itself: it opens
-// ozon.ru in that browser once, then rereads its cookie store every poll
-// interval until abt_data differs from the rejected value. Browsers write
-// cookies to disk lazily, so a fresh value can appear seconds after the page.
-func (c *Client) RenewAntibot(ctx context.Context, read CookieReader, open BrowserOpener, poll time.Duration) error {
+// SetAntibotSource enables renewing a rejected abt_data through source.
+func (c *Client) SetAntibotSource(source AntibotSource) { c.antibot = source }
+
+// renewAntibot obtains fresh anti-bot cookies once per client, saves them
+// and makes every later request carry them.
+func (c *Client) renewAntibot(ctx context.Context) error {
+	c.antibotMu.Lock()
+	defer c.antibotMu.Unlock()
+	if c.antibot == nil {
+		return errors.New("anti-bot renewal is not available")
+	}
+	if c.renewed {
+		return errors.New("Ozon rejected the renewed anti-bot cookie")
+	}
+	c.renewed = true
 	saved, err := c.auth.load()
 	if err != nil {
 		return err
 	}
-	browser, err := NewBrowserFromValue(saved.Browser)
+	fresh, err := c.antibot(ctx)
 	if err != nil {
+		return fmt.Errorf("renew Ozon's anti-bot cookie: %w", err)
+	}
+	var picked []*http.Cookie
+	for _, name := range antibotCookies {
+		for _, cookie := range fresh {
+			if cookie.Name != name {
+				continue
+			}
+			stored := storedCookie{Name: cookie.Name, Value: cookie.Value, Domain: cookie.Domain, Path: cookie.Path, Secure: cookie.Secure, HTTPOnly: cookie.HttpOnly}
+			if stored.Path == "" {
+				stored.Path = "/"
+			}
+			if !cookie.Expires.IsZero() {
+				expires := cookie.Expires.UTC()
+				stored.Expires = &expires
+			}
+			if !stored.valid() || stored.expired(time.Now()) {
+				continue
+			}
+			saved.replace(stored)
+			picked = append(picked, &http.Cookie{Name: stored.Name, Value: stored.Value})
+		}
+	}
+	if !slices.ContainsFunc(picked, func(c *http.Cookie) bool { return c.Name == AntibotCookie }) {
+		return fmt.Errorf("renew Ozon's anti-bot cookie: the browser engine received no %s", AntibotCookie)
+	}
+	if err := c.auth.save(ctx, saved); err != nil {
 		return err
 	}
-	stale := saved.cookie(antibotCookie)
-	opened := false
-	for {
-		if fresh := c.browserSession(ctx, browser, saved, read); fresh != nil && fresh.cookie(antibotCookie) != "" && fresh.cookie(antibotCookie) != stale {
-			return c.auth.save(ctx, fresh)
-		}
-		if !opened {
-			if err := open(ctx, browser, WebOrigin+"/"); err != nil {
-				return fmt.Errorf("open ozon.ru in %s to renew its anti-bot cookie: %w", browser, err)
-			}
-			opened = true
-		}
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("%s did not renew Ozon's anti-bot cookie before the timeout; load ozon.ru there, complete any check, then rerun: %w", browser, ctx.Err())
-		case <-time.After(poll):
-		}
-	}
-}
-
-// browserSession rereads the browser profile the session came from. Reads
-// that fail or come from another profile are ignored.
-func (c *Client) browserSession(ctx context.Context, browser Browser, saved *authRecord, read CookieReader) *authRecord {
-	for _, profile := range []string{saved.Profile, ""} {
-		fresh, _, err := c.auth.prepareImport(ctx, browser, profile, read)
-		if err != nil {
-			continue
-		}
-		if saved.CookieSource != "" && fresh.CookieSource != saved.CookieSource {
-			continue
-		}
-		fresh.Profile = saved.Profile
-		return fresh
-	}
+	c.fresh = picked
 	return nil
 }
 
-func (record authRecord) cookie(name string) string {
-	for _, cookie := range record.Cookies {
-		if cookie.Name == name {
-			return cookie.Value
+// withAntibot replaces cookies of the same names with the renewed ones.
+func (c *Client) withAntibot(cookies []*http.Cookie) []*http.Cookie {
+	c.antibotMu.Lock()
+	defer c.antibotMu.Unlock()
+	if len(c.fresh) == 0 {
+		return cookies
+	}
+	out := slices.DeleteFunc(slices.Clone(cookies), func(old *http.Cookie) bool {
+		return slices.ContainsFunc(c.fresh, func(f *http.Cookie) bool { return f.Name == old.Name })
+	})
+	return append(out, c.fresh...)
+}
+
+func (record *authRecord) replace(cookie storedCookie) {
+	for i, old := range record.Cookies {
+		if old.Name == cookie.Name {
+			record.Cookies[i] = cookie
+			return
 		}
 	}
-	return ""
+	record.Cookies = append(record.Cookies, cookie)
 }

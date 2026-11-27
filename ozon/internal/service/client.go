@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -21,6 +22,13 @@ const DefaultWebUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) App
 type Client struct {
 	http *http.Client
 	auth AuthStore
+	// antibot renews Ozon's anti-bot cookies; nil disables renewal.
+	antibot AntibotSource
+	// antibotMu guards fresh and renewed: one renewal per command, whose
+	// cookies then replace the saved ones in every later request.
+	antibotMu sync.Mutex
+	fresh     []*http.Cookie
+	renewed   bool
 }
 type RequestOptions struct{ UserAgent string }
 
@@ -156,6 +164,9 @@ type jsonResponse struct {
 	cookies []*http.Cookie
 }
 
+// fetchJSON is the only place that sends Ozon requests. A 403 challenge means
+// Ozon's anti-bot edge rejected abt_data before the request reached Ozon, so
+// after renewing it the same request, POST included, is sent once more.
 func (c *Client) fetchJSON(ctx context.Context, relative string, target *url.URL, opt RequestOptions, cookiesFor func(*url.URL) ([]*http.Cookie, error), payload []byte) (*jsonResponse, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -164,6 +175,22 @@ func (c *Client) fetchJSON(ctx context.Context, relative string, target *url.URL
 	if err != nil {
 		return nil, err
 	}
+	first, err := c.send(ctx, relative, target, opt, c.withAntibot(cookies), payload)
+	if !IsBrowserChallenge(err) {
+		return first, err
+	}
+	if renewErr := c.renewAntibot(ctx); renewErr != nil {
+		return first, fmt.Errorf("%w; %w", err, renewErr)
+	}
+	retry, err := c.send(ctx, relative, target, opt, c.withAntibot(cookies), payload)
+	if retry != nil {
+		retry.meta.HTTPRequests += first.meta.HTTPRequests
+		retry.meta.SourceURLs = append(first.meta.SourceURLs, retry.meta.SourceURLs...)
+	}
+	return retry, err
+}
+
+func (c *Client) send(ctx context.Context, relative string, target *url.URL, opt RequestOptions, cookies []*http.Cookie, payload []byte) (*jsonResponse, error) {
 	ua := opt.UserAgent
 	if ua == "" {
 		ua = DefaultWebUserAgent

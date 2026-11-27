@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+
+	"github.com/meoyawn/clis/ozon/internal/webview"
 )
 
-// Main runs the command-line application.
+// Main runs the command-line application. The system web view's loop starts
+// on the main goroutine only if a command needs to renew Ozon's anti-bot cookie.
 func Main() {
-	os.Exit(runMain())
+	os.Exit(webview.Run(runMain))
 }
 
 func runMain() int {

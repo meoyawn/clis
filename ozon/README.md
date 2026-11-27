@@ -4,11 +4,9 @@ A Go CLI for finding Ozon products, checking exact variants and prices, comparin
 sellers, reading reviews, and managing the shopping cart. Data commands return JSON. Prices
 and delivery reflect the saved account's Ozon location and session.
 
-Agent workflow: [ozon skill](.agents/skills/ozon/SKILL.md).
-
 ## Run
 
-Requires Go 1.27.2 or newer. Run from this CLI directory:
+Requires Go 1.27.3 or newer. Run from this CLI directory:
 
 ```sh
 go run . --help
@@ -25,7 +23,7 @@ go run . auth import --browser chrome --browser-profile 'Profile 1'
 `go run . auth status` verifies the CLI's saved cookies without reading the browser
 or updating the saved session. Product and search commands use that same copy.
 `auth import` copies browser cookies locally with sweetcookie and makes zero
-HTTP requests. The CLI never opens a browser or uses Chrome's renewal tokens.
+HTTP requests. The CLI never opens your browser or uses its renewal tokens.
 
 ## Commands
 
@@ -236,17 +234,20 @@ Select one profile with `--browser-profile` when necessary. To refresh an expire
 session, run `auth import` again.
 
 Ozon's anti-bot cookie `abt_data` goes stale (observed after about a day) and
-Ozon then answers every request with a 403 challenge page. Only a real browser
-can pass it: the page runs Ozon's script, which posts a browser check to
-`/abt/result` and receives a new `abt_data`. The CLI never answers the check.
-When `search`, `filters`, `show` or `reviews` hit the challenge, the CLI opens
-ozon.ru in a background tab of the imported browser, rereads that profile's
-cookie store every 2 seconds until `abt_data` changes, saves the renewed
-cookies and retries the command once, all within `--timeout`. The output's
-`http_requests` covers the retried attempt only, not the rejected one. Browsers write
-cookies to disk lazily, so this usually takes 10–30 seconds. `auth status` and
-`cart` commands do not renew; run a read command first. If the browser shows
-its own check, complete it there and rerun.
+Ozon then answers every request with a 403 challenge page, whose script posts a
+browser check to `/abt/result` before Ozon issues a new `abt_data`. The CLI
+never computes that check. When `search`, `filters`, `show` or `reviews` hit the
+challenge, the CLI loads ozon.ru in a hidden system web view
+([mygo](https://github.com/egoist/mygo): WKWebView on macOS, WebView2 on Windows,
+WebKitGTK on Linux) with a fresh in-memory session. Ozon's current script runs
+there unmodified, whatever its version. Once Ozon has served a page to a
+navigation that already carried `abt_data`, the CLI copies only `abt_data` and
+`__Secure-ETC` into the saved session, keeps the imported account cookies, and
+retries the command once, within `--timeout` and at most 30 seconds for the web
+view. This usually takes about 3 seconds; it works under `go run` and needs no
+app bundle, and the web view writes nothing to disk. The output's
+`http_requests` covers the retried attempt only. `auth status` and `cart`
+commands do not renew; run a read command first.
 
 Import prints the number of cookies saved; status reports the verified account.
 `--json` adds cookie names/counts, expiry diagnostics and request metadata, never

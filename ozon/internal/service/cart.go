@@ -218,7 +218,7 @@ func (c *Client) CartAdd(ctx context.Context, ref ItemReference, opt RequestOpti
 			}
 		}
 	}
-	return nil, fmt.Errorf("Ozon did not confirm adding SKU %s; check ozon cart list before retrying", ref.SKU)
+	return nil, fmt.Errorf("Ozon did not confirm adding SKU %s; check go run . cart list before retrying", ref.SKU)
 }
 
 // CartRemove deletes only this SKU, including all its units. Failed writes are never retried.

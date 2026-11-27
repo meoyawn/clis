@@ -164,7 +164,7 @@ func (store AuthStore) save(ctx context.Context, record *authRecord) error {
 func (store AuthStore) Status() (*AuthStatus, error) {
 	record, err := store.load()
 	if errors.Is(err, os.ErrNotExist) {
-		return &AuthStatus{Store: store.Path, CookieNames: []string{}, Warnings: []string{"No saved cookies; run ozon auth import --browser chrome (or your browser)."}}, nil
+		return &AuthStatus{Store: store.Path, CookieNames: []string{}, Warnings: []string{"No saved cookies; run go run . auth import --browser chrome (or your browser)."}}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func (record authRecord) summary(path string, now time.Time) *AuthStatus {
 	slices.Sort(result.CookieNames)
 	result.CookieNames = slices.Compact(result.CookieNames)
 	if result.UsableCookieCount == 0 {
-		result.Warnings = append(result.Warnings, "All saved cookies have expired; run ozon auth import again.")
+		result.Warnings = append(result.Warnings, "All saved cookies have expired; rerun go run . auth import.")
 	}
 	return result
 }
@@ -203,7 +203,7 @@ func (store AuthStore) load() (*authRecord, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
-		return nil, fmt.Errorf("auth store %q must be a regular file readable only by its owner; re-import with ozon auth import", store.Path)
+		return nil, fmt.Errorf("auth store %q must be a regular file readable only by its owner; re-import with go run . auth import", store.Path)
 	}
 	f, err := os.Open(store.Path)
 	if err != nil {
@@ -216,7 +216,7 @@ func (store AuthStore) load() (*authRecord, error) {
 	}
 	var record authRecord
 	invalid := func() (*authRecord, error) {
-		return nil, fmt.Errorf("invalid auth store %q; run ozon auth import again", store.Path)
+		return nil, fmt.Errorf("invalid auth store %q; rerun go run . auth import", store.Path)
 	}
 	if len(data) > maxAuthBytes || json.Unmarshal(data, &record) != nil || record.Version != 1 || record.ImportedAt.IsZero() || len(record.Cookies) == 0 {
 		return invalid()
@@ -238,7 +238,7 @@ func (store AuthStore) cookiesFor(target *url.URL) ([]*http.Cookie, error) {
 	}
 	record, err := store.load()
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("no saved Ozon cookies; run ozon auth import --browser chrome (or your browser)")
+		return nil, fmt.Errorf("no saved Ozon cookies; run go run . auth import --browser chrome (or your browser)")
 	}
 	if err != nil {
 		return nil, err
@@ -263,7 +263,7 @@ func (record authRecord) cookiesFor(target *url.URL) ([]*http.Cookie, error) {
 		}
 	}
 	if len(cookies) == 0 {
-		return nil, fmt.Errorf("no unexpired saved Ozon cookies match this request; run ozon auth import again")
+		return nil, fmt.Errorf("no unexpired saved Ozon cookies match this request; rerun go run . auth import")
 	}
 	// RFC 6265: more specific paths precede root cookies with the same name.
 	slices.SortStableFunc(cookies, func(a, b *http.Cookie) int { return len(b.Path) - len(a.Path) })

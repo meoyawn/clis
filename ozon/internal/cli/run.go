@@ -6,22 +6,20 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	ozon "github.com/meoyawn/clis/ozon/internal/service"
+	"github.com/meoyawn/clis/ozon/internal/webview"
 	"github.com/steipete/sweetcookie"
 )
 
 type dependencies struct {
 	client      *ozon.Client
 	readCookies ozon.CookieReader
-	openBrowser ozon.BrowserOpener
-	// renewPoll is how often the browser cookie store is reread while the
-	// browser renews Ozon's anti-bot cookie.
-	renewPoll time.Duration
-	close     func()
+	close       func()
 }
 type setupFunc func() (dependencies, error)
 
@@ -33,7 +31,10 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		}
 		h := ozon.NewHTTPClient()
 		c, err := ozon.NewClient(h, store)
-		return dependencies{client: c, readCookies: sweetcookie.Get, openBrowser: openInBrowser, renewPoll: 2 * time.Second, close: h.CloseIdleConnections}, err
+		if err == nil {
+			c.SetAntibotSource(webviewAntibot)
+		}
+		return dependencies{client: c, readCookies: sweetcookie.Get, close: h.CloseIdleConnections}, err
 	})
 }
 
@@ -94,7 +95,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, setup set
 		flags.BoolVar(&includeFilters, "include-filters", false, "include filter and sorting options from the same page")
 	}
 	if command == "show" {
-		flags.BoolVar(&full, "full", false, "also fetch details and cheaper/faster seller offers (at most 4 pages, up to 3 redirects each)")
+		flags.BoolVar(&full, "full", false, "also fetch details and cheaper/faster seller offers (at most 5 pages, up to 3 redirects each)")
 	}
 	if err := parseOptions(flags, args[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -167,15 +168,15 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, setup set
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 	opt := ozon.RequestOptions{UserAgent: *ua}
-	err = execute(ctx, command, deps, opt, search, ref, reviews, full, limit, stdout)
-	if !ozon.IsBrowserChallenge(err) || deps.openBrowser == nil {
-		return err
-	}
-	// Reads are safe to repeat once the browser has renewed abt_data.
-	if renewErr := deps.client.RenewAntibot(ctx, deps.readCookies, deps.openBrowser, deps.renewPoll); renewErr != nil {
-		return fmt.Errorf("%w; %w", err, renewErr)
-	}
 	return execute(ctx, command, deps, opt, search, ref, reviews, full, limit, stdout)
+}
+
+// webviewAntibot lets the system web engine load ozon.ru and run Ozon's
+// current anti-bot script, then returns the cookies it received.
+func webviewAntibot(ctx context.Context) ([]*http.Cookie, error) {
+	ctx, cancel := context.WithTimeout(ctx, webview.Timeout)
+	defer cancel()
+	return webview.Cookies(ctx, ozon.WebOrigin+"/", ozon.AntibotCookie)
 }
 
 func execute(ctx context.Context, command string, deps dependencies, opt ozon.RequestOptions, search ozon.SearchOptions, ref ozon.ItemReference, reviews ozon.ReviewsOptions, full bool, limit int, stdout io.Writer) error {

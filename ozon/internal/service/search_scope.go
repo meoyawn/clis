@@ -273,7 +273,7 @@ func validateActiveFilters(p *page, q url.Values) error {
 				}
 			}
 			if !confirmed {
-				return fmt.Errorf("Ozon did not confirm the requested sorting; use a sorting value from ozon filters")
+				return fmt.Errorf("Ozon did not confirm the requested sorting; use a sorting value from go run . filters")
 			}
 		}
 	}
@@ -319,7 +319,7 @@ func validateActiveFilters(p *page, q url.Values) error {
 		slices.Sort(values)
 		slices.Sort(expected)
 		if !slices.Equal(values, expected) {
-			return fmt.Errorf("Ozon did not confirm the requested value for filter %q; use values from ozon filters", key)
+			return fmt.Errorf("Ozon did not confirm the requested value for filter %q; use values from go run . filters", key)
 		}
 	}
 	return nil

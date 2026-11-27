@@ -31,7 +31,7 @@ func (c *Client) Search(ctx context.Context, o SearchOptions, opt RequestOptions
 		facets, err := parseFilters(p, o.Query)
 		switch {
 		case errors.Is(err, errNoFilters):
-			out.Warnings = append(out.Warnings, "Ozon did not supply filter facets on this page; use ozon filters with the same query and filters.")
+			out.Warnings = append(out.Warnings, "Ozon did not supply filter facets on this page; use go run . filters with the same query and filters.")
 		case err != nil:
 			return nil, err
 		default:

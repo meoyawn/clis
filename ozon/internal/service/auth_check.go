@@ -50,7 +50,7 @@ func (c *Client) checkAuth(ctx context.Context, r *authRecord, s *AuthStatus, op
 		case s.IsAuthenticated == nil:
 			err = fmt.Errorf("Ozon did not report login status; session could not be verified")
 		case !*s.IsAuthenticated:
-			err = fmt.Errorf("Ozon returned a signed-out page for the selected browser cookies; refresh ozon.ru in that browser profile, then run ozon auth import again")
+			err = fmt.Errorf("Ozon returned a signed-out page for the selected browser cookies; refresh ozon.ru in that browser profile, then rerun go run . auth import")
 		default:
 			s.Account = &Account{ID: u.ID.String(), Name: strings.TrimSpace(u.FirstName + " " + u.LastName)}
 		}
@@ -164,7 +164,7 @@ func (c *Client) AuthStatus(ctx context.Context, opt RequestOptions) (*AuthStatu
 		return nil, err
 	}
 	if !s.Imported {
-		err = fmt.Errorf("no saved Ozon session; run ozon auth import --browser chrome")
+		err = fmt.Errorf("no saved Ozon session; run go run . auth import --browser chrome")
 		s.Error = err.Error()
 		return s, err
 	}
