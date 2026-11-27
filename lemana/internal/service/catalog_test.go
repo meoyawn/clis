@@ -106,6 +106,12 @@ func TestDetailsStocksAreOneOptionalRequest(t *testing.T) {
 			if p.GroupReviewCount == nil || *p.GroupReviewCount != 11 || p.GroupRating == nil || *p.GroupRating != 4.8 {
 				t.Fatalf("group ratings were not kept separately: %+v", p)
 			}
+			if len(p.VariantAxes) != 2 || p.VariantAxes[1] != "Цвет освещения" || len(p.Variants) != 2 {
+				t.Fatalf("variant group %v %+v", p.VariantAxes, p.Variants)
+			}
+			if v := p.Variants[0]; v.ID != "90000001" || v.URL != srv.URL+"/product/synthetic-lamp-90000001/" || v.Price == nil || *v.Price != 1017 || v.Values[0] != "8" || v.Values[1] != "Теплый белый" {
+				t.Fatalf("variant %+v", v)
+			}
 			if (len(p.Availability) > 0) != withStocks {
 				t.Fatalf("unexpected availability %s", p.Availability)
 			}

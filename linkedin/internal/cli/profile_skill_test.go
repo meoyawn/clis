@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -39,8 +40,21 @@ func skillDocumentFixture(row any) string {
 	return `<html><script>window.__como_rehydration__ = ` + string(chunks) + `;</script></html>`
 }
 
+// skillItemFixture is one skill row as LinkedIn renders it: a title and an edit button whose
+// label LinkedIn localizes, so labelFormat varies with the account's language.
 func skillItemFixture(name, id string) map[string]any {
-	return map[string]any{"buttonProps": map[string]any{"aria-label": "Edit " + name + " skill"}, "triggers": []any{map[string]any{"action": map[string]any{"actions": []any{map[string]any{"$type": "proto.sdui.actions.core.Navigate", "value": map[string]any{"content": map[string]any{"screen": map[string]any{"url": "/in/example-person/details/skills/edit/forms/" + id + "/"}}}}}}}}}
+	return localizedSkillItemFixture(name, id, "Edit %s skill")
+}
+
+func localizedSkillItemFixture(name, id, labelFormat string) map[string]any {
+	return map[string]any{"children": []any{
+		map[string]any{"typeStyle": "titleL", "children": []any{name}},
+		skillButtonFixture(fmt.Sprintf(labelFormat, name), id),
+	}}
+}
+
+func skillButtonFixture(label, id string) map[string]any {
+	return map[string]any{"buttonProps": map[string]any{"aria-label": label}, "triggers": []any{map[string]any{"action": map[string]any{"actions": []any{map[string]any{"$type": "proto.sdui.actions.core.Navigate", "value": map[string]any{"content": map[string]any{"screen": map[string]any{"url": "/in/example-person/details/skills/edit/forms/" + id + "/"}}}}}}}}}
 }
 
 func TestNativeSkillAddVerifiesPaginatedInventoryAndNeverRetries(t *testing.T) {
@@ -157,4 +171,27 @@ func TestNativeSkillAddVerifiesPaginatedInventoryAndNeverRetries(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSkillInventoryReadsLocalizedEditLabels(t *testing.T) {
+	data := readFlightData(skillFlightFixture([]any{
+		localizedSkillItemFixture("Apache Kafka", "11", "Muokkaa taitoa %s"),
+		localizedSkillItemFixture("Kafka", "12", "Muokkaa taitoa %s"),
+	}))
+	skills, err := skillPageData(data, "https://www.linkedin.com/in/example-person/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"Apache Kafka": "https://www.linkedin.com/in/example-person/details/skills/edit/forms/11/",
+		"Kafka":        "https://www.linkedin.com/in/example-person/details/skills/edit/forms/12/",
+	}
+	if !reflect.DeepEqual(skills, want) {
+		t.Fatalf("skills = %v, want %v", skills, want)
+	}
+}
+
+func skillFlightFixture(items []any) string {
+	data, _ := json.Marshal(map[string]any{"items": items})
+	return "0:" + string(data) + "\n"
 }

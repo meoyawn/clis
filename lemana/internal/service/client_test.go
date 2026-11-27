@@ -76,3 +76,27 @@ func TestSessionStaysPrivateAndRejectsAccountCookies(t *testing.T) {
 		t.Fatal("world-readable session was accepted")
 	}
 }
+func TestRenewProtectionKeepsOnlyAnonymousCookies(t *testing.T) {
+	expires := time.Now().Add(15 * time.Minute)
+	region := SavedCookie{Name: "_regionID", Value: "1448", Domain: "lemanapro.ru", Path: "/"}
+	past := time.Now().Add(-time.Minute)
+	stale := SavedCookie{Name: ProtectionCookie, Value: "stale", Domain: "lemanapro.ru", Path: "/", Expires: &past}
+	engine := []*http.Cookie{
+		{Name: ProtectionCookie, Value: "fresh", Domain: ".lemanapro.ru", Expires: expires},
+		{Name: "rm_session", Value: "tracking", Domain: ".lemanapro.ru", Path: "/"},
+		{Name: "qrator_jsr", Value: "other-site", Domain: ".example.com", Path: "/"},
+	}
+	s, err := RenewProtection(Session{Cookies: []SavedCookie{region, stale}}, engine, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = SaveSession(filepath.Join(t.TempDir(), "session.json"), s); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Cookies) != 2 || s.Cookies[0] != region || FreshProtection(s, time.Minute) != "fresh" || s.UserAgent == "" || s.ImportedAt.IsZero() {
+		t.Fatalf("renewed session %+v", s)
+	}
+	if _, err = RenewProtection(Session{Cookies: []SavedCookie{stale}}, engine[1:], time.Minute); err == nil {
+		t.Fatal("renewal without a protection cookie succeeded")
+	}
+}

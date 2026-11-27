@@ -238,6 +238,9 @@ func (c *Client) parseDetails(body []byte, target string) (*domain.Result, strin
 						Cards json.RawMessage `json:"reviewsCards"`
 					} `json:"reviews"`
 				} `json:"reviews"`
+				RelatedProducts struct {
+					Variants lmVariants `json:"variants"`
+				} `json:"relatedProducts"`
 			} `json:"pdp"`
 			Env struct {
 				APIKey string `json:"API_KEY"`
@@ -258,6 +261,7 @@ func (c *Client) parseDetails(body []byte, target string) (*domain.Result, strin
 			out.Images = append(out.Images, im.URL)
 		}
 	}
+	out.VariantAxes, out.Variants = c.variants(state.PDP.PDP.RelatedProducts.Variants)
 	out.Documents = state.PDP.PDP.Product.Media.Manuals
 	out.Reviews = state.PDP.PDP.Reviews.Reviews.Cards
 	v := state.PDP.PDP.Reviews.Reviews.Rating.Total
@@ -269,6 +273,56 @@ func (c *Client) parseDetails(body []byte, target string) (*domain.Result, strin
 	r.PageSize = 1
 	r.Products = append(r.Products, out)
 	return r, state.PDP.Env.APIKey, p.Source, nil
+}
+
+// lmVariants lists every existing product of the variant group. The page
+// greys out ("punctures") selector values with no product for the current
+// combination, so the existing combinations come from this list.
+type lmVariants struct {
+	Axes []struct {
+		Name      string `json:"name"`
+		Attribute string `json:"attribute"`
+	} `json:"axisList"`
+	Products []struct {
+		ID     string `json:"productId"`
+		Link   string `json:"productLink"`
+		Price  string `json:"productPrice"`
+		Values []struct {
+			Attribute string `json:"id"`
+			Value     string `json:"axis"`
+		} `json:"axesValues"`
+	} `json:"products"`
+}
+
+func (c *Client) variants(v lmVariants) ([]string, []domain.Variant) {
+	if len(v.Axes) == 0 || len(v.Products) < 2 {
+		return nil, nil
+	}
+	base, _ := url.Parse(c.origin)
+	axes := make([]string, len(v.Axes))
+	for i, a := range v.Axes {
+		axes[i] = a.Name
+	}
+	out := make([]domain.Variant, 0, len(v.Products))
+	for _, p := range v.Products {
+		link, err := url.Parse(p.Link)
+		if p.ID == "" || err != nil {
+			continue
+		}
+		item := domain.Variant{ID: p.ID, URL: base.ResolveReference(link).String(), Values: make([]string, len(v.Axes))}
+		if price, err := strconv.ParseFloat(p.Price, 64); err == nil {
+			item.Price = &price
+		}
+		for i, a := range v.Axes {
+			for _, value := range p.Values {
+				if value.Attribute == a.Attribute {
+					item.Values[i] = value.Value
+				}
+			}
+		}
+		out = append(out, item)
+	}
+	return axes, out
 }
 
 func setReviews(out *domain.Product, v lmRating) {

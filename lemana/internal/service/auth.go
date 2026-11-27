@@ -159,6 +159,37 @@ func ImportSession(ctx context.Context, path, profile, ua string) (*AuthStatus, 
 	return SessionStatus(path, s), nil
 }
 
+// RenewProtection replaces the session's protection cookies with those a
+// browser engine received after passing the site's check, keeping the region
+// cookies. It fails unless a fresh protection cookie results.
+func RenewProtection(s Session, fresh []*http.Cookie, margin time.Duration) (Session, error) {
+	for _, c := range fresh {
+		saved := SavedCookie{Name: c.Name, Value: c.Value, Domain: c.Domain, Path: c.Path, Secure: c.Secure, HTTPOnly: c.HttpOnly}
+		if saved.Path == "" {
+			saved.Path = "/"
+		}
+		if !c.Expires.IsZero() {
+			expires := c.Expires.UTC()
+			saved.Expires = &expires
+		}
+		if !strings.HasPrefix(c.Name, "qrator_") || !validCookie(saved) {
+			continue
+		}
+		s.Cookies = slices.DeleteFunc(s.Cookies, func(old SavedCookie) bool { return old.Name == saved.Name })
+		s.Cookies = append(s.Cookies, saved)
+	}
+	if FreshProtection(s, margin) == "" {
+		return Session{}, fmt.Errorf("the web view received no fresh protection cookie")
+	}
+	if s.UserAgent == "" {
+		s.UserAgent = BrowserUserAgent
+	}
+	if s.ImportedAt.IsZero() {
+		s.ImportedAt = time.Now().UTC()
+	}
+	return s, nil
+}
+
 // FreshProtection returns the value of a protection cookie that stays valid for
 // at least margin, or "" when the session has none.
 func FreshProtection(s Session, margin time.Duration) string {

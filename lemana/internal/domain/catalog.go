@@ -31,6 +31,17 @@ type Product struct {
 	Availability       json.RawMessage  `json:"availability,omitempty"`
 	Documents          json.RawMessage  `json:"documents,omitempty"`
 	Reviews            json.RawMessage  `json:"reviews,omitempty"`
+	VariantAxes        []string         `json:"variant_axes,omitempty"`
+	Variants           []Variant        `json:"variants,omitempty"`
+}
+
+// Variant is one existing product of the item's variant group; Values follow
+// VariantAxes. Combinations missing from Variants are not sold.
+type Variant struct {
+	ID     string   `json:"id"`
+	URL    string   `json:"url"`
+	Price  *float64 `json:"price"`
+	Values []string `json:"values"`
 }
 type Characteristic struct {
 	Name  string `json:"name"`

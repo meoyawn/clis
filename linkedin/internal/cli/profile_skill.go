@@ -93,14 +93,37 @@ func skillForm(document string, owner profileResult) (postEditPlan, map[string]a
 func skillPageData(data documentData, ownerURL string) (map[string]string, error) {
 	skills := map[string]string{}
 	prefix := ownerURL + "details/skills/edit/forms/"
+	// LinkedIn localizes the edit button ("Edit Redis skill", "Muokkaa taitoa Redis"), so a
+	// skill's name is the longest skill title shown on the page that its label contains.
+	var titles []string
+	for _, row := range data {
+		data.walk(row, func(m map[string]any) {
+			children, _ := m["children"].([]any)
+			if m["typeStyle"] != "titleL" || len(children) != 1 {
+				return
+			}
+			if title, _ := children[0].(string); strings.TrimSpace(title) != "" {
+				titles = append(titles, title)
+			}
+		})
+	}
 	var conflict bool
 	for _, row := range data {
 		data.walk(row, func(m map[string]any) {
 			label := jsonStringAt(m, "buttonProps", "aria-label")
-			if !strings.HasPrefix(label, "Edit ") || !strings.HasSuffix(label, " skill") {
+			if label == "" || !strings.Contains(fmt.Sprint(m["triggers"]), "details/skills/edit/forms/") {
 				return
 			}
-			name := strings.TrimSuffix(strings.TrimPrefix(label, "Edit "), " skill")
+			name := ""
+			for _, title := range titles {
+				if strings.Contains(label, title) && len(title) > len(name) {
+					name = title
+				}
+			}
+			if name == "" {
+				conflict = true
+				return
+			}
 			data.walk(m["triggers"], func(n map[string]any) {
 				if n["$type"] != "proto.sdui.actions.core.Navigate" {
 					return
@@ -167,7 +190,7 @@ func (c *linkedinClient) profileSkills(ctx context.Context, owner profileResult,
 		if err != nil {
 			return nil, err
 		}
-		response, err := c.request(ctx, http.MethodPost, "/flagship-web/rsc-action/actions/pagination?sduiid="+url.QueryEscape(skillsPager), bytes.NewReader(body), http.Header{"Accept": {"text/x-component"}, "Content-Type": {"application/json"}, "Origin": {"https://www.linkedin.com"}})
+		response, err := c.request(ctx, http.MethodPost, "/flagship-web/rsc-action/actions/pagination?sduiid="+url.QueryEscape(skillsPager), bytes.NewReader(body), http.Header{"Accept": {"text/x-component"}, "Accept-Language": {"en-US,en;q=0.9"}, "Content-Type": {"application/json"}, "Origin": {"https://www.linkedin.com"}})
 		if err != nil {
 			return nil, err
 		}

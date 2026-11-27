@@ -9,9 +9,8 @@ import (
 	"github.com/meoyawn/clis/lemana/internal/domain"
 	"github.com/meoyawn/clis/lemana/internal/service"
 	"io"
+	"net/http"
 	"net/url"
-	"os/exec"
-	"runtime"
 	"strings"
 	"time"
 )
@@ -45,27 +44,38 @@ group_rating/group_review_count hold variant-group aggregates separately.
 Unknowns are null; an explicit zero own count stays zero without fallback.
 Sorts follow the site's ordering; apply exact-item thresholds locally.
 Details include the first review page already delivered in the HTML.
+Details list the variant group in the same response: variants hold every
+existing product (id, url, price, values in variant_axes order). Combinations
+missing from variants are not sold; the website greys out their selector values.
 --availability adds one POST for regional stock; otherwise it is not requested.
 
 No images are fetched automatically. Download selected URLs with curl/wget and
 view saved files locally. There is no image subcommand.
 
-Requests without browser cookies are rejected.
-Import the existing Chrome session with sweetcookie; import/status are local
-and make no HTTP requests. Only catalog protection/region cookies are saved,
-with owner-only permissions; account credentials and analytics are excluded.
-The protection cookie lives about 16 minutes. When it is stale, or a request
-hits a protection page or HTTP 401/403/429, the command re-reads Chrome's
-cookies, opening the storefront in a background Chrome tab so Chrome renews
-them, and retries once. If Chrome has no fresh cookie within 90s, it brings
-Chrome to the front and exits; the human completes the check and reruns.
+Requests carry the site's protection cookie, which lives about 16 minutes.
+When it is missing or stale, or a request hits a protection page or HTTP
+401/403/429, the command loads the storefront in a hidden system web view
+with a fresh in-memory session, lets the site's own check run there (at most
+30s), saves the renewed cookie and retries once. No browser is opened and the
+web view writes nothing to disk. Only protection/region cookies are saved,
+with owner-only permissions. auth import optionally seeds them from Chrome
+with sweetcookie; import/status are local and make no HTTP requests.
 `
 
 type repeated []string
 
 func (r *repeated) String() string     { return strings.Join(*r, ", ") }
 func (r *repeated) Set(s string) error { *r = append(*r, s); return nil }
+
+// renewFunc passes the site's check in a real browser engine and returns the
+// cookies that engine then holds.
+type renewFunc func(ctx context.Context) ([]*http.Cookie, error)
+
 func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	return run(ctx, args, stdout, stderr, webviewProtection)
+}
+
+func run(ctx context.Context, args []string, stdout, stderr io.Writer, renewCookies renewFunc) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
 		_, err := io.WriteString(stdout, usage)
 		return err
@@ -170,12 +180,23 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	profile = s.Profile
-	if profile == "" {
-		profile = "Default"
+	renewed := false
+	renew := func() error {
+		if renewed {
+			return errors.New("the renewed protection cookie was rejected too")
+		}
+		renewed = true
+		fresh, err := renewCookies(ctx)
+		if err != nil {
+			return fmt.Errorf("renew the catalog protection cookie: %w", err)
+		}
+		if s, err = service.RenewProtection(s, fresh, protectionMargin); err != nil {
+			return err
+		}
+		return service.SaveSession(*sessionPath, s)
 	}
 	if service.FreshProtection(s, protectionMargin) == "" {
-		if s, err = refreshSession(ctx, *sessionPath, profile, s.UserAgent, service.Origin+"/", ""); err != nil {
+		if err := renew(); err != nil {
 			return err
 		}
 	}
@@ -203,8 +224,8 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	result, client, err := fetch(s)
 	var blocked *service.BlockedError
 	if errors.As(err, &blocked) {
-		if s, err = refreshSession(ctx, *sessionPath, profile, s.UserAgent, chromeTarget(blocked.URL), service.FreshProtection(s, 0)); err != nil {
-			return err
+		if renewErr := renew(); renewErr != nil {
+			return fmt.Errorf("%w; %w", err, renewErr)
 		}
 		result, client, err = fetch(s)
 	}
@@ -217,80 +238,9 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	return writeJSON(stdout, result)
 }
 
-const (
-	protectionMargin = 30 * time.Second
-	refreshWait      = 90 * time.Second
-)
+// protectionMargin treats a cookie expiring sooner as stale.
+const protectionMargin = 30 * time.Second
 
-// refreshSession re-imports Chrome's cookies until it holds a protection cookie
-// other than stale. Chrome renews the cookie only when it loads the storefront,
-// so a background tab is opened once if the first import is not fresh.
-func refreshSession(ctx context.Context, path, profile, ua, target, stale string) (service.Session, error) {
-	ctx, cancel := context.WithTimeout(ctx, refreshWait)
-	defer cancel()
-	opened := false
-	for {
-		if _, err := service.ImportSession(ctx, path, profile, ua); err == nil {
-			if s, err := service.LoadSession(path); err == nil {
-				if v := service.FreshProtection(s, protectionMargin); v != "" && v != stale {
-					return s, nil
-				}
-			}
-		}
-		if !opened {
-			if err := openChrome(ctx, target, true); err != nil {
-				return service.Session{}, fmt.Errorf("open Chrome to renew the catalog session: %w", err)
-			}
-			opened = true
-		}
-		select {
-		case <-ctx.Done():
-			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return service.Session{}, &service.BlockedError{URL: target}
-			}
-			return service.Session{}, ctx.Err()
-		case <-time.After(2 * time.Second):
-		}
-	}
-}
-func chromeTarget(target string) string {
-	if strings.Contains(target, "/ajax/") || strings.Contains(target, "api.lemanapro.ru") {
-		return service.Origin + "/"
-	}
-	return target
-}
-func openChrome(ctx context.Context, target string, background bool) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		args := []string{"-a", "Google Chrome", target}
-		if background {
-			args = append([]string{"-g"}, args...)
-		}
-		cmd = exec.CommandContext(ctx, "open", args...)
-	case "windows":
-		cmd = exec.CommandContext(ctx, "rundll32", "url.dll,FileProtocolHandler", target)
-	default:
-		cmd = exec.CommandContext(ctx, "xdg-open", target)
-	}
-	return cmd.Run()
-}
-func reportError(ctx context.Context, err error, stderr io.Writer) {
-	fmt.Fprintln(stderr, service.Name+":", err)
-	var blocked *service.BlockedError
-	if !errors.As(err, &blocked) {
-		return
-	}
-	target := chromeTarget(blocked.URL)
-	if openErr := openChrome(ctx, target, false); openErr != nil {
-		fmt.Fprintln(stderr, "Open manually in Chrome:", target)
-	} else {
-		fmt.Fprintln(stderr, "Opened in Chrome:", target)
-	}
-	fmt.Fprintln(stderr, "Complete the check manually, then rerun the original command.")
-}
 func parseOptions(fs *flag.FlagSet, args []string) error {
 	var flags, positionals []string
 	for i := 0; i < len(args); i++ {

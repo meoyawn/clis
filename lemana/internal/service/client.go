@@ -19,10 +19,7 @@ type BlockedError struct {
 }
 
 func (e *BlockedError) Error() string {
-	if e.Status == 0 {
-		return "Chrome did not renew the catalog protection cookie; complete the check in Chrome, then rerun the command"
-	}
-	return fmt.Sprintf("catalog protection rejected the request (HTTP %d); complete the check in Chrome, then run auth import and retry manually", e.Status)
+	return fmt.Sprintf("catalog protection rejected the request (HTTP %d)", e.Status)
 }
 
 type Client struct {
