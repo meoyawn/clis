@@ -6,13 +6,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	ozon "github.com/meoyawn/clis/ozon/internal/service"
-	"github.com/meoyawn/clis/ozon/internal/webview"
 	"github.com/steipete/sweetcookie"
 )
 
@@ -169,14 +167,6 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, setup set
 	defer cancel()
 	opt := ozon.RequestOptions{UserAgent: *ua}
 	return execute(ctx, command, deps, opt, search, ref, reviews, full, limit, stdout)
-}
-
-// webviewAntibot lets the system web engine load ozon.ru and run Ozon's
-// current anti-bot script, then returns the cookies it received.
-func webviewAntibot(ctx context.Context) ([]*http.Cookie, error) {
-	ctx, cancel := context.WithTimeout(ctx, webview.Timeout)
-	defer cancel()
-	return webview.Cookies(ctx, ozon.WebOrigin+"/", ozon.AntibotCookie)
 }
 
 func execute(ctx context.Context, command string, deps dependencies, opt ozon.RequestOptions, search ozon.SearchOptions, ref ozon.ItemReference, reviews ozon.ReviewsOptions, full bool, limit int, stdout io.Writer) error {

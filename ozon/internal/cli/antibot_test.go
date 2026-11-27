@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -96,7 +97,7 @@ func TestEveryCommandRenewsStaleAntibotCookie(t *testing.T) {
 		page string
 	}{
 		{[]string{"search", "test"}, "search"},
-		{[]string{"filters", "test"}, "filters"},
+		{[]string{"filters", "test", "--filter", "delivery=4"}, "filters"},
 		{[]string{"show", "100"}, ""},
 		{[]string{"show", "100", "--full"}, ""},
 		{[]string{"reviews", "100"}, ""},
@@ -145,5 +146,49 @@ func TestAntibotRenewalFailsWithoutLooping(t *testing.T) {
 				t.Fatalf("err=%v renewals=%d rejected=%d output=%q", err, *renewals, rejected, out.String())
 			}
 		})
+	}
+}
+
+// Recorded live order: a stale abt_data is redirected to __rr=1, which is
+// challenged; after renewal Ozon redirects again and rotates abt_data. The
+// rotated value must reach the next hop instead of the renewed one.
+func TestAntibotRenewalKeepsCookieOzonRotatesMidRedirect(t *testing.T) {
+	t.Parallel()
+	rejected := 0
+	transport := func(r *http.Request) (*http.Response, error) {
+		reply := func(status int, header http.Header, body []byte) (*http.Response, error) {
+			return &http.Response{StatusCode: status, Header: header, Body: io.NopCloser(bytes.NewReader(body))}, nil
+		}
+		abt, err := r.Cookie("abt_data")
+		if err != nil {
+			t.Fatal("request without abt_data")
+		}
+		page := r.URL.Query().Get("url")
+		switch abt.Value {
+		case "stale":
+			if r.URL.Query().Has("__rr") {
+				rejected++
+				return reply(http.StatusForbidden, http.Header{}, []byte(`{"challengeURL":"https://www.ozon.ru/challenge.html"}`))
+			}
+			return reply(http.StatusTemporaryRedirect, http.Header{"Location": {"/api/entrypoint-api.bx/page/json/v2?" + url.Values{"url": {page}, "__rr": {"1"}}.Encode()}}, nil)
+		case "fresh":
+			next := "/search/?deny_category_prediction=true&from_global=true&text=test"
+			return reply(http.StatusFound, http.Header{
+				"Location":   {"/api/entrypoint-api.bx/page/json/v2?" + url.Values{"url": {next}, "__rr": {"1"}}.Encode()},
+				"Set-Cookie": {"abt_data=rotated; Domain=.ozon.ru; Path=/; Secure"},
+			}, nil)
+		case "rotated":
+			return reply(http.StatusOK, http.Header{}, fixture(t, "search"))
+		}
+		t.Fatalf("Ozon's rotated abt_data was replaced by %q", abt.Value)
+		return nil, nil
+	}
+	_, deps, renewals := antibotDeps(t, transport, freshEngine)
+	var out, stderr bytes.Buffer
+	if err := run(t.Context(), []string{"search", "test"}, &out, &stderr, deps); err != nil {
+		t.Fatalf("err=%v stderr=%s", err, &stderr)
+	}
+	if *renewals != 1 || rejected != 1 {
+		t.Fatalf("renewals=%d rejected=%d", *renewals, rejected)
 	}
 }

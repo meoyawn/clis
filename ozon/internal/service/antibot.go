@@ -39,7 +39,7 @@ func (c *Client) renewAntibot(ctx context.Context) error {
 		return errors.New("anti-bot renewal is not available")
 	}
 	if c.renewed {
-		return errors.New("Ozon rejected the renewed anti-bot cookie")
+		return errors.New("the renewed anti-bot cookie was rejected too")
 	}
 	c.renewed = true
 	saved, err := c.auth.load()
@@ -51,7 +51,9 @@ func (c *Client) renewAntibot(ctx context.Context) error {
 		return fmt.Errorf("renew Ozon's anti-bot cookie: %w", err)
 	}
 	var picked []*http.Cookie
+	stale := map[string]string{}
 	for _, name := range antibotCookies {
+		stale[name] = saved.cookie(name)
 		for _, cookie := range fresh {
 			if cookie.Name != name {
 				continue
@@ -77,21 +79,39 @@ func (c *Client) renewAntibot(ctx context.Context) error {
 	if err := c.auth.save(ctx, saved); err != nil {
 		return err
 	}
-	c.fresh = picked
+	c.fresh, c.stale = picked, stale
 	return nil
 }
 
-// withAntibot replaces cookies of the same names with the renewed ones.
+// withAntibot swaps the rejected saved values for the renewed ones. Values
+// Ozon itself set later in this command, such as during redirects, are newer
+// than the renewal and stay as they are.
 func (c *Client) withAntibot(cookies []*http.Cookie) []*http.Cookie {
 	c.antibotMu.Lock()
 	defer c.antibotMu.Unlock()
 	if len(c.fresh) == 0 {
 		return cookies
 	}
-	out := slices.DeleteFunc(slices.Clone(cookies), func(old *http.Cookie) bool {
-		return slices.ContainsFunc(c.fresh, func(f *http.Cookie) bool { return f.Name == old.Name })
-	})
-	return append(out, c.fresh...)
+	out := slices.Clone(cookies)
+	for _, f := range c.fresh {
+		i := slices.IndexFunc(out, func(old *http.Cookie) bool { return old.Name == f.Name })
+		switch {
+		case i < 0:
+			out = append(out, f)
+		case out[i].Value == c.stale[f.Name]:
+			out[i] = f
+		}
+	}
+	return out
+}
+
+func (record authRecord) cookie(name string) string {
+	for _, cookie := range record.Cookies {
+		if cookie.Name == name {
+			return cookie.Value
+		}
+	}
+	return ""
 }
 
 func (record *authRecord) replace(cookie storedCookie) {

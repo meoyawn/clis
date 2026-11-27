@@ -202,7 +202,7 @@ Each search/filter, authentication, product, details, seller-offer, or review pa
 follows at most three validated redirects, including request-local API navigation
 state and updated cookies. Those hops count toward `http_requests`. Product
 redirects must retain the SKU, page section, and requested parameters, including
-review scope, pagination, and seller sorting. Apart from the single retry after
+review scope, pagination, and seller sorting. Apart from resending a request once after
 an anti-bot renewal (see "Authentication and local data"), there are no automatic retries,
 background requests, response caches,
 or browser-automation fallbacks.
@@ -234,20 +234,24 @@ Select one profile with `--browser-profile` when necessary. To refresh an expire
 session, run `auth import` again.
 
 Ozon's anti-bot cookie `abt_data` goes stale (observed after about a day) and
-Ozon then answers every request with a 403 challenge page, whose script posts a
-browser check to `/abt/result` before Ozon issues a new `abt_data`. The CLI
-never computes that check. When `search`, `filters`, `show` or `reviews` hit the
-challenge, the CLI loads ozon.ru in a hidden system web view
+Ozon's edge then redirects and answers with a 403 challenge page, whose script
+posts a browser check to `/abt/result` before Ozon issues a new `abt_data`. The
+CLI never computes that check. Every Ozon request goes through one client
+method; when any command, including `auth status` and `cart`, hits the
+challenge there, the CLI loads ozon.ru in a hidden system web view
 ([mygo](https://github.com/egoist/mygo): WKWebView on macOS, WebView2 on Windows,
 WebKitGTK on Linux) with a fresh in-memory session. Ozon's current script runs
 there unmodified, whatever its version. Once Ozon has served a page to a
 navigation that already carried `abt_data`, the CLI copies only `abt_data` and
 `__Secure-ETC` into the saved session, keeps the imported account cookies, and
-retries the command once, within `--timeout` and at most 30 seconds for the web
-view. This usually takes about 3 seconds; it works under `go run` and needs no
-app bundle, and the web view writes nothing to disk. The output's
-`http_requests` covers the retried attempt only. `auth status` and `cart`
-commands do not renew; run a read command first.
+resends the rejected request once, within `--timeout` and at most 30 seconds for
+the web view. The edge rejects a challenged request before Ozon handles it, so
+resending a cart write cannot apply it twice. Values Ozon rotates during later
+redirects replace the renewed ones for the rest of the command. A command
+renews at most once and fails if Ozon rejects the renewed cookie. Commands that
+are not challenged never start the web view. Renewal usually takes about 3
+seconds; it needs no app bundle, and the web view writes nothing to disk.
+`http_requests` counts the rejected and the resent request.
 
 Import prints the number of cookies saved; status reports the verified account.
 `--json` adds cookie names/counts, expiry diagnostics and request metadata, never

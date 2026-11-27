@@ -17,9 +17,9 @@ Commands:
   cart     Manage the shopping cart
 
 All prices are in RUB.
-When Ozon rejects the saved anti-bot cookie, search, filters, show and reviews
-load ozon.ru in a hidden system web view, which runs Ozon's current check,
-save the renewed cookie and retry once. Your browser is not used.
+When Ozon rejects the saved anti-bot cookie, any command loads ozon.ru in a
+hidden system web view, which runs Ozon's current check, saves the renewed
+cookie and resends the rejected request once. Your browser is not used.
 `
 
 const authUsage = `Usage: go run . auth <command>

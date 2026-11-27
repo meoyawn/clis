@@ -24,10 +24,11 @@ type Client struct {
 	auth AuthStore
 	// antibot renews Ozon's anti-bot cookies; nil disables renewal.
 	antibot AntibotSource
-	// antibotMu guards fresh and renewed: one renewal per command, whose
-	// cookies then replace the saved ones in every later request.
+	// antibotMu guards the renewal state: one renewal per command, whose
+	// cookies then replace the rejected saved values in later requests.
 	antibotMu sync.Mutex
 	fresh     []*http.Cookie
+	stale     map[string]string
 	renewed   bool
 }
 type RequestOptions struct{ UserAgent string }
