@@ -204,7 +204,8 @@ Each search/filter, authentication, product, details, seller-offer, or review pa
 follows at most three validated redirects, including request-local API navigation
 state and updated cookies. Those hops count toward `http_requests`. Product
 redirects must retain the SKU, page section, and requested parameters, including
-review scope, pagination, and seller sorting. There are no automatic retries,
+review scope, pagination, and seller sorting. Apart from the single retry after
+an anti-bot renewal (see "Authentication and local data"), there are no automatic retries,
 background requests, response caches,
 or browser-automation fallbacks.
 
@@ -228,12 +229,24 @@ refresh and login-exchange tokens. Failed reads preserve the previous copy.
 reading the browser or saving cookies. Redirect challenge cookies stay in
 memory for that check; redirects cannot replace the imported account tokens.
 All CLI requests exclude renewal credentials, including those saved by older
-versions. No command opens a browser or writes browser cookies.
+versions. No command writes browser cookies.
 
 Imports record the actual cookie-store path; mixed-profile sets are rejected.
 Select one profile with `--browser-profile` when necessary. To refresh an expired
-session, run `auth import` again. A browser challenge requires visiting ozon.ru
-yourself in the selected browser profile before importing again.
+session, run `auth import` again.
+
+Ozon's anti-bot cookie `abt_data` goes stale (observed after about a day) and
+Ozon then answers every request with a 403 challenge page. Only a real browser
+can pass it: the page runs Ozon's script, which posts a browser check to
+`/abt/result` and receives a new `abt_data`. The CLI never answers the check.
+When `search`, `filters`, `show` or `reviews` hit the challenge, the CLI opens
+ozon.ru in a background tab of the imported browser, rereads that profile's
+cookie store every 2 seconds until `abt_data` changes, saves the renewed
+cookies and retries the command once, all within `--timeout`. The output's
+`http_requests` covers the retried attempt only, not the rejected one. Browsers write
+cookies to disk lazily, so this usually takes 10–30 seconds. `auth status` and
+`cart` commands do not renew; run a read command first. If the browser shows
+its own check, complete it there and rerun.
 
 Import prints the number of cookies saved; status reports the verified account.
 `--json` adds cookie names/counts, expiry diagnostics and request metadata, never

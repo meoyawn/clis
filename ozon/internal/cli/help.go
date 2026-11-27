@@ -17,6 +17,9 @@ Commands:
   cart     Manage the shopping cart
 
 All prices are in RUB.
+When Ozon rejects the saved anti-bot cookie, search, filters, show and reviews
+open ozon.ru in a background tab of the imported browser, wait for it to renew
+the cookie, save it and retry once.
 `
 
 const authUsage = `Usage: ozon auth <command>

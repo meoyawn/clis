@@ -51,7 +51,7 @@ type HTTPError struct {
 type browserChallengeError struct{ *HTTPError }
 
 func (e *browserChallengeError) Error() string {
-	return "Ozon returned a browser challenge (HTTP 403); refresh ozon.ru in your browser, then run ozon auth import again"
+	return "Ozon returned a browser challenge (HTTP 403): the saved anti-bot cookie is stale"
 }
 
 func (e *browserChallengeError) Unwrap() error { return e.HTTPError }
